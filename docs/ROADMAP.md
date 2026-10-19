@@ -29,14 +29,24 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
 - [x] Isolamento multi-tenant com Row Level Security, provado por teste contra banco real
 - [x] Comando `decko-admin bootstrap`: cria a empresa e o administrador, com o papel de
       administrador montado a partir das permissões declaradas nos manifestos
+- [x] `apps/web`: React 19 + Vite + Tailwind v4 consumindo os tokens, com tela de login,
+      modo claro/escuro por estação e sessão restaurada ao recarregar
 - [ ] Escrita na trilha de auditoria nos fluxos de autenticação (o bootstrap já registra)
-- [ ] `apps/web`: shell React/Vite com os tokens aplicados, login e layout
+- [ ] Troca de empresa para quem opera em mais de uma
 
 **Demonstrável:** login, troca de empresa, e a prova de que um tenant não enxerga dados do outro.
 
-Estado atual: o backend está completo e verificado — 11 testes contra PostgreSQL real
-cobrem isolamento entre empresas, ciclo de login, rotação e revogação de refresh token.
-Falta a interface.
+Estado atual: o ciclo completo funciona e foi verificado no navegador — login, permissões
+vindas dos manifestos dos módulos, alternância de tema, sessão sobrevivendo ao recarregar
+e logout. 11 testes contra PostgreSQL real cobrem o isolamento entre empresas e o ciclo
+de tokens.
+
+Pendências conhecidas, registradas para não virarem dívida esquecida:
+
+- O refresh token fica em `localStorage`, exposto a XSS. A troca por cookie `httpOnly`
+  exige tratar CSRF e mudar o backend — ver `apps/web/src/lib/session.ts`.
+- A fonte Inter ainda não é hospedada pelo projeto; hoje recai na fonte do sistema. Para
+  o modo offline, ela precisa vir junto com a aplicação, não de um CDN.
 
 ## Fase 2 — MVP Agro
 

@@ -88,3 +88,27 @@ uv run uvicorn decko.main:app --reload           # http://127.0.0.1:8000/docs
 
 `GET /health` informa com qual papel a aplicação está conectada e se esse papel ignora RLS.
 Se `bypasses_rls` vier `true`, o isolamento entre empresas não está valendo.
+
+### Primeira empresa
+
+Sem empresa cadastrada não há como autenticar. A criação não existe na API de propósito,
+para não deixar um cadastro aberto na internet:
+
+```powershell
+uv run decko-admin bootstrap --tenant-name "Minha Empresa" --tenant-slug minha-empresa `
+  --admin-email voce@suaempresa.com.br --admin-name "Seu Nome"
+```
+
+A senha é pedida no terminal — nunca passada como argumento, porque argumentos ficam no
+histórico do shell e na lista de processos. `uv run decko-admin status` lista o que existe.
+
+### Frontend
+
+```powershell
+npm install --prefix apps/web
+npm run dev --prefix apps/web      # http://localhost:5173
+```
+
+O servidor de desenvolvimento encaminha `/api` para a API na porta 8000, então os dois
+precisam estar rodando. As cores e a tipografia vêm de `packages/tokens/tokens.css`
+através do `@theme` do Tailwind: nenhum componente escreve cor diretamente.
