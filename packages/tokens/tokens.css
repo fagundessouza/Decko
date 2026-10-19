@@ -1,0 +1,80 @@
+/* Decko design tokens — fonte única de cor e tipografia.
+   Regras e justificativa: docs/BRAND.md
+   Cor não é escrita direto em componente. Se falta um token, falta uma definição semântica. */
+
+:root {
+  /* Estrutura — azul-grafite dessaturado */
+  --dk-brand-900: #0e151d;
+  --dk-brand-800: #16202b;
+  --dk-brand-700: #1e2a38;
+  --dk-brand-600: #27405c;
+  --dk-brand-500: #2f5d8a;
+  --dk-brand-400: #4a82b8;
+  --dk-brand-100: #e6eef6;
+
+  /* Ação — verde. Exclusivo de elementos acionáveis e de confirmação. */
+  --dk-action-700: #0a6633;
+  --dk-action-600: #0e7c3f;
+  --dk-action-500: #16a34a;
+  --dk-action-100: #e3f5e9;
+
+  /* Atenção — âmbar. Apenas alerta. Nunca em área grande. */
+  --dk-warn-600: #b87d04;
+  --dk-warn-500: #e0a106;
+  --dk-warn-100: #fef6e0;
+
+  /* Erro — vermelho. Apenas erro e ação destrutiva. */
+  --dk-danger-600: #be2727;
+  --dk-danger-500: #d93838;
+  --dk-danger-100: #fdecec;
+
+  /* Neutros */
+  --dk-neutral-0: #ffffff;
+  --dk-neutral-50: #f6f8fa;
+  --dk-neutral-100: #eef2f6;
+  --dk-neutral-200: #dde4ec;
+  --dk-neutral-400: #9aaabb;
+  --dk-neutral-600: #5a6b7c;
+  --dk-neutral-900: #16202b;
+
+  /* Papéis semânticos — modo claro (padrão) */
+  --dk-bg: var(--dk-neutral-50);
+  --dk-surface: var(--dk-neutral-0);
+  --dk-border: var(--dk-neutral-200);
+  --dk-text: var(--dk-neutral-900);
+  --dk-text-muted: var(--dk-neutral-600);
+  --dk-nav-bg: var(--dk-brand-700);
+  --dk-nav-text: var(--dk-neutral-0);
+
+  /* Tipografia — corpo mínimo 16px; 18px no PDV e no app de campo */
+  --dk-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --dk-text-sm: 0.875rem;
+  --dk-text-base: 1rem;
+  --dk-text-pos: 1.125rem;
+  --dk-text-lg: 1.25rem;
+  --dk-text-xl: 1.5rem;
+
+  /* Área de toque — 48px geral, 64px no PDV */
+  --dk-touch-min: 48px;
+  --dk-touch-pos: 64px;
+
+  --dk-radius: 8px;
+  --dk-space: 8px;
+}
+
+/* Modo escuro — opcional e escolhido por estação de trabalho, nunca imposto.
+   Sem preto puro: ver docs/BRAND.md, seção 3. */
+:root[data-theme="dark"] {
+  --dk-bg: var(--dk-brand-900);
+  --dk-surface: var(--dk-brand-800);
+  --dk-border: #2c3a49;
+  --dk-text: #e8edf3;
+  --dk-text-muted: var(--dk-neutral-400);
+  --dk-nav-bg: var(--dk-brand-800);
+  --dk-nav-text: #e8edf3;
+
+  --dk-action-600: var(--dk-action-500);
+  --dk-warn-100: #3a2e10;
+  --dk-danger-100: #3a1b1b;
+  --dk-brand-100: #1d2c3c;
+}

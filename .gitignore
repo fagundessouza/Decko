@@ -1,0 +1,49 @@
+# Ambiente e segredos — nunca commitar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Tauri / Capacitor
+src-tauri/target/
+android/
+ios/
+
+# Dados locais de infraestrutura (volumes de container)
+infra/data/
+*.sqlite3
+
+# Arquivos de cliente — documentos reais contêm dados pessoais e fiscais
+uploads/
+docs/discovery/**/raw/
+
+# Ferramentas e editores
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs e temporários
+*.log
+tmp/
+coverage/
+htmlcov/
