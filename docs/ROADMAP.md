@@ -27,14 +27,16 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
 - [x] `modules/core`: empresa, usuário, papéis, permissões e auditoria
 - [x] Autenticação: Argon2id, JWT de acesso e refresh token rotativo e revogável
 - [x] Isolamento multi-tenant com Row Level Security, provado por teste contra banco real
-- [ ] Escrita efetiva na trilha de auditoria nos fluxos de autenticação
-- [ ] Cadastro inicial de empresa e primeiro usuário administrador
+- [x] Comando `decko-admin bootstrap`: cria a empresa e o administrador, com o papel de
+      administrador montado a partir das permissões declaradas nos manifestos
+- [ ] Escrita na trilha de auditoria nos fluxos de autenticação (o bootstrap já registra)
 - [ ] `apps/web`: shell React/Vite com os tokens aplicados, login e layout
 
 **Demonstrável:** login, troca de empresa, e a prova de que um tenant não enxerga dados do outro.
 
-Estado atual: o backend responde em `/health` e expõe `/api/v1/core/auth/*`; cinco testes
-cobrem o isolamento. Falta a interface e o cadastro inicial.
+Estado atual: o backend está completo e verificado — 11 testes contra PostgreSQL real
+cobrem isolamento entre empresas, ciclo de login, rotação e revogação de refresh token.
+Falta a interface.
 
 ## Fase 2 — MVP Agro
 

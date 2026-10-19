@@ -67,14 +67,29 @@ def decode_access_token(token: str) -> dict[str, Any]:
     return payload
 
 
-def new_refresh_token() -> tuple[str, str]:
+REFRESH_SEPARATOR = "."
+
+
+def new_refresh_token(tenant_id: uuid.UUID) -> tuple[str, str]:
     """Devolve (token em claro, hash a persistir).
 
     O refresh token é um valor aleatório opaco, não um JWT: ele precisa ser revogável, e
     revogar exige consultar o armazenamento de qualquer forma — assinar não traria ganho.
+
+    O identificador da empresa vai em claro no início do token porque a tabela que o
+    guarda tem Row Level Security: sem saber a empresa antes da consulta, a busca não
+    encontraria o próprio token. Isso não é segredo — é o endereço da gaveta, não a chave.
     """
-    raw = secrets.token_urlsafe(48)
+    raw = f"{tenant_id}{REFRESH_SEPARATOR}{secrets.token_urlsafe(48)}"
     return raw, hash_refresh_token(raw)
+
+
+def tenant_from_refresh_token(raw: str) -> uuid.UUID:
+    """Extrai a empresa do token. Levanta ``ValueError`` se o formato não bater."""
+    prefix, separator, remainder = raw.partition(REFRESH_SEPARATOR)
+    if not separator or not remainder:
+        raise ValueError("formato de refresh token inválido")
+    return uuid.UUID(prefix)
 
 
 def hash_refresh_token(raw: str) -> str:

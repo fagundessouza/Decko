@@ -1,4 +1,4 @@
-﻿"""Modelo de dados do nÃºcleo: empresa, usuÃ¡rio, papÃ©is e auditoria.
+"""Modelo de dados do nÃºcleo: empresa, usuÃ¡rio, papÃ©is e auditoria.
 
 Toda tabela que pertence a uma empresa carrega ``tenant_id`` e tem polÃ­tica de Row Level
 Security. A coluna existe para o banco poder filtrar â€” nÃ£o para a aplicaÃ§Ã£o lembrar de

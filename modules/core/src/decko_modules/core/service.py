@@ -86,7 +86,7 @@ async def issue_tokens(
     access_token, expires_in = security.create_access_token(
         user_id=user.id, tenant_id=tenant.id, permissions=permissions
     )
-    raw_refresh, refresh_hash = security.new_refresh_token()
+    raw_refresh, refresh_hash = security.new_refresh_token(tenant.id)
 
     session.add(
         RefreshToken(
@@ -99,6 +99,22 @@ async def issue_tokens(
     return access_token, raw_refresh, expires_in
 
 
+async def _find_refresh_token(session: AsyncSession, raw_token: str) -> RefreshToken | None:
+    """Localiza o token, amarrando antes a empresa indicada por ele.
+
+    Sem esse passo a consulta roda sem empresa definida e o RLS não devolve linha alguma,
+    fazendo qualquer renovação legítima parecer inválida.
+    """
+    try:
+        tenant_id = security.tenant_from_refresh_token(raw_token)
+    except ValueError:
+        return None
+
+    await bind_tenant(session, tenant_id)
+    token_hash = security.hash_refresh_token(raw_token)
+    return await session.scalar(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
+
+
 async def rotate_refresh_token(
     session: AsyncSession, *, raw_token: str
 ) -> tuple[User, Tenant, list[str], str, str, int]:
@@ -106,15 +122,12 @@ async def rotate_refresh_token(
 
     A rotação é o que limita o dano de um token vazado: usado uma vez, ele morre.
     """
-    token_hash = security.hash_refresh_token(raw_token)
-    stored = await session.scalar(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
+    stored = await _find_refresh_token(session, raw_token)
 
     if stored is None or stored.revoked_at is not None:
         raise AuthError("Sessão inválida")
     if stored.expires_at <= datetime.now(UTC):
         raise AuthError("Sessão expirada")
-
-    await bind_tenant(session, stored.tenant_id)
 
     user = await session.get(User, stored.user_id)
     tenant = await session.get(Tenant, stored.tenant_id)
@@ -130,7 +143,6 @@ async def rotate_refresh_token(
 
 
 async def revoke_refresh_token(session: AsyncSession, *, raw_token: str) -> None:
-    token_hash = security.hash_refresh_token(raw_token)
-    stored = await session.scalar(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
+    stored = await _find_refresh_token(session, raw_token)
     if stored is not None and stored.revoked_at is None:
         stored.revoked_at = datetime.now(UTC)
