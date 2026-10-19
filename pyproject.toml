@@ -1,0 +1,57 @@
+[project]
+name = "decko"
+version = "0.1.0"
+description = "Modular ERP and POS platform"
+requires-python = ">=3.13"
+dependencies = [
+    "decko-api",
+    "decko-module-core",
+]
+
+# Raiz do workspace: não é um pacote, apenas agrega os membros.
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["apps/api", "modules/core"]
+
+[tool.uv.sources]
+decko-api = { workspace = true }
+decko-module-core = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14",
+    "mypy>=1.18",
+    "pytest>=8.4",
+    "pytest-asyncio>=1.2",
+    "httpx>=0.28",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["apps/api/src", "modules/core/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "ASYNC", "S", "C4", "SIM", "RUF"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/migrations/*" = ["N999", "E501"]
+"**/tests/*" = ["S105", "S106"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# O engine é criado uma vez por processo e seu pool guarda conexões presas a um event
+# loop. Com um loop por teste, o pool da segunda execução encontra o loop anterior já
+# fechado. Um único loop para toda a sessão mantém pool e loop com o mesmo tempo de vida.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["apps/api/tests", "modules/core/tests"]

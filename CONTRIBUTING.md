@@ -62,7 +62,29 @@ Uma issue descreve o problema e o critério de aceite — não a solução. A so
 
 ## Ambiente
 
-Pré-requisitos: Podman, Python 3.12+, Node 20+.
+Pré-requisitos: Python 3.13+, Node 20+, PostgreSQL 18, [uv](https://docs.astral.sh/uv/).
 
-A infraestrutura local sobe por `infra/compose`. Instruções serão adicionadas junto com a Fase 1
-do roadmap.
+Em desenvolvimento os serviços rodam nativos, sem container — o motivo está em
+`docs/adr/0002-ambiente-de-desenvolvimento-nativo.md`. Produção é Linux com containers.
+
+```powershell
+winget install Python.Python.3.13 astral-sh.uv OpenJS.NodeJS.LTS PostgreSQL.PostgreSQL.18
+```
+
+O banco usa dois papéis, e a separação é o que faz o isolamento entre empresas funcionar:
+
+- `decko_owner` — dono do schema, usado apenas pelas migrações.
+- `decko_app` — usado pela aplicação. Não é dono e não tem `BYPASSRLS`, então as políticas
+  de Row Level Security se aplicam a ele.
+
+Credenciais locais ficam em `.env`, na raiz do repositório, que não é versionado.
+
+```powershell
+uv sync                                          # instala o workspace
+uv run alembic -c apps/api/alembic.ini upgrade heads
+uv run pytest                                    # inclui a prova de isolamento
+uv run uvicorn decko.main:app --reload           # http://127.0.0.1:8000/docs
+```
+
+`GET /health` informa com qual papel a aplicação está conectada e se esse papel ignora RLS.
+Se `bypasses_rls` vier `true`, o isolamento entre empresas não está valendo.

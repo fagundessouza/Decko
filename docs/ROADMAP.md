@@ -20,15 +20,21 @@ Ao concluir uma etapa, marque aqui na mesma alteração que entrega o código.
 
 Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada de todas as outras.
 
-- [ ] `infra/compose`: PostgreSQL, Redis, MinIO em Podman
-- [ ] `apps/api`: FastAPI com configuração, health check e Alembic
-- [ ] `modules/core`: tenant, usuário, autenticação JWT, RBAC
-- [ ] Isolamento multi-tenant com Row Level Security no PostgreSQL
-- [ ] Trilha de auditoria
+- [x] PostgreSQL 18 nativo, com papéis separados: dono do schema e papel da aplicação
+      (sem `BYPASSRLS`) — ver `docs/adr/0002-ambiente-de-desenvolvimento-nativo.md`
+- [x] `apps/api`: FastAPI com configuração, health check e Alembic
+- [x] Carregador de módulos lendo `module.toml`, com resolução de dependências
+- [x] `modules/core`: empresa, usuário, papéis, permissões e auditoria
+- [x] Autenticação: Argon2id, JWT de acesso e refresh token rotativo e revogável
+- [x] Isolamento multi-tenant com Row Level Security, provado por teste contra banco real
+- [ ] Escrita efetiva na trilha de auditoria nos fluxos de autenticação
+- [ ] Cadastro inicial de empresa e primeiro usuário administrador
 - [ ] `apps/web`: shell React/Vite com os tokens aplicados, login e layout
-- [ ] Carregador de módulos lendo `module.toml`
 
 **Demonstrável:** login, troca de empresa, e a prova de que um tenant não enxerga dados do outro.
+
+Estado atual: o backend responde em `/health` e expõe `/api/v1/core/auth/*`; cinco testes
+cobrem o isolamento. Falta a interface e o cadastro inicial.
 
 ## Fase 2 — MVP Agro
 
