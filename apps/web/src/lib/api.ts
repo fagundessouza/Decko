@@ -1,6 +1,8 @@
 import { session } from "./session";
 
-const BASE = "/api/v1/core";
+// Prefixo da API, não de um módulo: cada módulo é montado sob o próprio nome.
+const BASE = "/api/v1";
+const CORE = `${BASE}/core`;
 
 export interface Credentials {
   tenantSlug: string;
@@ -61,7 +63,7 @@ function storeTokens(payload: TokenPayload): void {
 }
 
 export async function login(credentials: Credentials): Promise<SessionInfo> {
-  const response = await fetch(`${BASE}/auth/login`, {
+  const response = await fetch(`${CORE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -88,7 +90,7 @@ async function refresh(): Promise<boolean> {
   const token = session.getRefreshToken();
   if (!token) return false;
 
-  const response = await fetch(`${BASE}/auth/refresh`, {
+  const response = await fetch(`${CORE}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: token }),
@@ -122,8 +124,37 @@ async function authedFetch(path: string, init: RequestInit = {}): Promise<Respon
   return call();
 }
 
+/** Chamada autenticada para qualquer módulo, com renovação automática do token. */
+export async function authedRequest(
+  path: string,
+  options: { method?: string; body?: unknown } = {},
+): Promise<Response> {
+  const init: RequestInit = { method: options.method ?? "GET" };
+  if (options.body !== undefined) {
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(options.body);
+  }
+
+  const response = await authedFetch(path, init);
+  if (!response.ok) {
+    throw new ApiError(
+      await messageFrom(response, "Não foi possível completar a operação."),
+      response.status,
+    );
+  }
+  return response;
+}
+
+export async function authedJson<T>(
+  path: string,
+  options: { method?: string; body?: unknown } = {},
+): Promise<T> {
+  const response = await authedRequest(path, options);
+  return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+}
+
 export async function fetchSession(): Promise<SessionInfo> {
-  const response = await authedFetch("/auth/me");
+  const response = await authedFetch("/core/auth/me");
   if (!response.ok) {
     throw new ApiError(await messageFrom(response, "Sessão expirada."), response.status);
   }
@@ -147,7 +178,7 @@ export async function logout(): Promise<void> {
   if (token) {
     // O servidor precisa saber da saída para revogar o token; falha de rede não pode
     // impedir a limpeza local, então o erro é ignorado de propósito.
-    await fetch(`${BASE}/auth/logout`, {
+    await fetch(`${CORE}/auth/logout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: token }),

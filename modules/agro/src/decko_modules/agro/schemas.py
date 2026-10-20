@@ -41,6 +41,27 @@ class AircraftOut(BaseModel):
     is_active: bool
 
 
+class PropertyIn(BaseModel):
+    client_id: uuid.UUID
+    nome: str = Field(min_length=1, max_length=200)
+    municipio: str = Field(min_length=1, max_length=120)
+    uf: str = Field(min_length=2, max_length=2)
+    latitude: Decimal | None = Field(default=None, ge=-90, le=90)
+    longitude: Decimal | None = Field(default=None, ge=-180, le=180)
+
+
+class PropertyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    client_id: uuid.UUID
+    nome: str
+    municipio: str
+    uf: str
+    latitude: Decimal | None
+    longitude: Decimal | None
+
+
 class PlanIn(BaseModel):
     client_id: uuid.UUID
     property_id: uuid.UUID

@@ -1,14 +1,20 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
-from decko_modules.agro import service
-from decko_modules.agro.models import Aircraft, Client, OperationalPlan, WeatherReading
+from decko_modules.agro import pdf, service
+from decko_modules.agro.models import (
+    Aircraft,
+    Client,
+    OperationalPlan,
+    Property,
+    WeatherReading,
+)
 from decko_modules.agro.schemas import (
     AircraftIn,
     AircraftOut,
@@ -16,6 +22,8 @@ from decko_modules.agro.schemas import (
     ClientOut,
     PlanIn,
     PlanOut,
+    PropertyIn,
+    PropertyOut,
     WeatherCaptureIn,
     WeatherCaptureOut,
     WeatherReadingOut,
@@ -68,6 +76,34 @@ async def create_client(
             detail="Já existe um contratante com este CPF/CNPJ.",
         ) from exc
     return client
+
+
+@router.get("/properties", response_model=list[PropertyOut])
+async def list_properties(
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.property.read"))],
+) -> list[Property]:
+    result = await session.execute(select(Property).order_by(Property.nome))
+    return list(result.scalars().all())
+
+
+@router.post("/properties", response_model=PropertyOut, status_code=status.HTTP_201_CREATED)
+async def create_property(
+    payload: PropertyIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("agro.property.write"))],
+) -> Property:
+    prop = Property(tenant_id=principal.tenant_id, **payload.model_dump())
+    session.add(prop)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Contratante não encontrado.",
+        ) from exc
+    return prop
 
 
 @router.post("/plans", response_model=PlanOut, status_code=status.HTTP_201_CREATED)
@@ -146,6 +182,31 @@ async def capture_weather(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
     return WeatherCaptureOut(leitura=WeatherReadingOut.model_validate(reading), alertas=problems)
+
+
+@router.get("/plans/{plan_id}/pdf", response_class=Response)
+async def export_plan_pdf(
+    plan_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.export"))],
+) -> Response:
+    """Emite o Planejamento Operacional no formato do talão, pronto para impressão."""
+    plan = await session.get(OperationalPlan, plan_id)
+    if plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Planejamento não encontrado."
+        )
+
+    document = await service.build_document(session, plan)
+    return Response(
+        content=pdf.render(document),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="planejamento-operacional-{plan.numero}.pdf"'
+            )
+        },
+    )
 
 
 @router.get("/plans/{plan_id}/weather", response_model=list[WeatherReadingOut])
