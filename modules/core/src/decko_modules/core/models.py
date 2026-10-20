@@ -1,7 +1,7 @@
-"""Modelo de dados do nÃºcleo: empresa, usuÃ¡rio, papÃ©is e auditoria.
+"""Modelo de dados do núcleo: empresa, usuário, papéis e auditoria.
 
-Toda tabela que pertence a uma empresa carrega ``tenant_id`` e tem polÃ­tica de Row Level
-Security. A coluna existe para o banco poder filtrar â€” nÃ£o para a aplicaÃ§Ã£o lembrar de
+Toda tabela que pertence a uma empresa carrega ``tenant_id`` e tem política de Row Level
+Security. A coluna existe para o banco poder filtrar — não para a aplicação lembrar de
 filtrar.
 """
 
@@ -22,34 +22,11 @@ from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from decko.db import Base
-
-
-class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
-    )
-
-
-class TenantMixin:
-    """Marca a tabela como pertencente a uma empresa.
-
-    A presenÃ§a desta coluna Ã© o que a migraÃ§Ã£o usa para decidir onde aplicar RLS.
-    """
-
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True),
-        ForeignKey("tenant.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
+from decko.db import Base, TenantMixin, TimestampMixin
 
 
 class Tenant(TimestampMixin, Base):
-    """Empresa cliente. NÃ£o herda TenantMixin: esta Ã© a prÃ³pria fronteira do isolamento."""
+    """Empresa cliente. Não herda TenantMixin: esta é a própria fronteira do isolamento."""
 
     __tablename__ = "tenant"
 
@@ -67,8 +44,8 @@ class Tenant(TimestampMixin, Base):
 class User(TenantMixin, TimestampMixin, Base):
     __tablename__ = "user_account"
     __table_args__ = (
-        # E-mail Ã© Ãºnico dentro da empresa, nÃ£o globalmente: a mesma pessoa pode operar
-        # em duas empresas diferentes com o mesmo endereÃ§o.
+        # E-mail é único dentro da empresa, não globalmente: a mesma pessoa pode operar
+        # em duas empresas diferentes com o mesmo endereço.
         UniqueConstraint("tenant_id", "email", name="uq_user_account_tenant_id_email"),
     )
 
@@ -102,11 +79,11 @@ class Role(TenantMixin, TimestampMixin, Base):
 
 
 class RolePermission(TenantMixin, Base):
-    """PermissÃ£o concedida a um papel.
+    """Permissão concedida a um papel.
 
-    A permissÃ£o Ã© guardada como texto (ex.: ``agro.plan.create``) e nÃ£o como chave
-    estrangeira: quem declara as permissÃµes existentes Ã© o manifesto do mÃ³dulo, entÃ£o uma
-    tabela de permissÃµes no banco sairia de sincronia com os mÃ³dulos instalados.
+    A permissão é guardada como texto (ex.: ``agro.plan.create``) e não como chave
+    estrangeira: quem declara as permissões existentes é o manifesto do módulo, então uma
+    tabela de permissões no banco sairia de sincronia com os módulos instalados.
     """
 
     __tablename__ = "role_permission"
@@ -141,11 +118,11 @@ class UserRole(TenantMixin, Base):
 
 
 class RefreshToken(TenantMixin, Base):
-    """Refresh token revogÃ¡vel.
+    """Refresh token revogável.
 
-    Guardado no PostgreSQL e nÃ£o em cache: a revogaÃ§Ã£o precisa sobreviver a reinÃ­cio e a
-    perda de cache, senÃ£o um token revogado volta a valer. SÃ³ o hash Ã© persistido, para
-    que o vazamento da tabela nÃ£o entregue tokens utilizÃ¡veis.
+    Guardado no PostgreSQL e não em cache: a revogação precisa sobreviver a reinício e a
+    perda de cache, senão um token revogado volta a valer. Só o hash é persistido, para
+    que o vazamento da tabela não entregue tokens utilizáveis.
     """
 
     __tablename__ = "refresh_token"
@@ -166,10 +143,10 @@ class RefreshToken(TenantMixin, Base):
 
 
 class AuditLog(TenantMixin, Base):
-    """Trilha de auditoria. SÃ³ recebe inserÃ§Ã£o: nÃ£o hÃ¡ atualizaÃ§Ã£o nem exclusÃ£o.
+    """Trilha de auditoria. Só recebe inserção: não há atualização nem exclusão.
 
-    Exigida pela LGPD e pela natureza regulada do domÃ­nio â€” um relatÃ³rio com efeito legal
-    precisa de histÃ³rico de quem alterou o quÃª.
+    Exigida pela LGPD e pela natureza regulada do domínio — um relatório com efeito legal
+    precisa de histórico de quem alterou o quê.
     """
 
     __tablename__ = "audit_log"
@@ -194,8 +171,8 @@ class AuditLog(TenantMixin, Base):
     )
 
 
-# Tabelas sujeitas a Row Level Security. A migraÃ§Ã£o lÃª esta lista, de modo que uma tabela
-# nova com tenant_id nÃ£o pode ser esquecida sem que o teste de isolamento acuse.
+# Tabelas sujeitas a Row Level Security. A migração lê esta lista, de modo que uma tabela
+# nova com tenant_id não pode ser esquecida sem que o teste de isolamento acuse.
 TENANT_SCOPED_TABLES = (
     User.__tablename__,
     Role.__tablename__,

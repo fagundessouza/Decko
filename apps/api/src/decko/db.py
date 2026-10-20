@@ -5,13 +5,16 @@ Toda sessão entregue a um endpoint roda dentro de uma transação que define
 ao pool nunca carrega o tenant da requisição anterior.
 """
 
+import uuid
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import MetaData, text
+from sqlalchemy import DateTime, ForeignKey, MetaData, func, text
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from decko.config import get_settings
 from decko.tenancy import TENANT_GUC, get_current_tenant
@@ -32,6 +35,39 @@ class Base(DeclarativeBase):
     tabelas fiquem no mesmo MetaData e o Alembic as enxergue."""
 
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class TenantMixin:
+    """Marca a tabela como pertencente a uma empresa.
+
+    Vive no host e não no módulo núcleo porque todo módulo precisa dela: se morasse em
+    ``core``, cada módulo novo passaria a importar modelos de outro módulo, que é
+    justamente o acoplamento que a arquitetura evita.
+
+    A chave estrangeira aponta para ``tenant``, tabela do núcleo. O núcleo é dependência
+    obrigatória de qualquer módulo, então isso não cria dependência nova.
+    """
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+
+def primary_key() -> Mapped[uuid.UUID]:
+    """Chave primária UUID. Repetida em toda tabela; existe para não repetir o detalhe."""
+    return mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
 
 _settings = get_settings()
