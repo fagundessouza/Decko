@@ -60,10 +60,12 @@ Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md
 - [x] Row Level Security nas dez tabelas do módulo, verificado por teste
 - [ ] Cadastros pela API: falta propriedade, produto e receituário (contratante e aeronave
       já existem)
-- [ ] Captura de GPS com conversão decimal → grau/minuto/segundo
-- [ ] Integração com API meteorológica, com cache em Redis
-- [ ] Registro probatório da leitura: origem, provedor, payload bruto, coordenada, horário
-- [ ] Alerta de violação de parâmetro (vento, temperatura, umidade)
+- [x] Integração meteorológica por coordenada e horário (Open-Meteo), com escolha entre
+      conjunto histórico e recente — ver `docs/adr/0003-provedor-de-clima.md`
+- [x] Registro probatório da leitura: origem, provedor, payload bruto, coordenada, horário
+- [x] Alerta de violação de parâmetro, devolvendo **qual** limite foi rompido
+- [ ] Captura de GPS pelo aparelho e conversão decimal → grau/minuto/segundo no documento
+- [ ] Cache das consultas meteorológicas (só necessário com volume; ver ADR 0003)
 - [ ] Wizard mobile de preenchimento
 - [ ] Geração do PDF fiel ao talão atual
 - [ ] Consolidação mensal

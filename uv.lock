@@ -401,12 +401,14 @@ source = { editable = "modules/agro" }
 dependencies = [
     { name = "decko-api" },
     { name = "decko-module-core" },
+    { name = "httpx" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "decko-api", editable = "apps/api" },
     { name = "decko-module-core", editable = "modules/core" },
+    { name = "httpx", specifier = ">=0.28" },
 ]
 
 [[package]]
