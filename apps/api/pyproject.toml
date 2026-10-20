@@ -1,0 +1,22 @@
+[project]
+name = "decko-api"
+version = "0.1.0"
+description = "Decko API host: loads business modules and serves the HTTP API"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.121",
+    "uvicorn[standard]>=0.38",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.12",
+    "sqlalchemy[asyncio]>=2.0.44",
+    "asyncpg>=0.30",
+    "alembic>=1.17",
+    "psycopg[binary]>=3.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/decko"]

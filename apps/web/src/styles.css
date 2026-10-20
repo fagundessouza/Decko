@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@import "../../../packages/tokens/tokens.css";
+
+/* `inline` faz as utilitárias emitirem var(--dk-*) em vez do valor resolvido. É isso que
+   permite trocar de tema em tempo de execução mexendo só no atributo data-theme: as
+   classes continuam as mesmas e o valor por trás muda.
+   Regras e justificativa da paleta: docs/BRAND.md */
+@theme inline {
+  --color-bg: var(--dk-bg);
+  --color-surface: var(--dk-surface);
+  --color-line: var(--dk-border);
+  --color-ink: var(--dk-text);
+  --color-ink-muted: var(--dk-text-muted);
+
+  --color-brand: var(--dk-brand-700);
+  --color-brand-strong: var(--dk-brand-800);
+  --color-brand-soft: var(--dk-brand-100);
+  --color-brand-link: var(--dk-brand-500);
+
+  --color-action: var(--dk-action-600);
+  --color-action-hover: var(--dk-action-700);
+  --color-action-soft: var(--dk-action-100);
+
+  --color-warn: var(--dk-warn-600);
+  --color-warn-soft: var(--dk-warn-100);
+
+  --color-danger: var(--dk-danger-600);
+  --color-danger-soft: var(--dk-danger-100);
+
+  --font-sans: var(--dk-font-sans);
+  --radius-dk: var(--dk-radius);
+
+  --spacing-touch: var(--dk-touch-min);
+  --spacing-touch-pos: var(--dk-touch-pos);
+}
+
+@layer base {
+  html {
+    /* Corpo mínimo de 16px: o público inclui pessoas idosas operando o dia inteiro. */
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--dk-bg);
+    color: var(--dk-text);
+    font-family: var(--dk-font-sans);
+    font-size: var(--dk-text-base);
+    line-height: 1.5;
+    margin: 0;
+    min-height: 100dvh;
+  }
+
+  /* Foco sempre visível: quem opera caixa trabalha por teclado, não por mouse. */
+  :focus-visible {
+    outline: 3px solid var(--dk-brand-500);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

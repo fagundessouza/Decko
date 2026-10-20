@@ -1,0 +1,33 @@
+# Manifesto do módulo. É isto que permite instalar um perfil de empresa ativando
+# um conjunto de módulos, em vez de espalhar condicionais pelo código.
+# Formato descrito em docs/ARCHITECTURE.md, seção 2.
+
+[module]
+name = "core"
+label = "Núcleo"
+version = "0.1.0"
+package = "decko_modules.core"
+depends = []
+# O core não pode ser desativado: todo o resto depende dele.
+required = true
+
+[migrations]
+branch_label = "core"
+
+[permissions]
+provides = [
+  "core.tenant.read",
+  "core.tenant.update",
+  "core.user.read",
+  "core.user.create",
+  "core.user.update",
+  "core.user.deactivate",
+  "core.role.read",
+  "core.role.assign",
+  "core.audit.read",
+]
+
+[menu]
+label = "Configurações"
+icon = "settings"
+order = 900

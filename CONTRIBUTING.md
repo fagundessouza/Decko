@@ -62,7 +62,57 @@ Uma issue descreve o problema e o critério de aceite — não a solução. A so
 
 ## Ambiente
 
-Pré-requisitos: Podman, Python 3.12+, Node 20+.
+Pré-requisitos: Python 3.13+, Node 20+, PostgreSQL 18, [uv](https://docs.astral.sh/uv/).
 
-A infraestrutura local sobe por `infra/compose`. Instruções serão adicionadas junto com a Fase 1
-do roadmap.
+Em desenvolvimento os serviços rodam nativos, sem container — o motivo está em
+`docs/adr/0002-ambiente-de-desenvolvimento-nativo.md`. Produção é Linux com containers.
+
+```powershell
+winget install Python.Python.3.13 astral-sh.uv OpenJS.NodeJS.LTS PostgreSQL.PostgreSQL.18
+```
+
+O banco usa dois papéis, e a separação é o que faz o isolamento entre empresas funcionar:
+
+- `decko_owner` — dono do schema, usado apenas pelas migrações.
+- `decko_app` — usado pela aplicação. Não é dono e não tem `BYPASSRLS`, então as políticas
+  de Row Level Security se aplicam a ele.
+
+Credenciais locais ficam em `.env`, na raiz do repositório, que não é versionado.
+
+```powershell
+uv sync                                          # instala o workspace
+uv run alembic -c apps/api/alembic.ini upgrade heads
+uv run pytest                                    # inclui a prova de isolamento
+uv run uvicorn decko.main:app --reload           # http://127.0.0.1:8000/docs
+```
+
+`GET /health` informa com qual papel a aplicação está conectada e se esse papel ignora RLS.
+Se `bypasses_rls` vier `true`, o isolamento entre empresas não está valendo.
+
+### Primeira empresa
+
+Sem empresa cadastrada não há como autenticar. A criação não existe na API de propósito,
+para não deixar um cadastro aberto na internet:
+
+```powershell
+uv run decko-admin bootstrap --tenant-name "Minha Empresa" --tenant-slug minha-empresa `
+  --admin-email voce@suaempresa.com.br --admin-name "Seu Nome"
+```
+
+A senha é pedida no terminal — nunca passada como argumento, porque argumentos ficam no
+histórico do shell e na lista de processos. `uv run decko-admin status` lista o que existe.
+
+O identificador é normalizado: `AgroDrone` e `Agro Drone` viram `agrodrone` e `agro-drone`,
+e o comando informa o valor gravado. Em execução automatizada, sem terminal para responder
+ao pedido de senha, defina `DECKO_ADMIN_PASSWORD` — sem isso o comando fica esperando.
+
+### Frontend
+
+```powershell
+npm install --prefix apps/web
+npm run dev --prefix apps/web      # http://localhost:5173
+```
+
+O servidor de desenvolvimento encaminha `/api` para a API na porta 8000, então os dois
+precisam estar rodando. As cores e a tipografia vêm de `packages/tokens/tokens.css`
+através do `@theme` do Tailwind: nenhum componente escreve cor diretamente.
