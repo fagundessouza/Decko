@@ -8,6 +8,10 @@ Uso:
 
     uv run decko-admin bootstrap --tenant-name "AgroDrone" --tenant-slug agrodrone \\
         --admin-email nathan@exemplo.com.br --admin-name "Nathan Gomes"
+
+A senha é pedida no terminal. Em execução automatizada, sem terminal para responder, ela
+precisa vir em ``DECKO_ADMIN_PASSWORD`` — do contrário o comando fica esperando alguém
+digitar e nunca termina.
 """
 
 import argparse
@@ -16,6 +20,7 @@ import getpass
 import os
 import re
 import sys
+import unicodedata
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
@@ -42,6 +47,20 @@ PASSWORD_ENV_VAR = "DECKO_ADMIN_PASSWORD"  # noqa: S105
 
 class BootstrapError(Exception):
     pass
+
+
+def normalize_slug(raw: str) -> str:
+    """Converte o que foi digitado em um identificador válido.
+
+    Recusar "AgroDrone" ou "Agro Drone" obrigaria a pessoa a adivinhar um formato que ela
+    não tem motivo para conhecer. Normalizar e informar o resultado resolve o caso comum
+    sem esconder o que foi gravado.
+    """
+    without_accents = (
+        unicodedata.normalize("NFKD", raw.strip()).encode("ascii", "ignore").decode("ascii")
+    )
+    hyphenated = re.sub(r"[\s_]+", "-", without_accents.lower())
+    return re.sub(r"-{2,}", "-", re.sub(r"[^a-z0-9-]", "", hyphenated)).strip("-")
 
 
 def _read_password() -> str:
@@ -142,11 +161,32 @@ async def _bootstrap(
     return tenant, user, len(permissions)
 
 
+async def _check_slug_available(slug: str) -> None:
+    async with SessionFactory() as session, session.begin():
+        taken = await session.scalar(select(Tenant).where(Tenant.slug == slug))
+    if taken is not None:
+        raise BootstrapError(f"Já existe uma empresa com o identificador '{slug}'.")
+
+
 async def _run_bootstrap(args: argparse.Namespace) -> int:
+    # Tudo o que pode ser verificado sem a senha é verificado antes de pedi-la. Pedir
+    # primeiro faria a pessoa digitar a senha duas vezes para só então saber que o
+    # identificador era inválido.
     try:
+        slug = normalize_slug(args.tenant_slug)
+        if not slug:
+            raise BootstrapError(
+                f"'{args.tenant_slug}' não produz um identificador válido. "
+                "Use letras, números e hífens — por exemplo: agrodrone-jatai."
+            )
+        if slug != args.tenant_slug:
+            print(f"Identificador ajustado de '{args.tenant_slug}' para '{slug}'.")
+
+        await _check_slug_available(slug)
         password = _read_password()
     except BootstrapError as exc:
         print(f"erro: {exc}", file=sys.stderr)
+        await engine.dispose()
         return 1
 
     try:
@@ -154,7 +194,7 @@ async def _run_bootstrap(args: argparse.Namespace) -> int:
             tenant, user, granted = await _bootstrap(
                 session,
                 tenant_name=args.tenant_name,
-                tenant_slug=args.tenant_slug,
+                tenant_slug=slug,
                 admin_email=args.admin_email,
                 admin_name=args.admin_name,
                 password=password,

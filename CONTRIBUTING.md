@@ -102,6 +102,10 @@ uv run decko-admin bootstrap --tenant-name "Minha Empresa" --tenant-slug minha-e
 A senha é pedida no terminal — nunca passada como argumento, porque argumentos ficam no
 histórico do shell e na lista de processos. `uv run decko-admin status` lista o que existe.
 
+O identificador é normalizado: `AgroDrone` e `Agro Drone` viram `agrodrone` e `agro-drone`,
+e o comando informa o valor gravado. Em execução automatizada, sem terminal para responder
+ao pedido de senha, defina `DECKO_ADMIN_PASSWORD` — sem isso o comando fica esperando.
+
 ### Frontend
 
 ```powershell
