@@ -11,6 +11,7 @@ resolution-markers = [
 members = [
     "decko",
     "decko-api",
+    "decko-module-agro",
     "decko-module-core",
 ]
 
@@ -337,6 +338,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "decko-api" },
+    { name = "decko-module-agro" },
     { name = "decko-module-core" },
 ]
 
@@ -352,6 +354,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "decko-api", editable = "apps/api" },
+    { name = "decko-module-agro", editable = "modules/agro" },
     { name = "decko-module-core", editable = "modules/core" },
 ]
 
@@ -389,6 +392,21 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.12" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.44" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.38" },
+]
+
+[[package]]
+name = "decko-module-agro"
+version = "0.1.0"
+source = { editable = "modules/agro" }
+dependencies = [
+    { name = "decko-api" },
+    { name = "decko-module-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "decko-api", editable = "apps/api" },
+    { name = "decko-module-core", editable = "modules/core" },
 ]
 
 [[package]]

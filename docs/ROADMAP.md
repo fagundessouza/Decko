@@ -52,8 +52,14 @@ Pendências conhecidas, registradas para não virarem dívida esquecida:
 
 Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md`.
 
-- [ ] Cadastros: cliente, propriedade, aeronave, produto
-- [ ] Modelo do Planejamento Operacional e das leituras meteorológicas
+- [x] Módulo `agro` instalável, com manifesto, permissões próprias e ramificação de
+      migrações separada — primeira validação real da arquitetura modular
+- [x] Modelo completo derivado do formulário: contratante, propriedade, aeronave, produto,
+      receituário, planejamento, produtos aplicados, manutenção, leituras meteorológicas
+      e as quatro assinaturas
+- [x] Row Level Security nas dez tabelas do módulo, verificado por teste
+- [ ] Cadastros pela API: falta propriedade, produto e receituário (contratante e aeronave
+      já existem)
 - [ ] Captura de GPS com conversão decimal → grau/minuto/segundo
 - [ ] Integração com API meteorológica, com cache em Redis
 - [ ] Registro probatório da leitura: origem, provedor, payload bruto, coordenada, horário

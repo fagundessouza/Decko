@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "decko-api",
     "decko-module-core",
+    "decko-module-agro",
 ]
 
 # Raiz do workspace: não é um pacote, apenas agrega os membros.
@@ -13,11 +14,12 @@ dependencies = [
 package = false
 
 [tool.uv.workspace]
-members = ["apps/api", "modules/core"]
+members = ["apps/api", "modules/core", "modules/agro"]
 
 [tool.uv.sources]
 decko-api = { workspace = true }
 decko-module-core = { workspace = true }
+decko-module-agro = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -37,6 +39,11 @@ src = ["apps/api/src", "modules/core/src"]
 select = ["E", "F", "I", "N", "UP", "B", "ASYNC", "S", "C4", "SIM", "RUF"]
 ignore = ["S101"]
 
+[tool.ruff.lint.isort]
+# Sem isto, o ruff trata decko_modules como pacote de terceiros nos arquivos de um módulo
+# e ordena os imports de forma diferente conforme o diretório.
+known-first-party = ["decko", "decko_modules"]
+
 [tool.ruff.lint.per-file-ignores]
 "**/migrations/*" = ["N999", "E501"]
 "**/tests/*" = ["S105", "S106"]
@@ -54,4 +61,4 @@ asyncio_mode = "auto"
 # fechado. Um único loop para toda a sessão mantém pool e loop com o mesmo tempo de vida.
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-testpaths = ["apps/api/tests", "modules/core/tests"]
+testpaths = ["apps/api/tests", "modules/core/tests", "modules/agro/tests"]
