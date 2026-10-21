@@ -7,6 +7,7 @@ dependencies = [
     "decko-api",
     "decko-module-core",
     "decko-module-agro",
+    "decko-module-comercial",
 ]
 
 # Raiz do workspace: não é um pacote, apenas agrega os membros.
@@ -14,12 +15,13 @@ dependencies = [
 package = false
 
 [tool.uv.workspace]
-members = ["apps/api", "modules/core", "modules/agro"]
+members = ["apps/api", "modules/core", "modules/agro", "modules/comercial"]
 
 [tool.uv.sources]
 decko-api = { workspace = true }
 decko-module-core = { workspace = true }
 decko-module-agro = { workspace = true }
+decko-module-comercial = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -65,4 +67,4 @@ asyncio_mode = "auto"
 # fechado. Um único loop para toda a sessão mantém pool e loop com o mesmo tempo de vida.
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-testpaths = ["apps/api/tests", "modules/core/tests", "modules/agro/tests"]
+testpaths = ["apps/api/tests", "modules/core/tests", "modules/agro/tests", "modules/comercial/tests"]

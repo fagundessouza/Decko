@@ -120,11 +120,21 @@ Mesmo método do Agro: documento real em mãos antes de modelar.
 - [ ] Coletar os documentos reais em uso (pedido, romaneio, acerto de rota, controle de prazo)
 - [ ] `docs/discovery/distribuidora-*.md`
 
-## Fase 5 — Módulo distribuidora + PDV
+## Fase 5 — Base comercial e verticais
 
-- [ ] Estoque com unidade, caixa e atacado
+A auditoria do Odoo 20 mostrou que a vertical é fina: `pos_restaurant` tem uma dependência
+só e é quase todo dado-semente. O peso está na base compartilhada, que vem primeiro.
+
+- [x] Módulo `comercial`: unidade em árvore (unidade → caixa → fardo), categoria, produto
+      com código de barras, lote e validade, preço de custo e venda, e estoque como razão
+      somente-inserção — ver `docs/adr/0006-base-comercial.md`
+- [ ] Telas do comercial: cadastro de produto, entrada por embalagem e consulta de saldo
 - [ ] PDV offline-first
-- [ ] O que o discovery da Fase 4 apontar
+- [ ] Verticais sobre a base. **Cada uma exige documento real da operação**, como o agro
+      exigiu o talão do MAPA. Sem isso vira suposição, que é o defeito que o projeto
+      existe para não repetir:
+  - [ ] Distribuidora de bebidas — cliente real alcançável, discovery da Fase 4
+  - [ ] Supermercado, ferragista, lanchonete, restaurante, loja de veículos
 
 ## Fase 6 — Camada de inteligência
 

@@ -1,0 +1,15 @@
+# Perfil genérico de comércio: a base que ferragista, supermercado, lanchonete e
+# distribuidora usam igual.
+#
+# A descrição diz exatamente o que entra. Quando cada vertical existir, ela ganha o seu
+# próprio perfil e este continua servindo a quem não precisa de nada específico do ramo.
+
+[profile]
+name = "comercio"
+label = "Comércio em geral"
+description = """
+Cadastro de produtos com unidade, caixa e fardo, categorias, controle de lote e validade, \
+e estoque com histórico de entradas e saídas. É a base comum a qualquer loja — e o ponto \
+de partida enquanto o seu ramo não tem um perfil próprio.
+"""
+modules = ["comercial"]

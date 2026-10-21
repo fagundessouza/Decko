@@ -157,8 +157,7 @@ async def test_contracting_a_profile_requires_authentication(client: AsyncClient
 def test_a_profile_listing_an_absent_module_is_refused(tmp_path: Path) -> None:
     """Erro de empacotamento aparece na inicialização, não na frente de quem contrata."""
     (tmp_path / "supermercado.toml").write_text(
-        '[profile]\nname = "supermercado"\nlabel = "Supermercado"\n'
-        'modules = ["pdv", "estoque"]\n',
+        '[profile]\nname = "supermercado"\nlabel = "Supermercado"\nmodules = ["pdv", "estoque"]\n',
         encoding="utf-8",
     )
 
@@ -178,8 +177,6 @@ def test_required_modules_need_no_activation_row() -> None:
         ),
         "agro": ModuleManifest(name="agro", label="Agro", version="0.1.0", package="y"),
     }
-    profile = Profile(
-        name="p", label="P", description="", modules=("core", "agro")
-    )
+    profile = Profile(name="p", label="P", description="", modules=("core", "agro"))
 
     assert modules_to_activate(profile, manifests) == ["agro"]

@@ -12,6 +12,7 @@ members = [
     "decko",
     "decko-api",
     "decko-module-agro",
+    "decko-module-comercial",
     "decko-module-core",
 ]
 
@@ -454,6 +455,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "decko-api" },
     { name = "decko-module-agro" },
+    { name = "decko-module-comercial" },
     { name = "decko-module-core" },
 ]
 
@@ -471,6 +473,7 @@ dev = [
 requires-dist = [
     { name = "decko-api", editable = "apps/api" },
     { name = "decko-module-agro", editable = "modules/agro" },
+    { name = "decko-module-comercial", editable = "modules/comercial" },
     { name = "decko-module-core", editable = "modules/core" },
 ]
 
@@ -528,6 +531,21 @@ requires-dist = [
     { name = "decko-module-core", editable = "modules/core" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "reportlab", specifier = ">=4.4" },
+]
+
+[[package]]
+name = "decko-module-comercial"
+version = "0.1.0"
+source = { editable = "modules/comercial" }
+dependencies = [
+    { name = "decko-api" },
+    { name = "decko-module-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "decko-api", editable = "apps/api" },
+    { name = "decko-module-core", editable = "modules/core" },
 ]
 
 [[package]]
