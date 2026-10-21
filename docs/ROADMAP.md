@@ -58,20 +58,33 @@ Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md
       receituário, planejamento, produtos aplicados, manutenção, leituras meteorológicas
       e as quatro assinaturas
 - [x] Row Level Security nas dez tabelas do módulo, verificado por teste
-- [ ] Cadastros pela API: falta propriedade, produto e receituário (contratante e aeronave
-      já existem)
+- [ ] Cadastros pela API: faltam produto e receituário (contratante, propriedade e
+      aeronave já existem)
 - [x] Integração meteorológica por coordenada e horário (Open-Meteo), com escolha entre
       conjunto histórico e recente — ver `docs/adr/0003-provedor-de-clima.md`
 - [x] Registro probatório da leitura: origem, provedor, payload bruto, coordenada, horário
 - [x] Alerta de violação de parâmetro, devolvendo **qual** limite foi rompido
-- [ ] Captura de GPS pelo aparelho e conversão decimal → grau/minuto/segundo no documento
+- [x] Captura de GPS pelo aparelho e conversão decimal → grau/minuto/segundo no documento
 - [ ] Cache das consultas meteorológicas (só necessário com volume; ver ADR 0003)
-- [ ] Wizard mobile de preenchimento
-- [ ] Geração do PDF fiel ao talão atual
+- [x] Wizard mobile de preenchimento
+- [x] Geração do PDF fiel ao talão atual
 - [ ] Consolidação mensal
 
 **Demonstrável:** Nathan emite um Planejamento Operacional completo pelo celular, em campo, e o PDF
 substitui o talão de papel.
+
+Estado atual: o caminho principal fecha. O wizard cria o planejamento passo a passo, o
+aparelho entrega a coordenada, o clima é buscado por coordenada e horário, a violação de
+parâmetro aparece no documento e o PDF sai em A4 com as cinco seções do talão. Falta o que
+depende de cadastro próprio — produto e receituário ainda entram como texto — e a
+consolidação mensal.
+
+Pendências conhecidas, registradas para não virarem dívida esquecida:
+
+- Produto e receituário não têm cadastro pela API, então ainda não há validação de classe
+  toxicológica nem vínculo com o CREA do receituário.
+- O PDF reproduz a estrutura do talão, mas a conferência final contra o documento impresso
+  só acontece na Fase 3, com o Nathan em operação real.
 
 ## Fase 3 — Validação em campo
 
