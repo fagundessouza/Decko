@@ -8,9 +8,10 @@ import { dateBr, num } from "../lib/format";
 interface Props {
   onOpen: (plan: Plan) => void;
   onCreate: () => void;
+  onConsolidate: () => void;
 }
 
-export function PlansPage({ onOpen, onCreate }: Props) {
+export function PlansPage({ onOpen, onCreate, onConsolidate }: Props) {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,8 +32,12 @@ export function PlansPage({ onOpen, onCreate }: Props) {
         Um por aplicação, como no talão.
       </p>
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-col gap-3">
         <Button onClick={onCreate}>Novo planejamento</Button>
+        {/* Ação de escritório, não de campo: fica abaixo da que se usa na lavoura. */}
+        <Button variant="ghost" onClick={onConsolidate}>
+          Fechamento do mês
+        </Button>
       </div>
 
       {error && (

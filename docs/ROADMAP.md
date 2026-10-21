@@ -78,7 +78,9 @@ Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md
       tela e no servidor (`decko.documents`)
 - [x] Identificação da empresa aplicadora (registro no MAPA, CREA, CDA, inscrições e
       rodapé) em tela, preenchendo o cabeçalho do documento — antes saía em branco
-- [ ] Consolidação mensal
+- [x] Consolidação mensal: fechamento do período com área, produtos e violações, e
+      exportador CSV para a planilha. **Não** é o arquivo do portal do MAPA — formato e
+      sistema de envio continuam sendo a questão Q1
 
 **Demonstrável:** Nathan emite um Planejamento Operacional completo pelo celular, em campo, e o PDF
 substitui o talão de papel.

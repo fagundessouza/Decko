@@ -6,6 +6,7 @@ import { logout, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
 import { CompanyPage } from "./pages/CompanyPage";
+import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewPlanWizard } from "./pages/NewPlanWizard";
 import { PlanDetailPage } from "./pages/PlanDetailPage";
@@ -18,6 +19,7 @@ type View =
   | { name: "home" }
   | { name: "plans" }
   | { name: "company" }
+  | { name: "consolidation" }
   | { name: "newPlan" }
   | { name: "plan"; plan: Plan };
 
@@ -120,6 +122,7 @@ export default function App() {
         <PlansPage
           onOpen={(plan) => setView({ name: "plan", plan })}
           onCreate={() => setView({ name: "newPlan" })}
+          onConsolidate={() => setView({ name: "consolidation" })}
         />
       )}
 
@@ -131,6 +134,10 @@ export default function App() {
       )}
 
       {view.name === "company" && <CompanyPage onBack={() => setView({ name: "home" })} />}
+
+      {view.name === "consolidation" && (
+        <ConsolidationPage onBack={() => setView({ name: "plans" })} />
+      )}
 
       {view.name === "plan" && (
         <PlanDetailPage plan={view.plan} onBack={() => setView({ name: "plans" })} />

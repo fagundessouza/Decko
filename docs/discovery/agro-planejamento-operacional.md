@@ -186,6 +186,24 @@ Fora (fases seguintes):
 **Critério de aceite do MVP:** Nathan consegue emitir um Planejamento Operacional completo em
 campo, pelo celular, sem papel, e o PDF resultante é aceito no lugar do talão atual.
 
+### 4.8 Consolidação mensal
+
+Fecha a dor nº 6: hoje o mês inteiro é retranscrito do talão para uma planilha. O fechamento
+é montado a partir do que já está registrado — uma linha por planejamento, como uma via do
+talão — e sai em CSV com ponto e vírgula, vírgula decimal e BOM, que é o que o Excel em
+português abre sem corromper acentos nem transformar o CNPJ em notação científica.
+
+O resumo traz quantidade, área total, totais por produto e **quantos planejamentos tiveram
+leitura fora dos limites planejados** — o número que a empresa precisa ver antes de enviar o
+mês, não depois de ser autuada.
+
+Nada é descartado em silêncio: planejamento sem data de aplicação não pertence a mês nenhum
+e é contado à parte, e rascunho aparece na lista com o status à mostra.
+
+**Isto não é o envio ao MAPA.** Qual sistema recebe e em que formato é a questão Q1, ainda
+sem resposta; deduzir um layout "do MAPA" seria inventar regra em domínio regulado. A tela
+diz isso ao operador, para ninguém supor que baixar a planilha cumpriu a obrigação.
+
 ## 6. Questões abertas — perguntar ao Nathan
 
 - **Q1.** Este formulário é o que sobe para o MAPA, ou é documento interno/para o cliente? Qual é
@@ -200,6 +218,10 @@ campo, pelo celular, sem papel, e o PDF resultante é aceito no lugar do talão 
 - **Q7.** Por quanto tempo as vias físicas precisam ser guardadas? (define retenção e backup)
 - **Q8.** Existe limite legal de vento/temperatura por produto, ou o parâmetro é definido caso a
   caso pelo agrônomo? (define se a regra de alerta é por produto ou por planejamento)
+- **Q11.** Como é a planilha que hoje recebe a consolidação? Com o arquivo em mãos, dá para
+  fazer o CSV sair nas mesmas colunas e na mesma ordem, em vez de aproximá-las a partir dos
+  campos do formulário. Relacionado à Q1: se o envio for por upload de arquivo, é o layout
+  dele que manda.
 - **Q9.** `total_produto` é digitado a partir do receituário ou calculado? Se calculado, a
   multiplicação usa a área planejada ou a área efetivamente aplicada? Hoje o campo é digitado,
   porque calcular com a área errada produziria um número errado num documento com efeito legal.

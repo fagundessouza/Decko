@@ -206,3 +206,45 @@ class PlanPrescriptionIn(BaseModel):
     """Vínculo do receituário feito depois, quando o documento chega às mãos de quem voa."""
 
     prescription_id: uuid.UUID | None
+
+
+class ConsolidationPlanOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    numero: int
+    status: str
+    data_aplicacao: date | None
+    contratante: str
+    contratante_documento: str
+    propriedade: str
+    municipio: str
+    uf: str
+    cultura: str
+    area_ha: Decimal | None
+    aeronave: str
+    produtos: list[str]
+    leituras: int
+    violacoes: int
+
+
+class ProductTotalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    produto: str
+    total: Decimal
+
+
+class ConsolidationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    ano: int
+    mes: int
+    quantidade: int
+    area_total_ha: Decimal
+    # O número que a empresa precisa ver antes de enviar o mês, não depois da autuação.
+    planos_com_violacao: int
+    # Planejamento sem data não cabe em mês nenhum; contado para não sumir da conferência.
+    planos_sem_data: int
+    totais_por_produto: list[ProductTotalOut]
+    planos: list[ConsolidationPlanOut]

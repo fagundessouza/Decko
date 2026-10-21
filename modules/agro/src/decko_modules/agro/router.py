@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
-from decko_modules.agro import pdf, service
+from decko_modules.agro import consolidation, pdf, service
 from decko_modules.agro.models import (
     Aircraft,
     Client,
@@ -23,6 +23,7 @@ from decko_modules.agro.schemas import (
     AircraftOut,
     ClientIn,
     ClientOut,
+    ConsolidationOut,
     PlanIn,
     PlanOut,
     PlanPrescriptionIn,
@@ -399,3 +400,56 @@ async def set_plan_prescription(
         ) from exc
     await session.flush()
     return plan
+
+
+# Recorte do mês. O limite inferior evita que um erro de digitação no ano produza uma
+# varredura inútil; o superior não existe, porque data futura é planejamento legítimo.
+ANO_MINIMO = 2000
+
+
+@router.get("/consolidation/{ano}/{mes}", response_model=ConsolidationOut)
+async def read_consolidation(
+    ano: int,
+    mes: int,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.read"))],
+) -> consolidation.MonthlyConsolidation:
+    """Fecha o mês: o que foi aplicado, onde, com o quê, e o que saiu do planejado."""
+    _check_month(ano, mes)
+    return await consolidation.monthly(session, ano=ano, mes=mes)
+
+
+# Sufixo em segmento próprio, como em /plans/{id}/pdf: um ".csv" colado ao mês seria
+# lido como parte dele, e o pedido morreria antes de chegar aqui.
+@router.get("/consolidation/{ano}/{mes}/csv", response_class=Response)
+async def export_consolidation(
+    ano: int,
+    mes: int,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.export"))],
+) -> Response:
+    """O mês em CSV, para a planilha que hoje é preenchida à mão.
+
+    Não é o arquivo do portal do MAPA: qual sistema recebe o envio e em que formato é a
+    questão Q1 do discovery, ainda sem resposta.
+    """
+    _check_month(ano, mes)
+    month = await consolidation.monthly(session, ano=ano, mes=mes)
+    return Response(
+        content=consolidation.to_csv(month),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="consolidacao-{ano}-{mes:02d}.csv"'},
+    )
+
+
+def _check_month(ano: int, mes: int) -> None:
+    if not 1 <= mes <= 12:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Mês deve estar entre 1 e 12.",
+        )
+    if ano < ANO_MINIMO:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Ano deve ser {ANO_MINIMO} ou posterior.",
+        )

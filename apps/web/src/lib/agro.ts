@@ -49,6 +49,35 @@ export interface PlanProduct {
   adjuvante: string | null;
 }
 
+export interface ConsolidationPlan {
+  id: string;
+  numero: number;
+  status: string;
+  data_aplicacao: string | null;
+  contratante: string;
+  contratante_documento: string;
+  propriedade: string;
+  municipio: string;
+  uf: string;
+  cultura: string;
+  area_ha: string | null;
+  aeronave: string;
+  produtos: string[];
+  leituras: number;
+  violacoes: number;
+}
+
+export interface Consolidation {
+  ano: number;
+  mes: number;
+  quantidade: number;
+  area_total_ha: string;
+  planos_com_violacao: number;
+  planos_sem_data: number;
+  totais_por_produto: { produto: string; total: string }[];
+  planos: ConsolidationPlan[];
+}
+
 export interface Plan {
   id: string;
   numero: number;
@@ -145,6 +174,20 @@ export const agro = {
       method: "PUT",
       body: { prescription_id: prescriptionId },
     }),
+
+  consolidation: (ano: number, mes: number): Promise<Consolidation> =>
+    authedJson(`/agro/consolidation/${ano}/${mes}`),
+
+  /** CSV baixado como blob porque a rota exige o cabeçalho de autenticação. */
+  downloadConsolidation: async (ano: number, mes: number): Promise<void> => {
+    const response = await authedRequest(`/agro/consolidation/${ano}/${mes}/csv`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `consolidacao-${ano}-${String(mes).padStart(2, "0")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
 
   listPlans: (): Promise<Plan[]> => authedJson("/agro/plans"),
 
