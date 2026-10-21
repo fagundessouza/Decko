@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "../components/Button";
+import { PlanProducts } from "../components/PlanProducts";
 import { TextField } from "../components/TextField";
 import { agro, currentPosition } from "../lib/agro";
 import type { Plan, WeatherReading } from "../lib/agro";
@@ -215,6 +216,8 @@ export function PlanDetailPage({ plan, onBack }: Props) {
           </ul>
         )}
       </section>
+
+      <PlanProducts planId={plan.id} prescriptionId={plan.prescription_id} />
 
       <div className="mt-6">
         <Button

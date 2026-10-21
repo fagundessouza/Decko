@@ -12,6 +12,9 @@ from decko_modules.agro.models import (
     Aircraft,
     Client,
     OperationalPlan,
+    PlanProduct,
+    Prescription,
+    Product,
     Property,
     WeatherReading,
 )
@@ -22,6 +25,13 @@ from decko_modules.agro.schemas import (
     ClientOut,
     PlanIn,
     PlanOut,
+    PlanPrescriptionIn,
+    PlanProductIn,
+    PlanProductOut,
+    PrescriptionIn,
+    PrescriptionOut,
+    ProductIn,
+    ProductOut,
     PropertyIn,
     PropertyOut,
     WeatherCaptureIn,
@@ -124,7 +134,7 @@ async def create_plan(
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Contratante, propriedade ou aeronave não encontrados.",
+            detail="Contratante, propriedade, aeronave ou receituário não encontrados.",
         ) from exc
     return plan
 
@@ -175,7 +185,7 @@ async def capture_weather(
         )
     except service.PlanError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
     except WeatherUnavailableError as exc:
         # 502: a falha é do provedor externo, não do pedido de quem chamou.
@@ -249,3 +259,143 @@ async def create_aircraft(
             detail="Já existe uma aeronave com este prefixo.",
         ) from exc
     return aircraft
+
+
+@router.get("/products", response_model=list[ProductOut])
+async def list_products(
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.product.read"))],
+) -> list[Product]:
+    result = await session.execute(select(Product).order_by(Product.nome_comercial))
+    return list(result.scalars().all())
+
+
+@router.post("/products", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
+async def create_product(
+    payload: ProductIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("agro.product.write"))],
+) -> Product:
+    product = Product(tenant_id=principal.tenant_id, **payload.model_dump())
+    session.add(product)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe um produto com este nome comercial.",
+        ) from exc
+    return product
+
+
+@router.get("/prescriptions", response_model=list[PrescriptionOut])
+async def list_prescriptions(
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.prescription.read"))],
+) -> list[Prescription]:
+    # Mais recente primeiro: é o receituário que está em uso na aplicação de hoje.
+    result = await session.execute(select(Prescription).order_by(Prescription.emitido_em.desc()))
+    return list(result.scalars().all())
+
+
+@router.post("/prescriptions", response_model=PrescriptionOut, status_code=status.HTTP_201_CREATED)
+async def create_prescription(
+    payload: PrescriptionIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("agro.prescription.write"))],
+) -> Prescription:
+    prescription = Prescription(tenant_id=principal.tenant_id, **payload.model_dump())
+    session.add(prescription)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe um receituário com este número.",
+        ) from exc
+    return prescription
+
+
+async def _plan_or_404(session: AsyncSession, plan_id: uuid.UUID) -> OperationalPlan:
+    plan = await session.get(OperationalPlan, plan_id)
+    if plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Planejamento não encontrado."
+        )
+    return plan
+
+
+@router.get("/plans/{plan_id}/products", response_model=list[PlanProductOut])
+async def list_plan_products(
+    plan_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.read"))],
+) -> list[PlanProduct]:
+    result = await session.execute(
+        select(PlanProduct).where(PlanProduct.plan_id == plan_id).order_by(PlanProduct.id)
+    )
+    return list(result.scalars().all())
+
+
+@router.post(
+    "/plans/{plan_id}/products",
+    response_model=PlanProductOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_plan_product(
+    plan_id: uuid.UUID,
+    payload: PlanProductIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.write"))],
+) -> PlanProduct:
+    """Acrescenta uma linha à tabela de produtos, que é o que o receituário determina."""
+    plan = await _plan_or_404(session, plan_id)
+    try:
+        return await service.add_plan_product(session, plan=plan, **payload.model_dump())
+    except service.PlanError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+
+@router.delete("/plans/{plan_id}/products/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_plan_product(
+    plan_id: uuid.UUID,
+    item_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.write"))],
+) -> None:
+    item = await session.get(PlanProduct, item_id)
+    # A conferência do plano evita que um identificador de linha de outro planejamento
+    # apague a linha errada por engano de digitação.
+    if item is None or item.plan_id != plan_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Linha de produto não encontrada."
+        )
+    await session.delete(item)
+    await session.flush()
+
+
+@router.put("/plans/{plan_id}/prescription", response_model=PlanOut)
+async def set_plan_prescription(
+    plan_id: uuid.UUID,
+    payload: PlanPrescriptionIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.write"))],
+) -> OperationalPlan:
+    """Amarra o receituário ao planejamento depois que ele foi criado.
+
+    O planejamento nasce em campo, muitas vezes antes de o receituário estar digitalizado;
+    exigi-lo na criação travaria o preenchimento no momento em que ele precisa ser rápido.
+    """
+    plan = await _plan_or_404(session, plan_id)
+    try:
+        await service.link_prescription(session, plan=plan, prescription_id=payload.prescription_id)
+    except service.PlanError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    await session.flush()
+    return plan

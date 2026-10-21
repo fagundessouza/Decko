@@ -222,6 +222,55 @@ def _observation_of(reading: WeatherReading) -> Observation:
     )
 
 
+async def add_plan_product(
+    session: AsyncSession,
+    *,
+    plan: OperationalPlan,
+    product_id: uuid.UUID,
+    dosagem_ha: Decimal | None = None,
+    volume_ha: Decimal | None = None,
+    total_produto: Decimal | None = None,
+    adjuvante: str | None = None,
+) -> PlanProduct:
+    """Acrescenta uma linha à tabela de produtos do planejamento.
+
+    ``formulacao`` e ``classe_toxicologica`` são copiadas do cadastro aqui, e não lidas na
+    emissão: corrigir o cadastro depois não pode mudar o conteúdo de um documento já
+    emitido. É o mesmo motivo pelo qual a linha guarda os valores em vez de referenciá-los.
+
+    O produto é buscado antes da inserção porque a consulta roda sob Row Level Security:
+    um identificador de outra empresa simplesmente não existe nesta sessão, e a resposta
+    é "não encontrado" em vez de um erro de chave estrangeira.
+    """
+    product = await session.get(Product, product_id)
+    if product is None:
+        raise PlanError("Produto não encontrado.")
+
+    item = PlanProduct(
+        tenant_id=plan.tenant_id,
+        plan_id=plan.id,
+        product_id=product.id,
+        formulacao=product.formulacao,
+        classe_toxicologica=product.classe_toxicologica,
+        dosagem_ha=dosagem_ha,
+        volume_ha=volume_ha,
+        total_produto=total_produto,
+        adjuvante=adjuvante,
+    )
+    session.add(item)
+    await session.flush()
+    return item
+
+
+async def link_prescription(
+    session: AsyncSession, *, plan: OperationalPlan, prescription_id: uuid.UUID | None
+) -> None:
+    """Amarra o receituário ao planejamento, validando que ele existe nesta empresa."""
+    if prescription_id is not None and await session.get(Prescription, prescription_id) is None:
+        raise PlanError("Receituário não encontrado.")
+    plan.prescription_id = prescription_id
+
+
 async def next_plan_number(session: AsyncSession, tenant_id: uuid.UUID) -> int:
     """Próximo sequencial da empresa.
 

@@ -58,20 +58,30 @@ Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md
       receituário, planejamento, produtos aplicados, manutenção, leituras meteorológicas
       e as quatro assinaturas
 - [x] Row Level Security nas dez tabelas do módulo, verificado por teste
-- [ ] Cadastros pela API: falta propriedade, produto e receituário (contratante e aeronave
-      já existem)
+- [x] Cadastros pela API: contratante, propriedade, aeronave, produto e receituário
 - [x] Integração meteorológica por coordenada e horário (Open-Meteo), com escolha entre
       conjunto histórico e recente — ver `docs/adr/0003-provedor-de-clima.md`
 - [x] Registro probatório da leitura: origem, provedor, payload bruto, coordenada, horário
 - [x] Alerta de violação de parâmetro, devolvendo **qual** limite foi rompido
-- [ ] Captura de GPS pelo aparelho e conversão decimal → grau/minuto/segundo no documento
+- [x] Captura de GPS pelo aparelho e conversão decimal → grau/minuto/segundo no documento
+- [x] Tabela de produtos e vínculo do receituário pela tela, com a cópia de formulação e
+      classe toxicológica feita no lançamento
 - [ ] Cache das consultas meteorológicas (só necessário com volume; ver ADR 0003)
-- [ ] Wizard mobile de preenchimento
-- [ ] Geração do PDF fiel ao talão atual
+- [x] Wizard mobile de preenchimento
+- [x] Geração do PDF fiel ao talão atual
+- [ ] Assinaturas pela tela — depende da resposta de Q5 (física ou digital)
+- [ ] Tela de cadastro de contratante e propriedade: hoje existem só na API, e o wizard
+      fica sem saída numa empresa recém-criada
 - [ ] Consolidação mensal
 
 **Demonstrável:** Nathan emite um Planejamento Operacional completo pelo celular, em campo, e o PDF
 substitui o talão de papel.
+
+Estado atual: o caminho inteiro foi percorrido no navegador, em viewport de celular —
+planejamento criado, produto cadastrado e lançado na tabela, receituário cadastrado e
+vinculado, e o PDF saiu com tudo isso impresso. Falta a entrada dos cadastros de
+contratante e propriedade pela tela: numa empresa recém-criada o wizard mostra "Nenhum
+contratante cadastrado ainda" e não oferece como cadastrar.
 
 ## Fase 3 — Validação em campo
 

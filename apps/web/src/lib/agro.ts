@@ -16,12 +16,46 @@ export interface AgroProperty {
   longitude: string | null;
 }
 
+export interface Product {
+  id: string;
+  nome_comercial: string;
+  formulacao: string | null;
+  classe_toxicologica: string | null;
+  registro_mapa: string | null;
+  is_adjuvante: boolean;
+}
+
+export interface Prescription {
+  id: string;
+  numero: string;
+  emitido_em: string;
+  agronomo_nome: string | null;
+  agronomo_crea: string | null;
+}
+
+/** Linha da tabela de produtos do planejamento.
+ *
+ * `formulacao` e `classe_toxicologica` são a cópia feita quando a linha entrou, não o
+ * valor atual do cadastro: um documento já emitido não muda de conteúdo.
+ */
+export interface PlanProduct {
+  id: string;
+  product_id: string;
+  formulacao: string | null;
+  classe_toxicologica: string | null;
+  dosagem_ha: string | null;
+  volume_ha: string | null;
+  total_produto: string | null;
+  adjuvante: string | null;
+}
+
 export interface Plan {
   id: string;
   numero: number;
   status: string;
   client_id: string;
   property_id: string;
+  prescription_id: string | null;
   data_aplicacao: string | null;
   cultura: string | null;
   area_ha: string | null;
@@ -64,6 +98,49 @@ export const agro = {
     latitude?: number | null;
     longitude?: number | null;
   }): Promise<AgroProperty> => authedJson("/agro/properties", { method: "POST", body }),
+
+  listProducts: (): Promise<Product[]> => authedJson("/agro/products"),
+
+  createProduct: (body: {
+    nome_comercial: string;
+    formulacao?: string | null;
+    classe_toxicologica?: string | null;
+    registro_mapa?: string | null;
+  }): Promise<Product> => authedJson("/agro/products", { method: "POST", body }),
+
+  listPrescriptions: (): Promise<Prescription[]> => authedJson("/agro/prescriptions"),
+
+  createPrescription: (body: {
+    numero: string;
+    emitido_em: string;
+    agronomo_nome?: string | null;
+    agronomo_crea?: string | null;
+  }): Promise<Prescription> => authedJson("/agro/prescriptions", { method: "POST", body }),
+
+  listPlanProducts: (planId: string): Promise<PlanProduct[]> =>
+    authedJson(`/agro/plans/${planId}/products`),
+
+  addPlanProduct: (
+    planId: string,
+    body: {
+      product_id: string;
+      dosagem_ha?: number | null;
+      volume_ha?: number | null;
+      total_produto?: number | null;
+      adjuvante?: string | null;
+    },
+  ): Promise<PlanProduct> =>
+    authedJson(`/agro/plans/${planId}/products`, { method: "POST", body }),
+
+  removePlanProduct: async (planId: string, itemId: string): Promise<void> => {
+    await authedRequest(`/agro/plans/${planId}/products/${itemId}`, { method: "DELETE" });
+  },
+
+  linkPrescription: (planId: string, prescriptionId: string | null): Promise<Plan> =>
+    authedJson(`/agro/plans/${planId}/prescription`, {
+      method: "PUT",
+      body: { prescription_id: prescriptionId },
+    }),
 
   listPlans: (): Promise<Plan[]> => authedJson("/agro/plans"),
 

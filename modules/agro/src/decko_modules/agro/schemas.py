@@ -66,6 +66,9 @@ class PlanIn(BaseModel):
     client_id: uuid.UUID
     property_id: uuid.UUID
     aircraft_id: uuid.UUID | None = None
+    # O formulário remete as precauções de uso ao receituário. Fica opcional aqui porque
+    # o planejamento nasce rascunho, antes de o receituário estar em mãos.
+    prescription_id: uuid.UUID | None = None
     data_aplicacao: date | None = None
     cultura: Cultura | None = None
     cultura_outras_texto: str | None = Field(default=None, max_length=120)
@@ -91,6 +94,7 @@ class PlanOut(BaseModel):
     client_id: uuid.UUID
     property_id: uuid.UUID
     aircraft_id: uuid.UUID | None
+    prescription_id: uuid.UUID | None
     data_aplicacao: date | None
     cultura: Cultura | None
     area_ha: Decimal | None
@@ -132,3 +136,69 @@ class WeatherCaptureOut(BaseModel):
     leitura: WeatherReadingOut
     # Vazio significa aplicação dentro dos limites planejados.
     alertas: list[str]
+
+
+class ProductIn(BaseModel):
+    nome_comercial: str = Field(min_length=1, max_length=200)
+    formulacao: str | None = Field(default=None, max_length=120)
+    classe_toxicologica: str | None = Field(default=None, max_length=40)
+    registro_mapa: str | None = Field(default=None, max_length=60)
+    is_adjuvante: bool = False
+
+
+class ProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nome_comercial: str
+    formulacao: str | None
+    classe_toxicologica: str | None
+    registro_mapa: str | None
+    is_adjuvante: bool
+
+
+class PrescriptionIn(BaseModel):
+    numero: str = Field(min_length=1, max_length=60)
+    emitido_em: date
+    agronomo_nome: str | None = Field(default=None, max_length=200)
+    agronomo_crea: str | None = Field(default=None, max_length=40)
+
+
+class PrescriptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    numero: str
+    emitido_em: date
+    agronomo_nome: str | None
+    agronomo_crea: str | None
+
+
+class PlanProductIn(BaseModel):
+    product_id: uuid.UUID
+    dosagem_ha: Decimal | None = Field(default=None, ge=0)
+    volume_ha: Decimal | None = Field(default=None, ge=0)
+    # Não é derivado de dosagem por área: o talão traz a coluna e o receituário dita o
+    # valor. Qual área multiplicar (planejada ou aplicada) é a questão Q9 do discovery.
+    total_produto: Decimal | None = Field(default=None, ge=0)
+    adjuvante: str | None = Field(default=None, max_length=200)
+
+
+class PlanProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    product_id: uuid.UUID
+    # Cópia feita na inclusão da linha, não o valor atual do cadastro.
+    formulacao: str | None
+    classe_toxicologica: str | None
+    dosagem_ha: Decimal | None
+    volume_ha: Decimal | None
+    total_produto: Decimal | None
+    adjuvante: str | None
+
+
+class PlanPrescriptionIn(BaseModel):
+    """Vínculo do receituário feito depois, quando o documento chega às mãos de quem voa."""
+
+    prescription_id: uuid.UUID | None

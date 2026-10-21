@@ -179,3 +179,6 @@ campo, pelo celular, sem papel, e o PDF resultante é aceito no lugar do talão 
 - **Q7.** Por quanto tempo as vias físicas precisam ser guardadas? (define retenção e backup)
 - **Q8.** Existe limite legal de vento/temperatura por produto, ou o parâmetro é definido caso a
   caso pelo agrônomo? (define se a regra de alerta é por produto ou por planejamento)
+- **Q9.** `total_produto` é digitado a partir do receituário ou calculado? Se calculado, a
+  multiplicação usa a área planejada ou a área efetivamente aplicada? Hoje o campo é digitado,
+  porque calcular com a área errada produziria um número errado num documento com efeito legal.
