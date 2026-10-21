@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { AgroClient, AgroProperty } from "../lib/agro";
 import { agro, currentPosition } from "../lib/agro";
-import { onlyDocumentChars } from "../lib/format";
+import { documentProblem, stripMask } from "../lib/documents";
 import { Button } from "./Button";
 import { TextField } from "./TextField";
 
@@ -24,8 +24,10 @@ export function NewClientForm({ onCreated, onCancel }: ClientProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const limpo = onlyDocumentChars(documento);
-  const documentoValido = limpo.length === 11 || limpo.length === 14;
+  const limpo = stripMask(documento);
+  // Só reclama depois que o campo tem conteúdo: avisar "inválido" enquanto a pessoa
+  // ainda digita o primeiro algarismo é ruído, não ajuda.
+  const problema = documento.trim() === "" ? null : documentProblem(documento);
 
   async function save() {
     setBusy(true);
@@ -57,13 +59,13 @@ export function NewClientForm({ onCreated, onCancel }: ClientProps) {
       />
       {/* A máscara é digitada por quem cadastra e removida antes de gravar: o documento é
           copiado do papel do jeito que está impresso lá, com ponto e barra. */}
+      {/* A conferência do dígito verificador acontece aqui e no servidor. Aqui porque o
+          aparelho no campo costuma estar sem sinal, e descobrir o erro de digitação só
+          na volta da chamada é tarde: a pessoa já guardou o papel. */}
       <TextField
         label="CPF ou CNPJ"
-        hint={
-          documento !== "" && !documentoValido
-            ? `${limpo.length} caracteres: o CPF tem 11 e o CNPJ tem 14.`
-            : "Pode digitar com ponto e barra."
-        }
+        hint={problema ?? "Pode digitar com ponto e barra."}
+        invalid={problema !== null}
         inputMode="text"
         autoCapitalize="characters"
         value={documento}
@@ -92,7 +94,7 @@ export function NewClientForm({ onCreated, onCancel }: ClientProps) {
 
       <div className="flex flex-col gap-3 sm:flex-row-reverse">
         <Button
-          disabled={nome.trim() === "" || !documentoValido}
+          disabled={nome.trim() === "" || problema !== null}
           loading={busy}
           onClick={() => void save()}
         >

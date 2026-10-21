@@ -65,10 +65,30 @@ Essa dupla função é o que diferencia o Decko de "um formulário digital".
 | Campo | Entidade |
 |---|---|
 | Contratante | `client.nome` |
-| CNPJ/CPF | `client.cpf_cnpj` |
+| CNPJ/CPF | `client.cpf_cnpj` — ver "Formato do CPF/CNPJ" abaixo |
 | Propriedade | `property.nome` |
 | Município / UF | `property.municipio`, `.uf` |
 | Coordenadas da Área (º S / º W) | `property.lat`, `.lon` (decimal) — renderizado em DMS no PDF |
+
+#### Formato do CPF/CNPJ
+
+Guardado sem máscara e conferido pelo dígito verificador antes de entrar. O mesmo documento
+digitado com e sem pontuação é o mesmo contratante, o que faz a unicidade por documento valer.
+Na emissão, a máscara volta: o papel é conferido a olho contra o documento do contratante.
+
+- **CPF:** 11 dígitos, módulo 11.
+- **CNPJ:** 14 posições. Desde julho de 2026 as doze primeiras aceitam letras maiúsculas além
+  de números; os dois dígitos verificadores continuam numéricos. O módulo 11 permanece, com
+  cada caractere convertido pelo valor ASCII menos 48 — os algarismos mantêm o próprio valor
+  e `A` vale 17.
+- **Fonte:** ["CNPJ alfanumérico — Perguntas e Respostas", Receita Federal][rfb-cnpj],
+  pergunta 14. O exemplo trabalhado de lá (`12.ABC.345/01DE-35`) está fixado em
+  `apps/api/tests/test_documents.py`, com as somas intermediárias conferidas uma a uma.
+- **O que a fonte oficial não diz:** o caso em que o resto é 0 ou 1. O dígito é 0, porque 11 e
+  10 não cabem em uma posição — mesmo tratamento do CNPJ numérico, em uso há décadas.
+- O formato numérico continua válido: nenhuma empresa precisou trocar de número.
+
+[rfb-cnpj]: https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf
 
 ### 4.3 Guia de Aplicação
 
@@ -179,12 +199,6 @@ campo, pelo celular, sem papel, e o PDF resultante é aceito no lugar do talão 
 - **Q7.** Por quanto tempo as vias físicas precisam ser guardadas? (define retenção e backup)
 - **Q8.** Existe limite legal de vento/temperatura por produto, ou o parâmetro é definido caso a
   caso pelo agrônomo? (define se a regra de alerta é por produto ou por planejamento)
-- **Q10.** O cadastro aceita CPF (11 posições) e CNPJ (14 posições, as doze primeiras
-  alfanuméricas desde julho de 2026, pelos dois dígitos verificadores numéricos — Instrução
-  Normativa RFB nº 2.229). Falta conferir o dígito verificador: no CNPJ alfanumérico o cálculo
-  usa o valor ASCII do caractere menos 48, e a fonte oficial precisa ser lida antes de virar
-  código que recusa cadastro. Enquanto isso, um documento digitado errado entra no sistema e
-  sai impresso no documento legal.
 - **Q9.** `total_produto` é digitado a partir do receituário ou calculado? Se calculado, a
   multiplicação usa a área planejada ou a área efetivamente aplicada? Hoje o campo é digitado,
   porque calcular com a área errada produziria um número errado num documento com efeito legal.

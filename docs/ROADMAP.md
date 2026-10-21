@@ -72,6 +72,8 @@ Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md
 - [ ] Assinaturas pela tela — depende da resposta de Q5 (física ou digital)
 - [x] Cadastro de contratante e propriedade pela tela, dentro do wizard, com captura da
       coordenada da propriedade pelo aparelho
+- [x] Conferência de CPF/CNPJ pelo dígito verificador, incluindo o CNPJ alfanumérico, na
+      tela e no servidor (`decko.documents`)
 - [ ] Consolidação mensal
 
 **Demonstrável:** Nathan emite um Planejamento Operacional completo pelo celular, em campo, e o PDF
@@ -83,9 +85,9 @@ vinculado, e o PDF saiu com tudo isso impresso. O caminho começa numa empresa v
 contratante e a propriedade são cadastrados dentro do próprio wizard, onde antes ele
 parava em "Nenhum contratante cadastrado ainda".
 
-Pendência conhecida: o CPF/CNPJ é conferido só no formato e no tamanho. A conferência do
-dígito verificador depende de Q10 — no CNPJ alfanumérico o cálculo mudou, e recusar
-cadastro com regra adivinhada é pior do que aceitar o que vem digitado.
+O CPF/CNPJ é conferido pelo dígito verificador na entrada, nos dois formatos, com a regra
+do CNPJ alfanumérico lida na fonte oficial da Receita — ver "Formato do CPF/CNPJ" no
+discovery.
 
 ## Fase 3 — Validação em campo
 

@@ -1,26 +1,20 @@
 import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
+from decko.documents import pydantic_cpf_cnpj
 from decko_modules.agro.enums import Cultura, Momento, Periodo, PlanStatus, TipoAplicacao
-
-# CPF tem 11 dígitos. O CNPJ tem 14 posições, e desde julho de 2026 as doze primeiras
-# aceitam letras — só os dois dígitos verificadores continuam numéricos (Instrução
-# Normativa RFB nº 2.229). Recusar letras rejeitaria empresa aberta de lá para cá, com
-# CNPJ legítimo, num cadastro que alimenta documento com efeito legal.
-#
-# A conferência do dígito verificador não é feita aqui: o cálculo do CNPJ alfanumérico
-# usa o valor ASCII do caractere menos 48, e isso precisa vir da fonte oficial antes de
-# virar código que recusa cadastro. Ver questão Q10 do discovery.
-CPF_OU_CNPJ = r"^(\d{11}|[0-9A-Z]{12}\d{2})$"
 
 
 class ClientIn(BaseModel):
     nome: str = Field(min_length=1, max_length=200)
-    # Sem máscara: a formatação é da interface, não do armazenamento.
-    cpf_cnpj: str = Field(min_length=11, max_length=14, pattern=CPF_OU_CNPJ)
+    # Guardado sem máscara e conferido pelo dígito verificador: ver decko.documents.
+    # O documento identifica o contratante num registro com efeito legal, então entrar
+    # errado aqui sai errado no papel que vai para a fiscalização.
+    cpf_cnpj: Annotated[str, BeforeValidator(pydantic_cpf_cnpj)]
     telefone: str | None = Field(default=None, max_length=20)
     email: str | None = Field(default=None, max_length=320)
 

@@ -79,7 +79,7 @@ async def scenario() -> AsyncIterator[Scenario]:
         contratante = await http.post(
             f"{BASE}/clients",
             headers=first.auth,
-            json={"nome": "Fazenda Santa Clara", "cpf_cnpj": "12345678000199"},
+            json={"nome": "Fazenda Santa Clara", "cpf_cnpj": "12345678000195"},
         )
         assert contratante.status_code == 201, contratante.text
 
@@ -384,7 +384,8 @@ async def test_alphanumeric_cnpj_is_accepted(scenario: Scenario) -> None:
     """Desde julho de 2026 as doze primeiras posições do CNPJ aceitam letras.
 
     Recusá-las rejeitaria empresa aberta de lá para cá, com CNPJ legítimo, logo na porta
-    de entrada do cadastro — ver Instrução Normativa RFB nº 2.229.
+    de entrada do cadastro. O número é o exemplo trabalhado da Receita Federal — a conta
+    que o produz está em ``apps/api/tests/test_documents.py``.
     """
     response = await scenario.client.post(
         f"{BASE}/clients",
@@ -418,6 +419,53 @@ async def test_document_with_the_wrong_length_is_refused(scenario: Scenario) -> 
     )
 
     assert response.status_code == 422
+
+
+async def test_a_wrong_check_digit_is_refused_in_words_the_operator_reads(
+    scenario: Scenario,
+) -> None:
+    """A recusa chega como frase, não como erro interno do validador.
+
+    O Pydantic prefixa "Value error, " na mensagem de um ValueError comum, e a interface
+    mostra ao operador o primeiro ``detail`` que receber. Já aconteceu de a tela exibir
+    nome interno de campo; aqui a regra fica presa.
+    """
+    response = await scenario.client.post(
+        f"{BASE}/clients",
+        headers=scenario.first.auth,
+        json={"nome": "Fazenda Torta", "cpf_cnpj": "12.345.678/0001-99"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["msg"] == "CNPJ inválido: o dígito verificador não confere."
+
+
+async def test_the_mask_is_stripped_before_storing(scenario: Scenario) -> None:
+    """O documento é copiado do papel com ponto e barra; o banco guarda só o conteúdo."""
+    response = await scenario.client.post(
+        f"{BASE}/clients",
+        headers=scenario.first.auth,
+        json={"nome": "Petroleo Brasileiro", "cpf_cnpj": "33.000.167/0001-01"},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["cpf_cnpj"] == "33000167000101"
+
+
+async def test_the_same_document_masked_is_the_same_contratante(scenario: Scenario) -> None:
+    """Normalizar antes de gravar é o que faz a unicidade por documento valer de fato.
+
+    O contratante do cenário já foi cadastrado sem máscara. Recadastrá-lo com ponto e
+    barra tem de esbarrar na restrição, e não abrir um segundo cadastro do mesmo CNPJ —
+    duplicata que depois apareceria como dois contratantes no relatório.
+    """
+    response = await scenario.client.post(
+        f"{BASE}/clients",
+        headers=scenario.first.auth,
+        json={"nome": "Fazenda Santa Clara", "cpf_cnpj": "12.345.678/0001-95"},
+    )
+
+    assert response.status_code == 409
 
 
 async def test_registering_a_product_requires_authentication(scenario: Scenario) -> None:

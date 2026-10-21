@@ -71,7 +71,7 @@ async def scenario() -> AsyncIterator[Scenario]:
         tenant_id = tenant.id
 
         contratante = Client(
-            tenant_id=tenant_id, nome="Fazenda Santa Clara", cpf_cnpj="12345678000199"
+            tenant_id=tenant_id, nome="Fazenda Santa Clara", cpf_cnpj="12345678000195"
         )
         aeronave = Aircraft(tenant_id=tenant_id, prefixo="PP-DRN", modelo="T40")
         produto = Product(
@@ -200,6 +200,9 @@ async def test_document_identifies_the_operation(scenario: Scenario) -> None:
     assert "Fazenda Santa Clara" in text
     assert "Talhao Norte" in text
     assert "Jatai" in text
+    # Guardado sem máscara, impresso com ela: o documento é conferido a olho contra o
+    # papel do contratante.
+    assert "12.345.678/0001-95" in text
 
 
 async def test_coordinates_are_printed_in_degrees_minutes_seconds(

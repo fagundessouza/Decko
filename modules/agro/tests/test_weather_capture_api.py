@@ -85,7 +85,7 @@ async def scenario() -> AsyncIterator[Scenario]:
         )
         tenant_id = tenant.id
 
-        contratante = Client(tenant_id=tenant_id, nome="Fazenda Teste", cpf_cnpj="12345678000199")
+        contratante = Client(tenant_id=tenant_id, nome="Fazenda Teste", cpf_cnpj="12345678000195")
         session.add(contratante)
         await session.flush()
 

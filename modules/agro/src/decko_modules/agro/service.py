@@ -7,6 +7,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from decko.documents import format_cpf_cnpj
 from decko_modules.agro.enums import (
     Cultura,
     MaintenanceMoment,
@@ -125,7 +126,7 @@ async def build_document(session: AsyncSession, plan: OperationalPlan) -> PlanDo
         empresa_nome=tenant.name if tenant else "",
         empresa_cnpj=tenant.cnpj or "" if tenant else "",
         contratante=client.nome if client else "",
-        contratante_documento=client.cpf_cnpj if client else "",
+        contratante_documento=format_cpf_cnpj(client.cpf_cnpj) if client else "",
         propriedade=prop.nome if prop else "",
         municipio=prop.municipio if prop else "",
         uf=prop.uf if prop else "",
