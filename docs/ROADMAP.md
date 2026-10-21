@@ -38,8 +38,11 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       ativos — ver `docs/adr/0004-ativacao-de-modulo-por-empresa.md`
 - [ ] Escrita na trilha de auditoria nos fluxos de autenticação (o bootstrap já registra)
 - [ ] Troca de empresa para quem opera em mais de uma
-- [ ] Perfil de segmento: conjunto nomeado de módulos sobre a ativação (só faz sentido com
-      mais de uma vertical pronta)
+- [x] Perfil de segmento: `profiles/*.toml`, tela de escolha do ramo e contratação em um
+      clique — ver `docs/adr/0005-perfil-de-segmento.md`
+- [ ] Dado-semente por módulo com identidade estável (lacuna 4.3 do benchmark). É o que
+      falta para o perfil **configurar** o ambiente, e não só ligar os módulos. Bloqueia
+      qualquer vertical que traga catálogo, unidade ou categoria
 
 **Demonstrável:** login, troca de empresa, e a prova de que um tenant não enxerga dados do outro.
 

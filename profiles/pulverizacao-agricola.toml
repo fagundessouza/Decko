@@ -1,0 +1,16 @@
+# Perfil de segmento: conjunto nomeado de módulos.
+# Formato e decisão em docs/adr/0005-perfil-de-segmento.md
+#
+# Um perfil só pode listar módulos que existem. O host recusa na inicialização um perfil
+# que mencione módulo não instalado, para o erro aparecer no empacotamento e não na frente
+# de quem está contratando.
+
+[profile]
+name = "pulverizacao-agricola"
+label = "Pulverização agrícola"
+description = """
+Operação de pulverização com drone ou avião agrícola. Planejamento operacional, captura \
+automática das condições meteorológicas com registro probatório, e emissão do relatório \
+exigido pelo MAPA.
+"""
+modules = ["agro"]

@@ -89,6 +89,20 @@ class ModuleOut(BaseModel):
     active: bool
 
 
+class ProfileOut(BaseModel):
+    """Um segmento que a plataforma sabe configurar.
+
+    É um conjunto de módulos, não um vínculo: a empresa não "é" de um segmento, ela tem
+    módulos ativos — ver docs/adr/0005-perfil-de-segmento.md.
+    """
+
+    name: str
+    label: str
+    description: str
+    modules: list[str]
+    active: bool
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

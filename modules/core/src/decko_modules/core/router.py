@@ -5,12 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
 from decko.modules import ModuleManifest
+from decko.profiles import Profile, modules_to_activate
 from decko_modules.core import activation, service
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.core.models import Tenant, User
 from decko_modules.core.schemas import (
     LoginRequest,
     ModuleOut,
+    ProfileOut,
     RefreshRequest,
     SessionOut,
     TenantProfileIn,
@@ -111,6 +113,82 @@ async def list_modules(
             active=manifest.required or manifest.name in active,
         )
         for manifest in manifests
+    ]
+
+
+@router.get("/profiles", response_model=list[ProfileOut])
+async def list_profiles(
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.module.read"))],
+) -> list[ProfileOut]:
+    """Os segmentos que a plataforma sabe configurar.
+
+    Quem está contratando conhece o ramo do negócio, não a lista de módulos — o perfil é o
+    atalho entre as duas coisas.
+    """
+    active = set(await activation.active_modules(session, principal.tenant_id))
+    manifests: dict[str, ModuleManifest] = {
+        manifest.name: manifest for manifest in request.app.state.modules
+    }
+    profiles: dict[str, Profile] = request.app.state.profiles
+
+    return [
+        ProfileOut(
+            name=profile.name,
+            label=profile.label,
+            description=profile.description.strip(),
+            modules=list(profile.modules),
+            # Já contratado quando todo módulo não obrigatório do perfil está ativo.
+            active=all(manifests[name].required or name in active for name in profile.modules),
+        )
+        for profile in profiles.values()
+    ]
+
+
+@router.post("/profiles/{profile_name}/activate", response_model=list[ModuleOut])
+async def activate_profile(
+    profile_name: str,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.module.activate"))],
+) -> list[ModuleOut]:
+    """Contrata um segmento inteiro: ativa de uma vez os módulos que ele reúne.
+
+    Devolve o estado de cada módulo do perfil, e não só "ok", para quem chamou saber
+    exatamente o que passou a existir.
+    """
+    profiles: dict[str, Profile] = request.app.state.profiles
+    profile = profiles.get(profile_name)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Não existe perfil '{profile_name}' nesta instalação.",
+        )
+
+    manifests: dict[str, ModuleManifest] = {
+        manifest.name: manifest for manifest in request.app.state.modules
+    }
+
+    for module_name in modules_to_activate(profile, manifests):
+        await activation.activate(
+            session,
+            tenant_id=principal.tenant_id,
+            module_name=module_name,
+            activated_by=principal.user_id,
+        )
+
+    return [
+        ModuleOut(
+            name=manifests[name].name,
+            label=manifests[name].label,
+            version=manifests[name].version,
+            required=manifests[name].required,
+            active=True,
+        )
+        for name in profile.modules
     ]
 
 

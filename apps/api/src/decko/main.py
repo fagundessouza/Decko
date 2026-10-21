@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from decko.config import get_settings
 from decko.db import check_connection, engine
 from decko.modules import ModuleManifest, load_into
+from decko.profiles import discover as discover_profiles
 
 settings = get_settings()
 
@@ -28,6 +29,12 @@ def create_app() -> FastAPI:
 
     loaded: list[ModuleManifest] = load_into(app, settings.modules_dir)
     app.state.modules = loaded
+
+    # Perfis são conferidos contra os módulos instalados na leitura: um perfil que liste
+    # módulo inexistente derruba a inicialização, em vez de falhar na contratação.
+    app.state.profiles = discover_profiles(
+        settings.profiles_dir, {manifest.name: manifest for manifest in loaded}
+    )
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, Any]:

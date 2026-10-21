@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 
 import { Button } from "./components/Button";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { logout, restoreSession } from "./lib/api";
+import { fetchSession, logout, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
+import { ChooseProfilePage } from "./pages/ChooseProfilePage";
 import { CompanyPage } from "./pages/CompanyPage";
 import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -46,13 +47,33 @@ export default function App() {
     return <LoginPage onSignedIn={setInfo} />;
   }
 
-  // O menu reflete o que a empresa tem instalado: sem permissão do módulo agro, a
-  // pulverização simplesmente não aparece.
   // O menu vem dos módulos contratados, não do prefixo das permissões. O administrador
   // recebe as permissões de todos os módulos instalados na plataforma, então o prefixo
   // mostrava menu de módulo que a empresa não tem — e o servidor respondia 404.
   const hasAgro = info.active_modules.includes("agro");
   const canEditCompany = info.permissions.includes("core.tenant.update");
+
+  // Empresa recém-criada não tem nada contratado. Em vez de uma tela vazia explicando que
+  // está vazia, a primeira coisa é a escolha do ramo — ver ADR 0005.
+  if (info.active_modules.length === 0 && info.permissions.includes("core.module.activate")) {
+    return (
+      <div className="min-h-dvh bg-bg">
+        <header className="flex items-center justify-between gap-4 bg-brand px-6 py-4 text-white">
+          <div>
+            <p className="text-xl font-bold tracking-tight">Decko</p>
+            <p className="text-base text-white/70">{info.tenant.name}</p>
+          </div>
+        </header>
+        <ChooseProfilePage
+          onContracted={() => {
+            // A sessão é relida porque o menu depende dos módulos ativos, que acabaram
+            // de mudar no servidor.
+            void fetchSession().then(setInfo);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-bg">

@@ -56,6 +56,7 @@ para o host.
 | **Versionamento de schema** | derivado dos campos + scripts por versão | Alembic, ramificado por módulo (`branch_label`) | **Decko melhor.** É a lacuna nº 6 do Odoo resolvida desde o início |
 | **Fila de trabalho** | cron worker com polling e advisory lock | Redis + `apps/worker` (previsto) | **Decko melhor**, quando `apps/worker` existir |
 | **Processo** | monólito; todo worker carrega os 696 módulos | monólito modular; `apps/api` carrega todos os módulos descobertos | **Mesma escolha, mesmo limite.** O processo carrega tudo; o que a empresa alcança é decidido na ativação |
+| **Entrada por ramo de negócio** | sem conceito próprio: o cliente instala "apps" avulsos, e o agrupamento por indústria vive fora do código aberto | `profiles/*.toml`: conjunto nomeado de módulos, conferido contra os manifestos na inicialização; um clique contrata o conjunto | **Decko melhor no que já existe.** Falta a metade pesada: o Odoo acopla dado-semente ao módulo, e isso depende da lacuna 4.3. ADR 0005 |
 | **Ativação de módulo por cliente** | implícita no registry: módulo não instalado não existe naquele banco | `tenant_module` + verificação aplicada pelo host na montagem do router; porta invertida para o host não importar módulo | **Divergência obrigatória.** Banco único exige mecanismo próprio. ADR 0004. Ganho sobre o Odoo: a proteção vem da montagem, então um módulo não consegue ficar aberto por omissão |
 | **Diretrizes para quem mantém** | `skills/`, uma seção por regra, com o porquê | `CLAUDE.md` + `docs/` | **Equivalente.** O Odoo é mais granular: regra por seção, com exceções explícitas |
 
@@ -108,7 +109,28 @@ campo por PR. O terceiro é honesto e barato enquanto o projeto tiver um desenvo
 
 **Precisa de ADR** antes da Fase 5.
 
-### 4.3 Identidade estável para dados de módulo
+### 4.3 Identidade estável para dados de módulo — **virou bloqueio em 21/10/2026**
+
+Deixou de ser dívida distante: é o que sustenta o "um clique e o ambiente fica pronto".
+
+Auditoria do mecanismo no Odoo 20 (`addons/pos_restaurant`):
+
+- A vertical é **fina**. `pos_restaurant` declara `'depends': ['point_of_sale']` — uma única
+  dependência. O que o módulo traz de próprio são dois ou três modelos (salão, comanda) e, acima
+  de tudo, **dado-semente**: `data/scenarios/restaurant_preset.xml`, categorias de bar e de
+  restaurante, plantas de salão.
+- Cada registro-semente tem **identidade externa estável**: `<record id="pos_takeout_preset">`
+  resolve por `ir.model.data` para uma linha concreta. É isso que torna a carga repetível.
+- Os blocos vêm com `noupdate="1"`: atualizar o módulo **não** sobrescreve o que o cliente já
+  ajustou. Semente é ponto de partida, não configuração imposta para sempre.
+
+A consequência para o Decko é direta: sem equivalente de `ir.model.data`, "ativar o perfil
+supermercado" não tem como ser idempotente (reativar duplica), nem reversível (desativar não sabe
+o que remover), nem seguro em atualização (sobrescreveria ajuste do cliente).
+
+O caminho continua o mesmo descrito abaixo, e agora tem prazo.
+
+
 
 Não há equivalente de `ir.model.data`. Hoje os dados-semente (papéis, permissões) vêm do bootstrap
 e das migrations. Consequências: desinstalar um módulo não tem como remover exatamente os dados que
