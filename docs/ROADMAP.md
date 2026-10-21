@@ -31,6 +31,8 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       administrador montado a partir das permissões declaradas nos manifestos
 - [x] `apps/web`: React 19 + Vite + Tailwind v4 consumindo os tokens, com tela de login,
       modo claro/escuro por estação e sessão restaurada ao recarregar
+- [x] Renovação de token em voo único: duas chamadas simultâneas levavam o mesmo refresh
+      token rotativo, e a que perdia a corrida derrubava a sessão válida
 - [ ] Escrita na trilha de auditoria nos fluxos de autenticação (o bootstrap já registra)
 - [ ] Troca de empresa para quem opera em mais de uma
 
@@ -74,6 +76,8 @@ Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md
       coordenada da propriedade pelo aparelho
 - [x] Conferência de CPF/CNPJ pelo dígito verificador, incluindo o CNPJ alfanumérico, na
       tela e no servidor (`decko.documents`)
+- [x] Identificação da empresa aplicadora (registro no MAPA, CREA, CDA, inscrições e
+      rodapé) em tela, preenchendo o cabeçalho do documento — antes saía em branco
 - [ ] Consolidação mensal
 
 **Demonstrável:** Nathan emite um Planejamento Operacional completo pelo celular, em campo, e o PDF

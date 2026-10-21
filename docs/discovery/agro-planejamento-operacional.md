@@ -56,8 +56,9 @@ Essa dupla função é o que diferencia o Decko de "um formulário digital".
 |---|---|---|
 | Nº Registro MAPA | `tenant.registro_mapa` | |
 | CREA / CDA | `tenant.crea`, `tenant.cda` | |
-| CNPJ / Insc. Estadual / Insc. Municipal | `tenant.cnpj`, `.inscricao_estadual`, `.inscricao_municipal` | |
-| Logo + rodapé (endereço/telefone/email) | `tenant.branding` | ver questão aberta Q2 |
+| CNPJ / Insc. Estadual / Insc. Municipal | `tenant.cnpj`, `.inscricao_estadual`, `.inscricao_municipal` | CNPJ conferido na entrada — ver "Formato do CPF/CNPJ" |
+| Rodapé (endereço/telefone/email) | `tenant.rodape` | linha única, como sai no papel |
+| Logo | — | ver questão aberta Q2: define se o branding é por empresa ou por modelo de documento |
 | PLANEJAMENTO OPERACIONAL Nº | `operational_plan.numero` | sequencial **por tenant** |
 
 ### 4.2 Contratante e área

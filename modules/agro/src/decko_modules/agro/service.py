@@ -124,7 +124,15 @@ async def build_document(session: AsyncSession, plan: OperationalPlan) -> PlanDo
     return PlanDocument(
         numero=plan.numero,
         empresa_nome=tenant.name if tenant else "",
-        empresa_cnpj=tenant.cnpj or "" if tenant else "",
+        # O cabeçalho do formulário identifica a empresa aplicadora: registro no MAPA,
+        # conselho e inscrições. Antes nada disto era preenchido e o bloco saía em branco.
+        empresa_cnpj=format_cpf_cnpj(tenant.cnpj) if tenant and tenant.cnpj else "",
+        registro_mapa=tenant.registro_mapa or "" if tenant else "",
+        crea=tenant.crea or "" if tenant else "",
+        cda=tenant.cda or "" if tenant else "",
+        inscricao_estadual=tenant.inscricao_estadual or "" if tenant else "",
+        inscricao_municipal=tenant.inscricao_municipal or "" if tenant else "",
+        rodape=tenant.rodape or "" if tenant else "",
         contratante=client.nome if client else "",
         contratante_documento=format_cpf_cnpj(client.cpf_cnpj) if client else "",
         propriedade=prop.nome if prop else "",

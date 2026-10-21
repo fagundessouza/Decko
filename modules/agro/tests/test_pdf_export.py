@@ -70,6 +70,15 @@ async def scenario() -> AsyncIterator[Scenario]:
         )
         tenant_id = tenant.id
 
+        # Identificação da empresa aplicadora: é o bloco do cabeçalho do formulário.
+        tenant.cnpj = "12ABC34501DE35"
+        tenant.registro_mapa = "GO-00123"
+        tenant.crea = "CREA-GO 56789"
+        tenant.cda = "CDA 4321"
+        tenant.inscricao_estadual = "10.987.654-3"
+        tenant.inscricao_municipal = "987654"
+        tenant.rodape = "Rua das Acacias, 100 - Jatai/GO"
+
         contratante = Client(
             tenant_id=tenant_id, nome="Fazenda Santa Clara", cpf_cnpj="12345678000195"
         )
@@ -203,6 +212,24 @@ async def test_document_identifies_the_operation(scenario: Scenario) -> None:
     # Guardado sem máscara, impresso com ela: o documento é conferido a olho contra o
     # papel do contratante.
     assert "12.345.678/0001-95" in text
+
+
+async def test_the_company_header_block_is_printed(scenario: Scenario) -> None:
+    """O formulário exige a empresa aplicadora identificada no alto da página.
+
+    Saía em branco: os campos não existiam no modelo e a permissão que os editaria não
+    tinha rota. Um documento com o cabeçalho vazio não substitui o talão.
+    """
+    text = await _pdf_text(scenario)
+
+    assert "GO-00123" in text
+    assert "CREA-GO 56789" in text
+    assert "CDA 4321" in text
+    assert "10.987.654-3" in text
+    assert "987654" in text
+    assert "Rua das Acacias" in text
+    # Guardado sem máscara, impresso com ela — inclusive no formato alfanumérico.
+    assert "12.ABC.345/01DE-35" in text
 
 
 async def test_coordinates_are_printed_in_degrees_minutes_seconds(

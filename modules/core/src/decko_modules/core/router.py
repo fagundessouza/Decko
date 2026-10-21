@@ -5,12 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
 from decko_modules.core import service
-from decko_modules.core.deps import CurrentPrincipal
+from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.core.models import Tenant, User
 from decko_modules.core.schemas import (
     LoginRequest,
     RefreshRequest,
     SessionOut,
+    TenantProfileIn,
+    TenantProfileOut,
     TokenResponse,
 )
 
@@ -76,3 +78,43 @@ async def me(principal: CurrentPrincipal, session: SessionDep) -> SessionOut:
         tenant=tenant,  # type: ignore[arg-type]
         permissions=sorted(principal.permissions),
     )
+
+
+async def _current_tenant(session: AsyncSession, principal: CurrentPrincipal) -> Tenant:
+    tenant = await session.get(Tenant, principal.tenant_id)
+    if tenant is None:
+        raise _INVALID_CREDENTIALS
+    return tenant
+
+
+@router.get("/tenant", response_model=TenantProfileOut)
+async def read_tenant(
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.tenant.read"))],
+) -> Tenant:
+    """A empresa de quem está autenticado. Não existe rota para ler outra."""
+    return await _current_tenant(session, principal)
+
+
+@router.put("/tenant", response_model=TenantProfileOut)
+async def update_tenant(
+    payload: TenantProfileIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.tenant.update"))],
+) -> Tenant:
+    """Edita a identificação da empresa.
+
+    São os dados que o Planejamento Operacional imprime no cabeçalho — registro no MAPA,
+    CREA, CDA e inscrições. Sem eles o documento sai com o bloco em branco, e era o que
+    acontecia: os campos não existiam e a permissão declarada no manifesto não tinha rota.
+
+    O tenant alterado é sempre o de quem chamou, tirado do token. Aceitá-lo no corpo
+    deixaria uma empresa editar outra com um identificador adivinhado.
+    """
+    tenant = await _current_tenant(session, principal)
+    for field, value in payload.model_dump().items():
+        setattr(tenant, field, value)
+    await session.flush()
+    return tenant

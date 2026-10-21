@@ -74,3 +74,16 @@ export function documentProblem(raw: string): string | null {
   }
   return isValidCnpj(document) ? null : "CNPJ inválido: confira os números.";
 }
+
+/** Põe a máscara de volta para leitura. Espelha `format_cpf_cnpj` do servidor. */
+export function formatCpfCnpj(document: string): string {
+  const limpo = stripMask(document);
+  if (limpo.length === CPF_LENGTH) {
+    return `${limpo.slice(0, 3)}.${limpo.slice(3, 6)}.${limpo.slice(6, 9)}-${limpo.slice(9)}`;
+  }
+  if (limpo.length === CNPJ_LENGTH) {
+    return `${limpo.slice(0, 2)}.${limpo.slice(2, 5)}.${limpo.slice(5, 8)}/${limpo.slice(8, 12)}-${limpo.slice(12)}`;
+  }
+  // Fora do padrão sai como está: inventar máscara esconderia o dado errado.
+  return document;
+}

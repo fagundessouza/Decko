@@ -24,6 +24,19 @@ export interface TenantSummary {
   slug: string;
 }
 
+export interface TenantProfile {
+  id: string;
+  name: string;
+  slug: string;
+  cnpj: string | null;
+  registro_mapa: string | null;
+  crea: string | null;
+  cda: string | null;
+  inscricao_estadual: string | null;
+  inscricao_municipal: string | null;
+  rodape: string | null;
+}
+
 export interface SessionInfo {
   user: UserSummary;
   tenant: TenantSummary;
@@ -85,8 +98,7 @@ export async function login(credentials: Credentials): Promise<SessionInfo> {
   return fetchSession();
 }
 
-/** Troca o refresh token por um novo par. Devolve false quando a sessão não vale mais. */
-async function refresh(): Promise<boolean> {
+async function requestNewTokens(): Promise<boolean> {
   const token = session.getRefreshToken();
   if (!token) return false;
 
@@ -103,6 +115,28 @@ async function refresh(): Promise<boolean> {
 
   storeTokens(await response.json());
   return true;
+}
+
+/* Renovação em voo único: quem chegar enquanto uma está em curso espera a mesma. */
+let renovando: Promise<boolean> | null = null;
+
+/** Troca o refresh token por um novo par. Devolve false quando a sessão não vale mais.
+ *
+ * O refresh token é rotativo: usá-lo invalida o anterior. Duas renovações simultâneas
+ * levavam o mesmo token, e a segunda recebia 401 por ele já ter sido consumido — caindo
+ * no `session.clear()` abaixo, que apagava o par recém-emitido e derrubava uma sessão
+ * perfeitamente válida.
+ *
+ * Não é hipótese: uma tela que carrega várias listas em paralelo faz todas expirarem
+ * juntas e renovarem juntas. No campo, isso é o operador sendo deslogado no meio da
+ * aplicação. Compartilhar a chamada em curso faz as concorrentes esperarem o mesmo
+ * resultado, e só um token é consumido.
+ */
+function refresh(): Promise<boolean> {
+  renovando ??= requestNewTokens().finally(() => {
+    renovando = null;
+  });
+  return renovando;
 }
 
 /** Faz a chamada e, em caso de token expirado, renova uma vez e repete. */
@@ -186,3 +220,11 @@ export async function logout(): Promise<void> {
   }
   session.clear();
 }
+
+/** Identificação da empresa: é o que o Planejamento Operacional imprime no cabeçalho. */
+export const tenant = {
+  read: (): Promise<TenantProfile> => authedJson("/core/tenant"),
+
+  save: (body: Omit<TenantProfile, "id" | "slug">): Promise<TenantProfile> =>
+    authedJson("/core/tenant", { method: "PUT", body }),
+};

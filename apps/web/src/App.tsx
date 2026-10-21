@@ -5,6 +5,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { logout, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
+import { CompanyPage } from "./pages/CompanyPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewPlanWizard } from "./pages/NewPlanWizard";
 import { PlanDetailPage } from "./pages/PlanDetailPage";
@@ -16,6 +17,7 @@ import { PlansPage } from "./pages/PlansPage";
 type View =
   | { name: "home" }
   | { name: "plans" }
+  | { name: "company" }
   | { name: "newPlan" }
   | { name: "plan"; plan: Plan };
 
@@ -45,6 +47,7 @@ export default function App() {
   // O menu reflete o que a empresa tem instalado: sem permissão do módulo agro, a
   // pulverização simplesmente não aparece.
   const hasAgro = info.permissions.some((permission) => permission.startsWith("agro."));
+  const canEditCompany = info.permissions.includes("core.tenant.update");
 
   return (
     <div className="min-h-dvh bg-bg">
@@ -81,6 +84,19 @@ export default function App() {
             </p>
           )}
 
+          {canEditCompany && (
+            <button
+              type="button"
+              onClick={() => setView({ name: "company" })}
+              className="mt-4 w-full rounded-dk border border-line bg-surface px-6 py-5 text-left hover:border-brand-link"
+            >
+              <p className="text-xl font-semibold text-ink">Dados da empresa</p>
+              <p className="mt-1 text-base text-ink-muted">
+                Registro no MAPA, CREA e inscrições — o cabeçalho dos documentos.
+              </p>
+            </button>
+          )}
+
           <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
             <ThemeToggle />
             <div className="w-full sm:w-auto">
@@ -113,6 +129,8 @@ export default function App() {
           onCreated={(plan) => setView({ name: "plan", plan })}
         />
       )}
+
+      {view.name === "company" && <CompanyPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "plan" && (
         <PlanDetailPage plan={view.plan} onBack={() => setView({ name: "plans" })} />
