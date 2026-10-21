@@ -4,11 +4,20 @@ import type { InputHTMLAttributes } from "react";
 interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   label: string;
   hint?: string;
+  /** Pinta a dica como erro e marca o campo. A dica vira a explicação do problema. */
+  invalid?: boolean;
   /** Acrescenta o botão de mostrar/ocultar. Ver nota abaixo. */
   revealable?: boolean;
 }
 
-export function TextField({ label, hint, revealable = false, type, ...rest }: Props) {
+export function TextField({
+  label,
+  hint,
+  invalid = false,
+  revealable = false,
+  type,
+  ...rest
+}: Props) {
   const id = useId();
   const hintId = `${id}-hint`;
   const [revealed, setRevealed] = useState(false);
@@ -27,10 +36,12 @@ export function TextField({ label, hint, revealable = false, type, ...rest }: Pr
           id={id}
           type={inputType}
           aria-describedby={hint ? hintId : undefined}
+          aria-invalid={invalid || undefined}
           className={
-            "min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg " +
+            "min-h-touch w-full rounded-dk border bg-surface px-4 text-lg " +
             "text-ink placeholder:text-ink-muted/70 " +
             "focus:border-brand-link focus:outline-none " +
+            (invalid ? "border-danger " : "border-line ") +
             (revealable ? "pr-28" : "")
           }
         />
@@ -49,8 +60,10 @@ export function TextField({ label, hint, revealable = false, type, ...rest }: Pr
         )}
       </div>
 
+      {/* Não é só cor: o campo recebe aria-invalid e a explicação vem escrita, porque
+          cor sozinha não informa. Ver docs/BRAND.md. */}
       {hint && (
-        <p id={hintId} className="text-sm text-ink-muted">
+        <p id={hintId} className={invalid ? "text-base text-danger" : "text-sm text-ink-muted"}>
           {hint}
         </p>
       )}

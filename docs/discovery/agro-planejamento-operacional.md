@@ -56,8 +56,9 @@ Essa dupla função é o que diferencia o Decko de "um formulário digital".
 |---|---|---|
 | Nº Registro MAPA | `tenant.registro_mapa` | |
 | CREA / CDA | `tenant.crea`, `tenant.cda` | |
-| CNPJ / Insc. Estadual / Insc. Municipal | `tenant.cnpj`, `.inscricao_estadual`, `.inscricao_municipal` | |
-| Logo + rodapé (endereço/telefone/email) | `tenant.branding` | ver questão aberta Q2 |
+| CNPJ / Insc. Estadual / Insc. Municipal | `tenant.cnpj`, `.inscricao_estadual`, `.inscricao_municipal` | CNPJ conferido na entrada — ver "Formato do CPF/CNPJ" |
+| Rodapé (endereço/telefone/email) | `tenant.rodape` | linha única, como sai no papel |
+| Logo | — | ver questão aberta Q2: define se o branding é por empresa ou por modelo de documento |
 | PLANEJAMENTO OPERACIONAL Nº | `operational_plan.numero` | sequencial **por tenant** |
 
 ### 4.2 Contratante e área
@@ -65,10 +66,30 @@ Essa dupla função é o que diferencia o Decko de "um formulário digital".
 | Campo | Entidade |
 |---|---|
 | Contratante | `client.nome` |
-| CNPJ/CPF | `client.cpf_cnpj` |
+| CNPJ/CPF | `client.cpf_cnpj` — ver "Formato do CPF/CNPJ" abaixo |
 | Propriedade | `property.nome` |
 | Município / UF | `property.municipio`, `.uf` |
 | Coordenadas da Área (º S / º W) | `property.lat`, `.lon` (decimal) — renderizado em DMS no PDF |
+
+#### Formato do CPF/CNPJ
+
+Guardado sem máscara e conferido pelo dígito verificador antes de entrar. O mesmo documento
+digitado com e sem pontuação é o mesmo contratante, o que faz a unicidade por documento valer.
+Na emissão, a máscara volta: o papel é conferido a olho contra o documento do contratante.
+
+- **CPF:** 11 dígitos, módulo 11.
+- **CNPJ:** 14 posições. Desde julho de 2026 as doze primeiras aceitam letras maiúsculas além
+  de números; os dois dígitos verificadores continuam numéricos. O módulo 11 permanece, com
+  cada caractere convertido pelo valor ASCII menos 48 — os algarismos mantêm o próprio valor
+  e `A` vale 17.
+- **Fonte:** ["CNPJ alfanumérico — Perguntas e Respostas", Receita Federal][rfb-cnpj],
+  pergunta 14. O exemplo trabalhado de lá (`12.ABC.345/01DE-35`) está fixado em
+  `apps/api/tests/test_documents.py`, com as somas intermediárias conferidas uma a uma.
+- **O que a fonte oficial não diz:** o caso em que o resto é 0 ou 1. O dígito é 0, porque 11 e
+  10 não cabem em uma posição — mesmo tratamento do CNPJ numérico, em uso há décadas.
+- O formato numérico continua válido: nenhuma empresa precisou trocar de número.
+
+[rfb-cnpj]: https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf
 
 ### 4.3 Guia de Aplicação
 
@@ -165,7 +186,32 @@ Fora (fases seguintes):
 **Critério de aceite do MVP:** Nathan consegue emitir um Planejamento Operacional completo em
 campo, pelo celular, sem papel, e o PDF resultante é aceito no lugar do talão atual.
 
+### 4.8 Consolidação mensal
+
+Fecha a dor nº 6: hoje o mês inteiro é retranscrito do talão para uma planilha. O fechamento
+é montado a partir do que já está registrado — uma linha por planejamento, como uma via do
+talão — e sai em CSV com ponto e vírgula, vírgula decimal e BOM, que é o que o Excel em
+português abre sem corromper acentos nem transformar o CNPJ em notação científica.
+
+O resumo traz quantidade, área total, totais por produto e **quantos planejamentos tiveram
+leitura fora dos limites planejados** — o número que a empresa precisa ver antes de enviar o
+mês, não depois de ser autuada.
+
+Nada é descartado em silêncio: planejamento sem data de aplicação não pertence a mês nenhum
+e é contado à parte, e rascunho aparece na lista com o status à mostra.
+
+**Isto não é o envio ao MAPA.** Qual sistema recebe e em que formato é a questão Q1, ainda
+sem resposta; deduzir um layout "do MAPA" seria inventar regra em domínio regulado. A tela
+diz isso ao operador, para ninguém supor que baixar a planilha cumpriu a obrigação.
+
 ## 6. Questões abertas — perguntar ao Nathan
+
+Roteiro para a conversa, com as perguntas reescritas na língua de quem opera e ordenadas por
+quanto destravam: `perguntas-para-o-nathan.md`. O roteiro é descartável; esta lista não.
+
+Não há Q10: ela tratava do formato do CPF/CNPJ e foi respondida pela Receita Federal — ver
+"Formato do CPF/CNPJ" na seção 4.2. O número fica vago porque está citado em comentários de
+código e em mensagens de commit.
 
 - **Q1.** Este formulário é o que sobe para o MAPA, ou é documento interno/para o cliente? Qual é
   exatamente o sistema do MAPA usado no envio mensal, e qual formato ele aceita?
@@ -179,3 +225,19 @@ campo, pelo celular, sem papel, e o PDF resultante é aceito no lugar do talão 
 - **Q7.** Por quanto tempo as vias físicas precisam ser guardadas? (define retenção e backup)
 - **Q8.** Existe limite legal de vento/temperatura por produto, ou o parâmetro é definido caso a
   caso pelo agrônomo? (define se a regra de alerta é por produto ou por planejamento)
+- **Q9.** `total_produto` é digitado a partir do receituário ou calculado? Se calculado, a
+  multiplicação usa a área planejada ou a área efetivamente aplicada? Hoje o campo é digitado,
+  porque calcular com a área errada produziria um número errado num documento com efeito legal.
+- **Q12.** De que número a emissão deve começar? O talão já vem numerado e o sistema numera por
+  empresa a partir de 1 — se ele está no nº 847, o primeiro documento emitido repete um número que
+  já existe no arquivo dele. Se papel e sistema conviverem por um tempo, como evitar duplicata?
+- **Q13.** O talão tem quatro vias com destinos diferentes (empresa, cliente, piloto e a fixa).
+  Com o PDF, quem recebe o quê, e o cliente ainda precisa de papel assinado na hora? O critério de
+  aceite diz que o PDF substitui o talão, mas o talão não é um documento, são quatro destinos.
+- **Q14.** O horímetro é um contador contínuo por aeronave, ou zera em manutenção? A dor nº 5
+  propõe puxar o horímetro inicial do voo anterior da mesma aeronave; se ele zera, a automação
+  precisa saber disso ou sugere número errado.
+- **Q11.** Como é a planilha que hoje recebe a consolidação? Com o arquivo em mãos, dá para
+  fazer o CSV sair nas mesmas colunas e na mesma ordem, em vez de aproximá-las a partir dos
+  campos do formulário. Relacionado à Q1: se o envio for por upload de arquivo, é o layout
+  dele que manda.

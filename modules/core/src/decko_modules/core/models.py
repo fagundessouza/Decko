@@ -35,8 +35,24 @@ class Tenant(TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    # Guardado sem máscara e conferido pelo dígito verificador na entrada — ver
+    # decko.documents. Catorze posições servem tanto ao CNPJ numérico quanto ao
+    # alfanumérico, que manteve o tamanho.
     cnpj: Mapped[str | None] = mapped_column(String(14), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # Identificação da empresa aplicadora no cabeçalho do Planejamento Operacional.
+    # São registros profissionais e fiscais que o formulário exige impressos; sem eles o
+    # documento sai com o bloco em branco. Ficam no núcleo, e não no módulo agro, porque
+    # identificam a empresa — o agro apenas os imprime.
+    registro_mapa: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    crea: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    cda: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    inscricao_estadual: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    inscricao_municipal: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # Endereço, telefone e e-mail como saem no rodapé do talão. Texto livre porque é
+    # exatamente isso no papel, numa única linha — ver questão Q2 do discovery.
+    rodape: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     users: Mapped[list["User"]] = relationship(back_populates="tenant")
 

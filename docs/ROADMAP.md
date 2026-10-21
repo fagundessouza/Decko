@@ -31,6 +31,8 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       administrador montado a partir das permissões declaradas nos manifestos
 - [x] `apps/web`: React 19 + Vite + Tailwind v4 consumindo os tokens, com tela de login,
       modo claro/escuro por estação e sessão restaurada ao recarregar
+- [x] Renovação de token em voo único: duas chamadas simultâneas levavam o mesmo refresh
+      token rotativo, e a que perdia a corrida derrubava a sessão válida
 - [ ] Escrita na trilha de auditoria nos fluxos de autenticação (o bootstrap já registra)
 - [ ] Troca de empresa para quem opera em mais de uma
 
@@ -52,18 +54,46 @@ Pendências conhecidas, registradas para não virarem dívida esquecida:
 
 Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md`.
 
-- [ ] Cadastros: cliente, propriedade, aeronave, produto
-- [ ] Modelo do Planejamento Operacional e das leituras meteorológicas
-- [ ] Captura de GPS com conversão decimal → grau/minuto/segundo
-- [ ] Integração com API meteorológica, com cache em Redis
-- [ ] Registro probatório da leitura: origem, provedor, payload bruto, coordenada, horário
-- [ ] Alerta de violação de parâmetro (vento, temperatura, umidade)
-- [ ] Wizard mobile de preenchimento
-- [ ] Geração do PDF fiel ao talão atual
-- [ ] Consolidação mensal
+- [x] Módulo `agro` instalável, com manifesto, permissões próprias e ramificação de
+      migrações separada — primeira validação real da arquitetura modular
+- [x] Modelo completo derivado do formulário: contratante, propriedade, aeronave, produto,
+      receituário, planejamento, produtos aplicados, manutenção, leituras meteorológicas
+      e as quatro assinaturas
+- [x] Row Level Security nas dez tabelas do módulo, verificado por teste
+- [x] Cadastros pela API: contratante, propriedade, aeronave, produto e receituário
+- [x] Integração meteorológica por coordenada e horário (Open-Meteo), com escolha entre
+      conjunto histórico e recente — ver `docs/adr/0003-provedor-de-clima.md`
+- [x] Registro probatório da leitura: origem, provedor, payload bruto, coordenada, horário
+- [x] Alerta de violação de parâmetro, devolvendo **qual** limite foi rompido
+- [x] Captura de GPS pelo aparelho e conversão decimal → grau/minuto/segundo no documento
+- [x] Tabela de produtos e vínculo do receituário pela tela, com a cópia de formulação e
+      classe toxicológica feita no lançamento
+- [ ] Cache das consultas meteorológicas (só necessário com volume; ver ADR 0003)
+- [x] Wizard mobile de preenchimento
+- [x] Geração do PDF fiel ao talão atual
+- [ ] Assinaturas pela tela — depende da resposta de Q5 (física ou digital)
+- [x] Cadastro de contratante e propriedade pela tela, dentro do wizard, com captura da
+      coordenada da propriedade pelo aparelho
+- [x] Conferência de CPF/CNPJ pelo dígito verificador, incluindo o CNPJ alfanumérico, na
+      tela e no servidor (`decko.documents`)
+- [x] Identificação da empresa aplicadora (registro no MAPA, CREA, CDA, inscrições e
+      rodapé) em tela, preenchendo o cabeçalho do documento — antes saía em branco
+- [x] Consolidação mensal: fechamento do período com área, produtos e violações, e
+      exportador CSV para a planilha. **Não** é o arquivo do portal do MAPA — formato e
+      sistema de envio continuam sendo a questão Q1
 
 **Demonstrável:** Nathan emite um Planejamento Operacional completo pelo celular, em campo, e o PDF
 substitui o talão de papel.
+
+Estado atual: o caminho inteiro foi percorrido no navegador, em viewport de celular —
+planejamento criado, produto cadastrado e lançado na tabela, receituário cadastrado e
+vinculado, e o PDF saiu com tudo isso impresso. O caminho começa numa empresa vazia: o
+contratante e a propriedade são cadastrados dentro do próprio wizard, onde antes ele
+parava em "Nenhum contratante cadastrado ainda".
+
+O CPF/CNPJ é conferido pelo dígito verificador na entrada, nos dois formatos, com a regra
+do CNPJ alfanumérico lida na fonte oficial da Receita — ver "Formato do CPF/CNPJ" no
+discovery.
 
 ## Fase 3 — Validação em campo
 
