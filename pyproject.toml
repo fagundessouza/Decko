@@ -34,6 +34,9 @@ dev = [
 [tool.ruff]
 target-version = "py313"
 line-length = 100
+# A auditoria do Odoo cita código-fonte de terceiro. Formatá-la faria a citação deixar de
+# ser fiel ao que o autor escreveu, e o documento é declarado congelado por si mesmo.
+extend-exclude = ["docs/benchmark/"]
 src = ["apps/api/src", "modules/core/src"]
 
 [tool.ruff.lint]
