@@ -85,8 +85,12 @@ export interface WeatherCapture {
 export const agro = {
   listClients: (): Promise<AgroClient[]> => authedJson("/agro/clients"),
 
-  createClient: (body: { nome: string; cpf_cnpj: string }): Promise<AgroClient> =>
-    authedJson("/agro/clients", { method: "POST", body }),
+  createClient: (body: {
+    nome: string;
+    cpf_cnpj: string;
+    telefone?: string | null;
+    email?: string | null;
+  }): Promise<AgroClient> => authedJson("/agro/clients", { method: "POST", body }),
 
   listProperties: (): Promise<AgroProperty[]> => authedJson("/agro/properties"),
 

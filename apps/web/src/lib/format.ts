@@ -36,3 +36,13 @@ export function dateBr(iso: string | null): string {
   const [ano, mes, dia] = iso.split("-");
   return `${dia}/${mes}/${ano}`;
 }
+
+/** Tira a máscara do CPF/CNPJ, preservando as letras do CNPJ alfanumérico.
+ *
+ * Desde julho de 2026 as doze primeiras posições do CNPJ aceitam letras; só os dois
+ * dígitos verificadores seguem numéricos. Descartar letras aqui corromperia o documento
+ * de empresa aberta de lá para cá.
+ */
+export function onlyDocumentChars(value: string): string {
+  return value.toUpperCase().replace(/[^0-9A-Z]/g, "");
+}

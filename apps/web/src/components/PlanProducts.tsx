@@ -1,9 +1,10 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { agro } from "../lib/agro";
 import type { PlanProduct, Prescription, Product } from "../lib/agro";
 import { dateBr, num, todayLocal } from "../lib/format";
 import { Button } from "./Button";
+import { Select } from "./Select";
 import { TextField } from "./TextField";
 
 interface Props {
@@ -140,7 +141,7 @@ export function PlanProducts({ planId, prescriptionId }: Props) {
         </p>
 
         <div className="mt-4 flex flex-col gap-4">
-          <Picker
+          <Select
             label="Receituário vinculado"
             value={linked ?? ""}
             onChange={(value) =>
@@ -216,7 +217,7 @@ function AddProductLine({ products, busy, onRegister, onAdd }: AddProductLinePro
 
   return (
     <div className="mt-5 flex flex-col gap-4 border-t border-line pt-5">
-      <Picker
+      <Select
         label="Produto"
         value={productId}
         onChange={setProductId}
@@ -414,44 +415,6 @@ function NewPrescription({ busy, onCreate }: NewPrescriptionProps) {
           Cancelar
         </Button>
       </div>
-    </div>
-  );
-}
-
-interface PickerProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  placeholder: string;
-  disabled?: boolean;
-}
-
-/* Lista suspensa nativa, ao contrário dos botões grandes usados nas escolhas de duas
- * opções: o cadastro de produtos cresce sem limite, e o seletor do próprio sistema
- * operacional é o que já funciona bem com luva e tela pequena. */
-function Picker({ label, value, onChange, options, placeholder, disabled }: PickerProps) {
-  const id = useId();
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-base font-medium text-ink">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink focus:border-brand-link focus:outline-none"
-      >
-        <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }

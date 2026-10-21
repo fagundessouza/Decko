@@ -179,6 +179,12 @@ campo, pelo celular, sem papel, e o PDF resultante é aceito no lugar do talão 
 - **Q7.** Por quanto tempo as vias físicas precisam ser guardadas? (define retenção e backup)
 - **Q8.** Existe limite legal de vento/temperatura por produto, ou o parâmetro é definido caso a
   caso pelo agrônomo? (define se a regra de alerta é por produto ou por planejamento)
+- **Q10.** O cadastro aceita CPF (11 posições) e CNPJ (14 posições, as doze primeiras
+  alfanuméricas desde julho de 2026, pelos dois dígitos verificadores numéricos — Instrução
+  Normativa RFB nº 2.229). Falta conferir o dígito verificador: no CNPJ alfanumérico o cálculo
+  usa o valor ASCII do caractere menos 48, e a fonte oficial precisa ser lida antes de virar
+  código que recusa cadastro. Enquanto isso, um documento digitado errado entra no sistema e
+  sai impresso no documento legal.
 - **Q9.** `total_produto` é digitado a partir do receituário ou calculado? Se calculado, a
   multiplicação usa a área planejada ou a área efetivamente aplicada? Hoje o campo é digitado,
   porque calcular com a área errada produziria um número errado num documento com efeito legal.

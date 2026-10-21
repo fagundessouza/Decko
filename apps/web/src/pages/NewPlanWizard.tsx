@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { NewClientForm, NewPropertyForm } from "../components/NewClientForm";
+import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { Wizard } from "../components/Wizard";
 import { agro } from "../lib/agro";
@@ -36,6 +38,7 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
 
   const [clientId, setClientId] = useState("");
   const [propertyId, setPropertyId] = useState("");
+  const [registering, setRegistering] = useState<"client" | "property" | null>(null);
   const [dataAplicacao, setDataAplicacao] = useState(todayLocal);
   const [cultura, setCultura] = useState("");
   const [culturaOutras, setCulturaOutras] = useState("");
@@ -114,6 +117,23 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
               options={clients.map((c) => ({ value: c.id, label: c.nome }))}
               empty="Nenhum contratante cadastrado ainda."
             />
+
+            {registering === "client" ? (
+              <NewClientForm
+                onCancel={() => setRegistering(null)}
+                onCreated={(created) => {
+                  setClients((current) => [...current, created]);
+                  setClientId(created.id);
+                  setPropertyId("");
+                  setRegistering(null);
+                }}
+              />
+            ) : (
+              <Link onClick={() => setRegistering("client")}>
+                Cadastrar um contratante
+              </Link>
+            )}
+
             <Select
               label="Propriedade"
               value={propertyId}
@@ -128,6 +148,26 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
                   : "Escolha o contratante primeiro."
               }
             />
+
+            {/* A propriedade pertence ao contratante, então cadastrá-la antes de escolher
+                um deixaria o vínculo no palpite. */}
+            {clientId &&
+              (registering === "property" ? (
+                <NewPropertyForm
+                  clientId={clientId}
+                  onCancel={() => setRegistering(null)}
+                  onCreated={(created) => {
+                    setProperties((current) => [...current, created]);
+                    setPropertyId(created.id);
+                    setRegistering(null);
+                  }}
+                />
+              ) : (
+                <Link onClick={() => setRegistering("property")}>
+                  Cadastrar uma propriedade
+                </Link>
+              ))}
+
             <TextField
               label="Data da aplicação"
               type="date"
@@ -210,36 +250,15 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
   );
 }
 
-interface SelectProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  empty: string;
-}
-
-function Select({ label, value, onChange, options, empty }: SelectProps) {
+/* Ação secundária em forma de link: cadastrar é o desvio, escolher é o caminho. */
+function Link({ onClick, children }: { onClick: () => void; children: string }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-base font-medium text-ink">{label}</label>
-      {options.length === 0 ? (
-        <p className="rounded-dk border border-line bg-surface px-4 py-3 text-base text-ink-muted">
-          {empty}
-        </p>
-      ) : (
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink"
-        >
-          <option value="">Selecione…</option>
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="min-h-touch self-start rounded-dk px-1 text-base font-medium text-brand-link"
+    >
+      {children}
+    </button>
   );
 }

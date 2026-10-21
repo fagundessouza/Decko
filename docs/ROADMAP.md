@@ -70,8 +70,8 @@ Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md
 - [x] Wizard mobile de preenchimento
 - [x] Geração do PDF fiel ao talão atual
 - [ ] Assinaturas pela tela — depende da resposta de Q5 (física ou digital)
-- [ ] Tela de cadastro de contratante e propriedade: hoje existem só na API, e o wizard
-      fica sem saída numa empresa recém-criada
+- [x] Cadastro de contratante e propriedade pela tela, dentro do wizard, com captura da
+      coordenada da propriedade pelo aparelho
 - [ ] Consolidação mensal
 
 **Demonstrável:** Nathan emite um Planejamento Operacional completo pelo celular, em campo, e o PDF
@@ -79,9 +79,13 @@ substitui o talão de papel.
 
 Estado atual: o caminho inteiro foi percorrido no navegador, em viewport de celular —
 planejamento criado, produto cadastrado e lançado na tabela, receituário cadastrado e
-vinculado, e o PDF saiu com tudo isso impresso. Falta a entrada dos cadastros de
-contratante e propriedade pela tela: numa empresa recém-criada o wizard mostra "Nenhum
-contratante cadastrado ainda" e não oferece como cadastrar.
+vinculado, e o PDF saiu com tudo isso impresso. O caminho começa numa empresa vazia: o
+contratante e a propriedade são cadastrados dentro do próprio wizard, onde antes ele
+parava em "Nenhum contratante cadastrado ainda".
+
+Pendência conhecida: o CPF/CNPJ é conferido só no formato e no tamanho. A conferência do
+dígito verificador depende de Q10 — no CNPJ alfanumérico o cálculo mudou, e recusar
+cadastro com regra adivinhada é pior do que aceitar o que vem digitado.
 
 ## Fase 3 — Validação em campo
 

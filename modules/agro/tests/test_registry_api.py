@@ -380,6 +380,46 @@ async def test_what_was_registered_reaches_the_printed_document(scenario: Scenar
     assert "IV" in text
 
 
+async def test_alphanumeric_cnpj_is_accepted(scenario: Scenario) -> None:
+    """Desde julho de 2026 as doze primeiras posições do CNPJ aceitam letras.
+
+    Recusá-las rejeitaria empresa aberta de lá para cá, com CNPJ legítimo, logo na porta
+    de entrada do cadastro — ver Instrução Normativa RFB nº 2.229.
+    """
+    response = await scenario.client.post(
+        f"{BASE}/clients",
+        headers=scenario.first.auth,
+        json={"nome": "Fazenda Nova", "cpf_cnpj": "12ABC34501DE35"},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["cpf_cnpj"] == "12ABC34501DE35"
+
+
+async def test_document_with_letters_in_the_check_digits_is_refused(
+    scenario: Scenario,
+) -> None:
+    """Os dois dígitos verificadores continuam numéricos, mesmo no CNPJ alfanumérico."""
+    response = await scenario.client.post(
+        f"{BASE}/clients",
+        headers=scenario.first.auth,
+        json={"nome": "Fazenda Invalida", "cpf_cnpj": "12ABC34501DEFG"},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_document_with_the_wrong_length_is_refused(scenario: Scenario) -> None:
+    """CPF tem 11 posições e CNPJ tem 14. Nada entre os dois é documento."""
+    response = await scenario.client.post(
+        f"{BASE}/clients",
+        headers=scenario.first.auth,
+        json={"nome": "Fazenda Torta", "cpf_cnpj": "123456789012"},
+    )
+
+    assert response.status_code == 422
+
+
 async def test_registering_a_product_requires_authentication(scenario: Scenario) -> None:
     response = await scenario.client.post(
         f"{BASE}/products", json={"nome_comercial": "Sem Credencial"}
