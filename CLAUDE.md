@@ -20,6 +20,7 @@ portfólio para vagas no mercado internacional.
 | O que fazer agora e em que ordem | `docs/ROADMAP.md` |
 | Cores, tipografia, regras de UX | `docs/BRAND.md` |
 | Requisitos do módulo Agro | `docs/discovery/agro-planejamento-operacional.md` |
+| Endpoints do módulo Agro e suas permissões | `docs/agro-api.md` |
 | Decisões arquiteturais e seus motivos | `docs/adr/` |
 
 Antes de propor arquitetura, leia `docs/ARCHITECTURE.md`. Antes de criar tela, leia `docs/BRAND.md`.
