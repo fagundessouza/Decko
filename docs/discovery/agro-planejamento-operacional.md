@@ -179,3 +179,39 @@ campo, pelo celular, sem papel, e o PDF resultante é aceito no lugar do talão 
 - **Q7.** Por quanto tempo as vias físicas precisam ser guardadas? (define retenção e backup)
 - **Q8.** Existe limite legal de vento/temperatura por produto, ou o parâmetro é definido caso a
   caso pelo agrônomo? (define se a regra de alerta é por produto ou por planejamento)
+
+## 7. O que cada questão está segurando
+
+As questões acima continuam sem resposta. Enquanto isso, o código precisou andar — e em um
+caso precisou **assumir**. Esta seção registra o que está parado esperando cada resposta e,
+onde houve suposição, qual foi e como desfazê-la. Nada aqui substitui a resposta do Nathan.
+
+| Questão | O que está parado | O que o código faz hoje |
+|---|---|---|
+| **Q1** — destino e formato do envio ao MAPA | Consolidação mensal (Fase 2) e qualquer integração com o portal | Nada assumido. A consolidação não foi começada porque o formato de saída depende da resposta |
+| **Q2** — a quem pertence a logo/rodapé do talão | Logo e rodapé no PDF; se o branding é por tenant ou por modelo de documento | O PDF sai **sem** logo e sem rodapé de empresa. Campo deixado de fora em vez de preenchido por palpite — ver ADR 0004 |
+| **Q3** — volume mensal | A decisão sobre cache das consultas meteorológicas | Sem cache. Cada captura é uma consulta externa, o que o ADR 0003 aceita explicitamente no volume de um operador |
+| **Q4** — modelo do drone e formato do log de voo | Croqui automático (fora do MVP) | Nada assumido. Não há leitura de log de voo no código |
+| **Q5** — assinatura física ou digital | A permissão `agro.plan.sign`, já declarada no manifesto e sem rota | As quatro assinaturas saem como campo em branco para caneta, como no talão |
+| **Q6** — como o croqui é produzido hoje | Mesmo bloqueio da Q4 | Nada assumido |
+| **Q7** — prazo de guarda das vias físicas | Política de retenção e backup | Nada assumido. Nada é apagado, o que é seguro por omissão, não por decisão |
+| **Q8** — limite por produto ou por planejamento | A regra de alerta de violação | **Suposição em uso.** Os limites são colunas do planejamento (`param_temperatura_maxima_c`, `param_umidade_relativa_min_pct`, `param_velocidade_vento_max_kmh`) e a verificação lê `limits_of(plan)`. Ou seja: **por planejamento**, definido caso a caso |
+
+### Sobre a suposição da Q8
+
+Foi escolhida porque é o que o talão em uso faz: os parâmetros são escritos no próprio
+formulário, pelo agrônomo, para aquela aplicação. Reproduzir o papel é o comportamento
+menos arriscado enquanto não há resposta.
+
+Se a resposta for que **existe limite legal por produto**, a mudança não é cosmética:
+
+- os limites passam a ser atributo de produto, e o cadastro de produto — que ainda não
+  existe — vira pré-requisito do alerta;
+- o limite do planejamento deixa de ser a fonte da regra e passa a ser, no máximo, um
+  aperto voluntário sobre o limite legal;
+- a verificação precisa considerar **todos** os produtos da aplicação, não um conjunto
+  único de parâmetros, e dizer qual produto foi violado;
+- planejamentos já emitidos foram avaliados pela regra antiga, o que importa porque o
+  documento tem função probatória.
+
+Por isso a Q8 é a pergunta mais cara da lista, e a que deve ser feita primeiro.
