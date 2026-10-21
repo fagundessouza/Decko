@@ -206,6 +206,13 @@ diz isso ao operador, para ninguém supor que baixar a planilha cumpriu a obriga
 
 ## 6. Questões abertas — perguntar ao Nathan
 
+Roteiro para a conversa, com as perguntas reescritas na língua de quem opera e ordenadas por
+quanto destravam: `perguntas-para-o-nathan.md`. O roteiro é descartável; esta lista não.
+
+Não há Q10: ela tratava do formato do CPF/CNPJ e foi respondida pela Receita Federal — ver
+"Formato do CPF/CNPJ" na seção 4.2. O número fica vago porque está citado em comentários de
+código e em mensagens de commit.
+
 - **Q1.** Este formulário é o que sobe para o MAPA, ou é documento interno/para o cliente? Qual é
   exatamente o sistema do MAPA usado no envio mensal, e qual formato ele aceita?
 - **Q2.** A logo é AgroDrone mas o rodapé é "DroneTech Brasil — Dobrada/SP". O talão é de terceiro?
@@ -218,10 +225,19 @@ diz isso ao operador, para ninguém supor que baixar a planilha cumpriu a obriga
 - **Q7.** Por quanto tempo as vias físicas precisam ser guardadas? (define retenção e backup)
 - **Q8.** Existe limite legal de vento/temperatura por produto, ou o parâmetro é definido caso a
   caso pelo agrônomo? (define se a regra de alerta é por produto ou por planejamento)
+- **Q9.** `total_produto` é digitado a partir do receituário ou calculado? Se calculado, a
+  multiplicação usa a área planejada ou a área efetivamente aplicada? Hoje o campo é digitado,
+  porque calcular com a área errada produziria um número errado num documento com efeito legal.
+- **Q12.** De que número a emissão deve começar? O talão já vem numerado e o sistema numera por
+  empresa a partir de 1 — se ele está no nº 847, o primeiro documento emitido repete um número que
+  já existe no arquivo dele. Se papel e sistema conviverem por um tempo, como evitar duplicata?
+- **Q13.** O talão tem quatro vias com destinos diferentes (empresa, cliente, piloto e a fixa).
+  Com o PDF, quem recebe o quê, e o cliente ainda precisa de papel assinado na hora? O critério de
+  aceite diz que o PDF substitui o talão, mas o talão não é um documento, são quatro destinos.
+- **Q14.** O horímetro é um contador contínuo por aeronave, ou zera em manutenção? A dor nº 5
+  propõe puxar o horímetro inicial do voo anterior da mesma aeronave; se ele zera, a automação
+  precisa saber disso ou sugere número errado.
 - **Q11.** Como é a planilha que hoje recebe a consolidação? Com o arquivo em mãos, dá para
   fazer o CSV sair nas mesmas colunas e na mesma ordem, em vez de aproximá-las a partir dos
   campos do formulário. Relacionado à Q1: se o envio for por upload de arquivo, é o layout
   dele que manda.
-- **Q9.** `total_produto` é digitado a partir do receituário ou calculado? Se calculado, a
-  multiplicação usa a área planejada ou a área efetivamente aplicada? Hoje o campo é digitado,
-  porque calcular com a área errada produziria um número errado num documento com efeito legal.
