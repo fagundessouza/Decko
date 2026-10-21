@@ -13,7 +13,8 @@ Referência congelada do lado Odoo: [`odoo-20-arquitetura.md`](odoo-20-arquitetu
 lacuna, registre o ADR e atualize a linha. Ao concluir etapa do roadmap que mexa numa dimensão,
 revise a linha correspondente.
 
-Última revisão: 21/10/2026 — estado do Decko: Fase 1 concluída, Fase 2 quase completa.
+Última revisão: 21/10/2026 — estado do Decko: Fase 1 concluída, Fase 2 quase completa, ativação de
+módulo por empresa implementada (lacuna 4.1 fechada).
 
 ---
 
@@ -54,7 +55,8 @@ para o host.
 | **Manifesto** | 38 chaves com default, 3 obrigatórias | `module.toml`: identificação, `depends`, `required`, `branch_label`, `permissions`, `menu` | **Decko mais enxuto.** Adequado ao tamanho atual |
 | **Versionamento de schema** | derivado dos campos + scripts por versão | Alembic, ramificado por módulo (`branch_label`) | **Decko melhor.** É a lacuna nº 6 do Odoo resolvida desde o início |
 | **Fila de trabalho** | cron worker com polling e advisory lock | Redis + `apps/worker` (previsto) | **Decko melhor**, quando `apps/worker` existir |
-| **Processo** | monólito; todo worker carrega os 696 módulos | monólito modular; `apps/api` carrega todos os módulos descobertos | **Mesma escolha, mesmo limite.** Ver lacuna 1 |
+| **Processo** | monólito; todo worker carrega os 696 módulos | monólito modular; `apps/api` carrega todos os módulos descobertos | **Mesma escolha, mesmo limite.** O processo carrega tudo; o que a empresa alcança é decidido na ativação |
+| **Ativação de módulo por cliente** | implícita no registry: módulo não instalado não existe naquele banco | `tenant_module` + verificação aplicada pelo host na montagem do router; porta invertida para o host não importar módulo | **Divergência obrigatória.** Banco único exige mecanismo próprio. ADR 0004. Ganho sobre o Odoo: a proteção vem da montagem, então um módulo não consegue ficar aberto por omissão |
 | **Diretrizes para quem mantém** | `skills/`, uma seção por regra, com o porquê | `CLAUDE.md` + `docs/` | **Equivalente.** O Odoo é mais granular: regra por seção, com exceções explícitas |
 
 ---
@@ -79,21 +81,17 @@ Registrado para ninguém procurar resposta onde ela não existe:
 Em ordem de urgência. Nenhuma foi promovida ao `ROADMAP.md` — isso é decisão de escopo do dono do
 projeto, não deste documento.
 
-### 4.1 Ativação de módulo por tenant — **não implementada**
+### 4.1 Ativação de módulo por tenant — **fechada em 21/10/2026**
 
-O requisito central do produto é *"o cliente escolhe o perfil da empresa e o sistema instala e
-configura os módulos daquele segmento"* (`CLAUDE.md`). Hoje isso não acontece:
-`load_into()` monta o router de **todo** módulo descoberto, para **todos** os tenants. O campo
-`required` existe no manifesto e nada o lê.
+Resolvida por `docs/adr/0004-ativacao-de-modulo-por-empresa.md`. Promovida para a §2.
 
-O Odoo resolve de graça porque o registry é por banco: módulo não instalado não existe naquele
-banco. O Decko, com banco único, precisa de mecanismo próprio.
+Como ficou: tabela `tenant_module` no núcleo, com RLS; o host aplica a verificação ao montar o
+router de cada módulo não obrigatório, de modo que a proteção não depende de o módulo lembrar de
+se proteger; e o host chega à verificação por uma porta que o núcleo preenche, sem importar módulo.
 
-Caminhos: tabela `tenant_module` + verificação na dependência de permissão; ou middleware que
-responde 404 para rota de módulo inativo; ou menu filtrado no frontend (insuficiente sozinho — não
-é controle de acesso).
-
-**Precisa de ADR.** É a fronteira entre "monorepo com dois módulos" e "plataforma modular".
+Fica registrado o que **não** foi feito: perfil de segmento ("supermercado", "distribuidora") é um
+conjunto nomeado de módulos e continua inexistente — é camada fina sobre esta, e não faz sentido
+nomear conjuntos antes de haver módulos para agrupar.
 
 ### 4.2 Extensão de entidade entre módulos — sem mecanismo
 

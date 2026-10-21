@@ -41,6 +41,9 @@ export interface SessionInfo {
   user: UserSummary;
   tenant: TenantSummary;
   permissions: string[];
+  /** Módulos contratados por esta empresa. Ter a permissão de um módulo não implica
+   *  que a empresa o tenha — quem decide é a ativação. */
+  active_modules: string[];
 }
 
 interface TokenPayload {

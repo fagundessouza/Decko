@@ -1,14 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
-from decko_modules.core import service
+from decko.modules import ModuleManifest
+from decko_modules.core import activation, service
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.core.models import Tenant, User
 from decko_modules.core.schemas import (
     LoginRequest,
+    ModuleOut,
     RefreshRequest,
     SessionOut,
     TenantProfileIn,
@@ -77,6 +79,97 @@ async def me(principal: CurrentPrincipal, session: SessionDep) -> SessionOut:
         user=user,  # type: ignore[arg-type]
         tenant=tenant,  # type: ignore[arg-type]
         permissions=sorted(principal.permissions),
+        # Permissão e ativação são coisas distintas: o administrador recebe as permissões
+        # de todos os módulos instalados na plataforma, mas só alcança os que a empresa
+        # ativou. A interface monta o menu a partir desta lista, não do prefixo das
+        # permissões — ver docs/adr/0004-ativacao-de-modulo-por-empresa.md.
+        active_modules=await activation.active_modules(session, principal.tenant_id),
+    )
+
+
+@router.get("/modules", response_model=list[ModuleOut])
+async def list_modules(
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.module.read"))],
+) -> list[ModuleOut]:
+    """Os módulos instalados na plataforma e quais estão ativos nesta empresa.
+
+    O catálogo vem dos manifestos em disco, carregados na inicialização; o estado vem do
+    banco. São as duas únicas fontes, e nenhuma delas é uma lista escrita à mão.
+    """
+    active = set(await activation.active_modules(session, principal.tenant_id))
+    manifests: list[ModuleManifest] = request.app.state.modules
+
+    return [
+        ModuleOut(
+            name=manifest.name,
+            label=manifest.label,
+            version=manifest.version,
+            required=manifest.required,
+            active=manifest.required or manifest.name in active,
+        )
+        for manifest in manifests
+    ]
+
+
+def _manifest_or_404(request: Request, module_name: str) -> ModuleManifest:
+    for manifest in request.app.state.modules:
+        if manifest.name == module_name:
+            return manifest
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Não existe módulo '{module_name}' nesta instalação.",
+    )
+
+
+@router.post("/modules/{module_name}/activate", response_model=ModuleOut)
+async def activate_module(
+    module_name: str,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.module.activate"))],
+) -> ModuleOut:
+    manifest = _manifest_or_404(request, module_name)
+    await activation.activate(
+        session,
+        tenant_id=principal.tenant_id,
+        module_name=manifest.name,
+        activated_by=principal.user_id,
+    )
+    return ModuleOut(
+        name=manifest.name,
+        label=manifest.label,
+        version=manifest.version,
+        required=manifest.required,
+        active=True,
+    )
+
+
+@router.delete("/modules/{module_name}/activate", response_model=ModuleOut)
+async def deactivate_module(
+    module_name: str,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.module.activate"))],
+) -> ModuleOut:
+    manifest = _manifest_or_404(request, module_name)
+    if manifest.required:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"O módulo '{manifest.name}' é obrigatório e não pode ser desativado.",
+        )
+
+    await activation.deactivate(session, tenant_id=principal.tenant_id, module_name=manifest.name)
+    return ModuleOut(
+        name=manifest.name,
+        label=manifest.label,
+        version=manifest.version,
+        required=manifest.required,
+        active=False,
     )
 
 

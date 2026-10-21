@@ -12,7 +12,9 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
+
+from decko.activation import activation_guard_for
 
 API_PREFIX = "/api/v1"
 
@@ -112,6 +114,17 @@ def load_into(app: FastAPI, modules_dir: Path) -> list[ModuleManifest]:
         if not isinstance(router, APIRouter):
             raise ModuleError(f"módulo '{manifest.name}': 'router' não é um APIRouter")
 
-        app.include_router(router, prefix=f"{API_PREFIX}/{manifest.name}", tags=[manifest.name])
+        # Módulo obrigatório não é verificado: o núcleo é o que permite autenticar, e
+        # exigir ativação para poder conferir ativação não fecha.
+        # A verificação é acrescentada aqui, na montagem, e não escrita dentro do módulo:
+        # assim nenhum módulo consegue ficar desprotegido por esquecimento.
+        guards = [] if manifest.required else [Depends(activation_guard_for(manifest.name))]
+
+        app.include_router(
+            router,
+            prefix=f"{API_PREFIX}/{manifest.name}",
+            tags=[manifest.name],
+            dependencies=guards,
+        )
         loaded.append(manifest)
     return loaded

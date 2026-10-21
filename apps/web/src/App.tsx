@@ -48,7 +48,10 @@ export default function App() {
 
   // O menu reflete o que a empresa tem instalado: sem permissão do módulo agro, a
   // pulverização simplesmente não aparece.
-  const hasAgro = info.permissions.some((permission) => permission.startsWith("agro."));
+  // O menu vem dos módulos contratados, não do prefixo das permissões. O administrador
+  // recebe as permissões de todos os módulos instalados na plataforma, então o prefixo
+  // mostrava menu de módulo que a empresa não tem — e o servidor respondia 404.
+  const hasAgro = info.active_modules.includes("agro");
   const canEditCompany = info.permissions.includes("core.tenant.update");
 
   return (

@@ -58,6 +58,8 @@ async def _sign_up(http: AsyncClient, nome: str) -> Tenancy:
             admin_email=email,
             admin_name="Responsavel",
             password=PASSWORD,
+            # A empresa nasce so com o nucleo; o modulo de segmento e contratado.
+            modules=["agro"],
         )
         tenant_id = tenant.id
 

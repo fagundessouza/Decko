@@ -146,7 +146,7 @@ Antes: listas em notação polonesa. Agora: `DomainAnd`, `DomainOr`, `DomainNot`
 `DomainCondition`, `DomainCustom`, com `&`, `|`, `~` sobrecarregados e níveis de otimização.
 
 ```python
-domain &= Domain('company_id', 'in', companies)
+domain &= Domain("company_id", "in", companies)
 ```
 
 Operadores reduzidos a um núcleo canônico (`any`/`not any`, `in`, comparações, família `like`);

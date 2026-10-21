@@ -187,6 +187,36 @@ class AuditLog(TenantMixin, Base):
     )
 
 
+class TenantModule(TenantMixin, Base):
+    """Módulo ativo em uma empresa.
+
+    A ausência de linha é a resposta "inativo": o padrão é negar, do mesmo jeito que a
+    política de RLS trata o tenant não definido.
+
+    ``module_name`` é texto e não chave estrangeira porque a lista de módulos existentes
+    vem dos manifestos em disco, não do banco. Uma tabela de módulos aqui sairia de
+    sincronia com o que está instalado na plataforma.
+
+    Decisão: ``docs/adr/0004-ativacao-de-modulo-por-empresa.md``.
+    """
+
+    __tablename__ = "tenant_module"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "module_name", name="uq_tenant_module_tenant_id_module_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    module_name: Mapped[str] = mapped_column(String(60), nullable=False)
+    activated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    activated_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
+    )
+
+
 # Tabelas sujeitas a Row Level Security. A migração lê esta lista, de modo que uma tabela
 # nova com tenant_id não pode ser esquecida sem que o teste de isolamento acuse.
 TENANT_SCOPED_TABLES = (
@@ -196,4 +226,5 @@ TENANT_SCOPED_TABLES = (
     UserRole.__tablename__,
     RefreshToken.__tablename__,
     AuditLog.__tablename__,
+    TenantModule.__tablename__,
 )

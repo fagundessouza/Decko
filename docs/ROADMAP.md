@@ -33,8 +33,13 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       modo claro/escuro por estação e sessão restaurada ao recarregar
 - [x] Renovação de token em voo único: duas chamadas simultâneas levavam o mesmo refresh
       token rotativo, e a que perdia a corrida derrubava a sessão válida
+- [x] Ativação de módulo por empresa: `tenant_module`, verificação aplicada pelo host na
+      montagem do router, catálogo e contratação pela API, menu alimentado pelos módulos
+      ativos — ver `docs/adr/0004-ativacao-de-modulo-por-empresa.md`
 - [ ] Escrita na trilha de auditoria nos fluxos de autenticação (o bootstrap já registra)
 - [ ] Troca de empresa para quem opera em mais de uma
+- [ ] Perfil de segmento: conjunto nomeado de módulos sobre a ativação (só faz sentido com
+      mais de uma vertical pronta)
 
 **Demonstrável:** login, troca de empresa, e a prova de que um tenant não enxerga dados do outro.
 

@@ -25,6 +25,8 @@ provides = [
   "core.role.read",
   "core.role.assign",
   "core.audit.read",
+  "core.module.read",
+  "core.module.activate",
 ]
 
 [menu]

@@ -78,6 +78,17 @@ class TenantProfileIn(BaseModel):
     rodape: str | None = Field(default=None, max_length=300)
 
 
+class ModuleOut(BaseModel):
+    """Um módulo instalado na plataforma, com o estado dele nesta empresa."""
+
+    name: str
+    label: str
+    version: str
+    # Obrigatório não pode ser desativado e vale como ativo sempre.
+    required: bool
+    active: bool
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -92,3 +103,6 @@ class SessionOut(BaseModel):
     user: UserOut
     tenant: TenantOut
     permissions: list[str]
+    # Módulos ativos nesta empresa. A interface monta o menu a partir daqui: ter a
+    # permissão de um módulo não significa que a empresa o contratou.
+    active_modules: list[str]

@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import unicodedata
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
@@ -29,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decko.config import get_settings
 from decko.db import SessionFactory, bind_tenant, engine
 from decko.modules import discover
+from decko_modules.core.activation import activate as activate_module
 from decko_modules.core.models import (
     AuditLog,
     Role,
@@ -107,6 +109,7 @@ async def _bootstrap(
     admin_email: str,
     admin_name: str,
     password: str,
+    modules: Sequence[str] = (),
 ) -> tuple[Tenant, User, int]:
     if not SLUG_PATTERN.match(tenant_slug):
         raise BootstrapError(
@@ -147,6 +150,14 @@ async def _bootstrap(
     await session.flush()
 
     session.add(UserRole(tenant_id=tenant.id, user_id=user.id, role_id=role.id))
+
+    # A empresa nasce só com o núcleo. Módulo de segmento é contratado, não presumido —
+    # ver docs/adr/0004-ativacao-de-modulo-por-empresa.md.
+    for module_name in _validated_modules(modules):
+        await activate_module(
+            session, tenant_id=tenant.id, module_name=module_name, activated_by=user.id
+        )
+
     session.add(
         AuditLog(
             tenant_id=tenant.id,
@@ -154,11 +165,32 @@ async def _bootstrap(
             action="tenant.bootstrap",
             entity="tenant",
             entity_id=str(tenant.id),
-            data={"slug": tenant.slug, "granted_permissions": len(permissions)},
+            data={
+                "slug": tenant.slug,
+                "granted_permissions": len(permissions),
+                "activated_modules": list(modules),
+            },
         )
     )
 
     return tenant, user, len(permissions)
+
+
+def _validated_modules(modules: Sequence[str]) -> list[str]:
+    """Confere os nomes contra os manifestos em disco.
+
+    Ativar um módulo inexistente gravaria uma linha que nunca casaria com nada e a empresa
+    ficaria sem o módulo sem nenhum aviso.
+    """
+    available = discover(get_settings().modules_dir)
+    desconhecidos = [name for name in modules if name not in available]
+    if desconhecidos:
+        raise BootstrapError(
+            f"Módulo não encontrado: {', '.join(desconhecidos)}. "
+            f"Disponíveis: {', '.join(sorted(available))}."
+        )
+    # Obrigatório já vale como ativo; gravar linha para ele seria redundante.
+    return [name for name in modules if not available[name].required]
 
 
 async def _check_slug_available(slug: str) -> None:
@@ -198,6 +230,7 @@ async def _run_bootstrap(args: argparse.Namespace) -> int:
                 admin_email=args.admin_email,
                 admin_name=args.admin_name,
                 password=password,
+                modules=args.modules,
             )
             summary = (tenant.name, tenant.slug, user.email, granted)
     except BootstrapError as exc:
@@ -245,6 +278,14 @@ def main() -> int:
     )
     bootstrap.add_argument("--admin-email", required=True)
     bootstrap.add_argument("--admin-name", required=True)
+    bootstrap.add_argument(
+        "--module",
+        action="append",
+        default=[],
+        dest="modules",
+        metavar="NOME",
+        help="Módulo a ativar na empresa (repetível). Sem isto, só o núcleo fica ativo.",
+    )
     bootstrap.set_defaults(handler=_run_bootstrap)
 
     status = sub.add_parser("status", help="Lista as empresas cadastradas.")
