@@ -5,7 +5,12 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { fetchSession, logout, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
+import type { Produto } from "./lib/comercial";
 import { ChooseProfilePage } from "./pages/ChooseProfilePage";
+import { NovoProdutoWizard } from "./pages/NovoProdutoWizard";
+import { ProdutoDetailPage } from "./pages/ProdutoDetailPage";
+import { ProdutosPage } from "./pages/ProdutosPage";
+import { UnidadesPage } from "./pages/UnidadesPage";
 import { CompanyPage } from "./pages/CompanyPage";
 import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -22,7 +27,11 @@ type View =
   | { name: "company" }
   | { name: "consolidation" }
   | { name: "newPlan" }
-  | { name: "plan"; plan: Plan };
+  | { name: "plan"; plan: Plan }
+  | { name: "produtos" }
+  | { name: "novoProduto" }
+  | { name: "produto"; produto: Produto }
+  | { name: "unidades" };
 
 export default function App() {
   const [info, setInfo] = useState<SessionInfo | null>(null);
@@ -51,6 +60,7 @@ export default function App() {
   // recebe as permissões de todos os módulos instalados na plataforma, então o prefixo
   // mostrava menu de módulo que a empresa não tem — e o servidor respondia 404.
   const hasAgro = info.active_modules.includes("agro");
+  const hasComercial = info.active_modules.includes("comercial");
   const canEditCompany = info.permissions.includes("core.tenant.update");
 
   // Empresa recém-criada não tem nada contratado. Em vez de uma tela vazia explicando que
@@ -93,18 +103,33 @@ export default function App() {
         <main className="mx-auto max-w-2xl px-6 py-10">
           <h1 className="text-3xl font-bold text-ink">Olá, {info.user.full_name}</h1>
 
-          {hasAgro ? (
+          {hasComercial && (
+            <button
+              type="button"
+              onClick={() => setView({ name: "produtos" })}
+              className="mt-6 w-full rounded-dk border border-line bg-surface px-6 py-6 text-left hover:border-brand-link"
+            >
+              <p className="text-2xl font-semibold text-ink">Produtos e estoque</p>
+              <p className="mt-1 text-lg text-ink-muted">
+                Cadastro com unidade, caixa e fardo, lote e validade, entradas e saídas.
+              </p>
+            </button>
+          )}
+
+          {hasAgro && (
             <button
               type="button"
               onClick={() => setView({ name: "plans" })}
-              className="mt-6 w-full rounded-dk border border-line bg-surface px-6 py-6 text-left hover:border-brand-link"
+              className="mt-4 w-full rounded-dk border border-line bg-surface px-6 py-6 text-left hover:border-brand-link"
             >
               <p className="text-2xl font-semibold text-ink">Pulverização</p>
               <p className="mt-1 text-lg text-ink-muted">
                 Planejamentos operacionais, condição do tempo e relatório para o MAPA.
               </p>
             </button>
-          ) : (
+          )}
+
+          {!hasAgro && !hasComercial && (
             <p className="mt-6 text-lg text-ink-muted">
               Nenhum módulo de negócio instalado ainda nesta empresa.
             </p>
@@ -165,6 +190,33 @@ export default function App() {
 
       {view.name === "plan" && (
         <PlanDetailPage plan={view.plan} onBack={() => setView({ name: "plans" })} />
+      )}
+
+      {view.name === "produtos" && (
+        <ProdutosPage
+          onBack={() => setView({ name: "home" })}
+          onOpen={(produto) => setView({ name: "produto", produto })}
+          onNew={() => setView({ name: "novoProduto" })}
+          onUnidades={() => setView({ name: "unidades" })}
+        />
+      )}
+
+      {view.name === "novoProduto" && (
+        <NovoProdutoWizard
+          onCancel={() => setView({ name: "produtos" })}
+          onCreated={(produto) => setView({ name: "produto", produto })}
+        />
+      )}
+
+      {view.name === "produto" && (
+        <ProdutoDetailPage
+          produto={view.produto}
+          onBack={() => setView({ name: "produtos" })}
+        />
+      )}
+
+      {view.name === "unidades" && (
+        <UnidadesPage onBack={() => setView({ name: "produtos" })} />
       )}
     </div>
   );
