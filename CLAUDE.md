@@ -21,8 +21,12 @@ portfólio para vagas no mercado internacional.
 | Cores, tipografia, regras de UX | `docs/BRAND.md` |
 | Requisitos do módulo Agro | `docs/discovery/agro-planejamento-operacional.md` |
 | Decisões arquiteturais e seus motivos | `docs/adr/` |
+| Como o Odoo resolve o mesmo problema, e onde divergimos | `docs/benchmark/odoo-20-comparativo.md` |
 
-Antes de propor arquitetura, leia `docs/ARCHITECTURE.md`. Antes de criar tela, leia `docs/BRAND.md`.
+Antes de propor arquitetura, leia `docs/ARCHITECTURE.md` e confira em
+`docs/benchmark/odoo-20-comparativo.md` se a dimensão já está decidida — lá estão as divergências
+deliberadas em relação ao Odoo (que não são dívida) e as lacunas que ainda esperam ADR.
+Antes de criar tela, leia `docs/BRAND.md`.
 Antes de modelar o módulo Agro, leia o discovery — ele vem de um formulário real em uso, não de
 suposição.
 
