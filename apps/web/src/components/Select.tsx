@@ -2,58 +2,88 @@ import { useId } from "react";
 
 interface Props {
   label: string;
-  value: string;
-  onChange: (value: string) => void;
+  hint?: string;
   options: { value: string; label: string }[];
-  /** Texto da primeira opção, quando nada foi escolhido. */
+  value: string;
+  /** Recebe o valor, não o evento: quem chama quase sempre quer só o valor. */
+  onChange: (value: string) => void;
   placeholder?: string;
-  /** Mostrado no lugar da lista quando não há o que escolher. */
-  empty?: string;
   disabled?: boolean;
+  /** Mostrado no lugar do campo quando não há o que escolher, com a saída dita. */
+  empty?: string;
 }
 
-/* Lista suspensa nativa, ao contrário dos botões grandes usados nas escolhas de duas
- * opções: estas listas crescem com o cadastro, e o seletor do próprio sistema operacional
- * é o que já funciona bem com luva e tela pequena.
- *
- * O estado vazio é parte do componente porque é onde o operador trava: uma lista vazia
- * sem explicação parece defeito do sistema. */
 export function Select({
   label,
+  hint,
+  options,
   value,
   onChange,
-  options,
-  placeholder = "Selecione…",
-  empty,
+  placeholder,
   disabled = false,
+  empty,
 }: Props) {
   const id = useId();
+  const hintId = `${id}-hint`;
+
+  if (options.length === 0 && empty) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-ink">{label}</span>
+        <p className="rounded-dk bg-sunken px-4 py-3 text-base text-ink-muted ring-1 ring-inset ring-line-subtle">
+          {empty}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-base font-medium text-ink">
+      <label htmlFor={id} className="text-sm font-medium text-ink">
         {label}
       </label>
 
-      {options.length === 0 && empty !== undefined ? (
-        <p className="rounded-dk border border-line bg-surface px-4 py-3 text-base text-ink-muted">
-          {empty}
-        </p>
-      ) : (
+      {/* A seta é desenhada por nós: a nativa muda de forma em cada sistema e é o
+          detalhe que entrega interface sem acabamento. */}
+      <div className="relative">
         <select
           id={id}
           value={value}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
-          className="min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink focus:border-brand-link focus:outline-none"
+          aria-describedby={hint ? hintId : undefined}
+          className="min-h-touch w-full appearance-none rounded-dk bg-surface px-4 pr-11 text-base
+                     text-ink shadow-xs ring-1 ring-line transition-shadow duration-150 ease-dk
+                     hover:ring-ink-faint/40 focus:outline-none focus:ring-2 focus:ring-brand-link
+                     disabled:cursor-not-allowed disabled:text-ink-faint"
         >
-          <option value="">{placeholder}</option>
+          {placeholder && <option value="">{placeholder}</option>}
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
         </select>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-ink-faint"
+        >
+          <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+            <path
+              d="M1 1.5 6 6.5l5-5"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+      </div>
+
+      {hint && (
+        <p id={hintId} className="text-sm text-ink-muted">
+          {hint}
+        </p>
       )}
     </div>
   );

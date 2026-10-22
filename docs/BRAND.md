@@ -55,7 +55,47 @@ cumpre — não qual tom fica bonito.
 - Cor nunca é o único portador de informação: alerta e erro sempre acompanham ícone e texto
   (daltonismo, e também tela de PDV desbotada).
 
-## 6. Padrões de componente
+## 6. Acabamento
+
+A seção 2 define o que cada cor **significa**. Esta define como a interface **se parece**,
+que é coisa diferente — e era o que faltava: semântica correta com acabamento de 2015
+continua sendo acabamento de 2015.
+
+Seis decisões respondem por quase toda a diferença:
+
+1. **Tipografia própria, hospedada no projeto.** Inter variável via `@fontsource`, não por
+   CDN — o PDV precisa abrir sem internet. Fonte do sistema é o que faz qualquer tela
+   parecer um formulário interno.
+2. **Título com tracking negativo.** `-0.02em` e peso 650. Uma linha de CSS, e é ela que
+   separa "desenhado" de "padrão do navegador".
+3. **Neutros com temperatura.** Cinza puro lê como planilha. Os neutros do Decko puxam
+   levemente para o azul, acompanhando a cor de estrutura.
+4. **Elevação no lugar de borda.** Sombra em duas camadas — uma curta que assenta, outra
+   longa e difusa que levanta — em vez de 1px cinza em tudo. No modo escuro a sombra não
+   aparece, então lá a profundidade vem de superfície mais clara.
+5. **Raio de 12 a 16px.** 8px é a forma de 2015.
+6. **Número tabular.** Saldo e coluna de valor usam `font-variant-numeric: tabular-nums`,
+   senão a coluna dança a cada dígito.
+
+**Movimento** é para orientar, não enfeitar: entrada de 0,22s, deslocamento de 6px, e
+`prefers-reduced-motion` respeitado. Quem usa isto o dia inteiro não quer animação.
+
+**Foco** é anel difuso, não contorno duro: mesma visibilidade para quem navega por
+teclado, sem brigar com a estética.
+
+## 7. Responsividade
+
+O alvo é web, celular e desktop com a mesma base de código — e isso **não** é a mesma
+tela esticada. Até a primeira versão era: uma barra fina no topo e uma coluna estreita
+centralizada, que no computador do caixa deixava a área útil vazia.
+
+- **Até 1024px:** barra superior com gaveta de navegação.
+- **A partir de 1024px:** navegação lateral fixa de 256px e conteúdo em grade — duas
+  colunas onde o conteúdo justifica, como formulário ao lado do histórico.
+- Largura de leitura limitada: formulário estreito, listagem mais larga. Texto corrido
+  atravessando 1400px não se lê.
+
+## 8. Padrões de componente
 
 - **Wizard** para cadastro e configuração longos — uma decisão por tela em vez de formulário
   gigante. É isso que permite um operador em campo, no celular, concluir sem treinamento.

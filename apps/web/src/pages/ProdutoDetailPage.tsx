@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
+import { Page, PageHeader } from "../components/AppShell";
+import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { Card, CardBody, CardHeader, Row } from "../components/Card";
+import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { comercial, describeUnidade } from "../lib/comercial";
 import type { Lote, Movimento, Produto, Saldo, TipoMovimento, Unidade } from "../lib/comercial";
@@ -114,45 +118,50 @@ export function ProdutoDetailPage({ produto, onBack }: Props) {
   const hoje = todayLocal();
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-8">
-      <button
-        type="button"
-        onClick={onBack}
-        className="min-h-touch text-base font-medium text-brand-link"
-      >
-        ← Voltar
-      </button>
+    <Page wide>
+      <PageHeader
+        title={produto.nome}
+        description={`${produto.codigo}${produto.gtin ? ` · ${produto.gtin}` : ""}`}
+        onBack={onBack}
+      />
 
-      <h1 className="mt-2 text-3xl font-bold text-ink">{produto.nome}</h1>
-      <p className="mt-1 text-lg text-ink-muted">
-        {produto.codigo}
-        {produto.gtin ? ` · ${produto.gtin}` : ""}
-      </p>
-
-      <section className="mt-8 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">Em estoque</h2>
-        <p className="mt-1 text-4xl font-bold text-ink">
-          {num(saldo?.quantidade ?? 0, 3)}{" "}
-          <span className="text-xl font-medium text-ink-muted">
-            {base?.simbolo ?? base?.nome ?? ""}
-          </span>
-        </p>
+      {/* O saldo é o número que o lojista vem buscar: ganha destaque de verdade,
+          não mais uma linha igual às outras. */}
+      <Card className="mb-6 overflow-hidden">
+        <div className="flex flex-wrap items-end justify-between gap-6 bg-gradient-to-br from-brand-tint to-surface p-6 sm:p-8">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">
+              Em estoque
+            </p>
+            <p className="tabular mt-2 text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+              {num(saldo?.quantidade ?? 0, 3)}
+              <span className="ml-2 text-xl font-medium text-ink-muted">
+                {base?.simbolo ?? base?.nome ?? ""}
+              </span>
+            </p>
+          </div>
+          {produto.preco_venda && (
+            <div className="text-right">
+              <p className="text-sm font-medium uppercase tracking-wide text-ink-muted">
+                Preço de venda
+              </p>
+              <p className="tabular mt-2 text-2xl font-semibold text-ink">
+                R$ {num(produto.preco_venda, 2)}
+              </p>
+            </div>
+          )}
+        </div>
 
         {produto.controla_lote && (saldo?.por_lote.length ?? 0) > 0 && (
-          <ul className="mt-5 flex flex-col gap-3">
+          <ul className="border-t border-line-subtle">
             {saldo?.por_lote.map((item) => {
               const vencido = item.validade !== null && item.validade < hoje;
               return (
-                <li
-                  key={item.lote_id ?? "sem-lote"}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3 last:border-0"
-                >
-                  <div>
-                    <p className="text-base font-medium text-ink">
-                      {item.codigo ?? "Sem lote"}
-                    </p>
+                <Row key={item.lote_id ?? "sem-lote"}>
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">{item.codigo ?? "Sem lote"}</p>
                     {item.validade && (
-                      <p className="text-base text-ink-muted">
+                      <p className="text-sm text-ink-muted">
                         Validade {dateBr(item.validade)}
                       </p>
                     )}
@@ -160,186 +169,197 @@ export function ProdutoDetailPage({ produto, onBack }: Props) {
                   <div className="flex items-center gap-3">
                     {/* Vencido não é só cor: vem ícone e palavra. */}
                     {vencido && (
-                      <span className="rounded-dk bg-warn-soft px-3 py-1 text-sm font-medium text-ink">
-                        ⚠ Vencido
-                      </span>
+                      <Badge tone="warn" icon="⚠">
+                        Vencido
+                      </Badge>
                     )}
-                    <p className="text-lg font-semibold text-ink">
+                    <span className="tabular font-semibold text-ink">
                       {num(item.quantidade, 3)}
-                    </p>
+                    </span>
                   </div>
-                </li>
+                </Row>
               );
             })}
           </ul>
         )}
-      </section>
+      </Card>
 
-      <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">Movimentar estoque</h2>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader
+              title="Movimentar estoque"
+              description="A quantidade pode ser digitada em qualquer embalagem."
+            />
+            <CardBody>
+              <form onSubmit={movimentar} className="flex flex-col gap-4" noValidate>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-ink">O que aconteceu</span>
+                  <div className="flex gap-1 rounded-dk bg-sunken p-1">
+                    {TIPOS.map((opcao) => (
+                      <button
+                        key={opcao.value}
+                        type="button"
+                        onClick={() => setTipo(opcao.value)}
+                        aria-pressed={tipo === opcao.value}
+                        className={
+                          "min-h-[2.5rem] flex-1 rounded-sm text-base font-medium " +
+                          "transition-[background-color,box-shadow,color] duration-150 ease-dk " +
+                          (tipo === opcao.value
+                            ? "bg-surface text-ink shadow-xs"
+                            : "text-ink-muted hover:text-ink")
+                        }
+                      >
+                        {opcao.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-        <form onSubmit={movimentar} className="mt-5 flex flex-col gap-4" noValidate>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-base font-medium text-ink">O que aconteceu</span>
-            <div className="flex gap-2">
-              {TIPOS.map((opcao) => (
-                <button
-                  key={opcao.value}
-                  type="button"
-                  onClick={() => setTipo(opcao.value)}
-                  aria-pressed={tipo === opcao.value}
-                  className={
-                    "min-h-touch flex-1 rounded-dk border text-lg font-medium " +
-                    (tipo === opcao.value
-                      ? "border-action bg-action-soft text-ink"
-                      : "border-line bg-surface text-ink-muted")
-                  }
+                <TextField
+                  label="Quantidade"
+                  type="number"
+                  inputMode="decimal"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(e.target.value)}
+                  required
+                />
+
+                <Select
+                  label="Em que embalagem"
+                  value={unidadeId}
+                  onChange={setUnidadeId}
+                  options={unidades.map((unidade) => ({
+                    value: unidade.id,
+                    label: describeUnidade(unidade, raiz),
+                  }))}
+                />
+
+                {convertido !== null && unidadeId !== produto.unidade_id && (
+                  <p className="animate-fade rounded-dk bg-brand-soft px-4 py-3 text-base text-ink ring-1 ring-inset ring-brand-link/15">
+                    Vai entrar como{" "}
+                    <b className="tabular">{num(convertido, 3)}</b>{" "}
+                    {base?.simbolo ?? base?.nome ?? ""} no saldo.
+                  </p>
+                )}
+
+                {produto.controla_lote && (
+                  <Select
+                    label="Lote"
+                    value={loteId}
+                    onChange={setLoteId}
+                    placeholder="Selecione…"
+                    options={lotes.map((lote) => ({
+                      value: lote.id,
+                      label: `${lote.codigo}${lote.validade ? ` — vence ${dateBr(lote.validade)}` : ""}`,
+                    }))}
+                  />
+                )}
+
+                <TextField
+                  label="Documento"
+                  hint="Número da nota, cupom ou contagem. Opcional."
+                  value={documento}
+                  onChange={(e) => setDocumento(e.target.value)}
+                />
+
+                {error && (
+                  <p
+                    role="alert"
+                    className="flex items-start gap-2 rounded-dk bg-danger-soft px-4 py-3 text-base text-danger ring-1 ring-inset ring-danger/20"
+                  >
+                    <span aria-hidden="true" className="font-bold">
+                      !
+                    </span>
+                    {error}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  loading={busy}
+                  disabled={!quantidade || (produto.controla_lote && !loteId)}
                 >
-                  {opcao.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <TextField
-            label="Quantidade"
-            type="number"
-            inputMode="decimal"
-            value={quantidade}
-            onChange={(e) => setQuantidade(e.target.value)}
-            required
-          />
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-base font-medium text-ink">Em que embalagem</label>
-            <select
-              value={unidadeId}
-              onChange={(e) => setUnidadeId(e.target.value)}
-              className="min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink"
-            >
-              {unidades.map((unidade) => (
-                <option key={unidade.id} value={unidade.id}>
-                  {describeUnidade(unidade, raiz)}
-                </option>
-              ))}
-            </select>
-            {convertido !== null && unidadeId !== produto.unidade_id && (
-              <p className="rounded-dk bg-brand-soft px-4 py-2 text-base text-ink">
-                Vai entrar como <b>{num(convertido, 3)}</b>{" "}
-                {base?.simbolo ?? base?.nome ?? ""} no saldo.
-              </p>
-            )}
-          </div>
+                  Registrar
+                </Button>
+              </form>
+            </CardBody>
+          </Card>
 
           {produto.controla_lote && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-base font-medium text-ink">Lote</label>
-              <select
-                value={loteId}
-                onChange={(e) => setLoteId(e.target.value)}
-                className="min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink"
-              >
-                <option value="">Selecione…</option>
-                {lotes.map((lote) => (
-                  <option key={lote.id} value={lote.id}>
-                    {lote.codigo}
-                    {lote.validade ? ` — vence ${dateBr(lote.validade)}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Card muted>
+              <CardHeader title="Novo lote" />
+              <CardBody>
+                <form onSubmit={criarLote} className="flex flex-col gap-4" noValidate>
+                  <TextField
+                    label="Código do lote"
+                    value={novoLote}
+                    onChange={(e) => setNovoLote(e.target.value)}
+                  />
+                  {produto.controla_validade && (
+                    <TextField
+                      label="Validade"
+                      type="date"
+                      value={novaValidade}
+                      onChange={(e) => setNovaValidade(e.target.value)}
+                    />
+                  )}
+                  <Button variant="secondary" type="submit" disabled={!novoLote.trim()}>
+                    Cadastrar lote
+                  </Button>
+                </form>
+              </CardBody>
+            </Card>
           )}
+        </div>
 
-          <TextField
-            label="Documento"
-            hint="Número da nota, cupom ou contagem. Opcional."
-            value={documento}
-            onChange={(e) => setDocumento(e.target.value)}
+        <Card>
+          <CardHeader
+            title={`Histórico (${movimentos.length})`}
+            description="É daqui que sai o saldo. Nada é apagado: correção entra como ajuste."
           />
 
-          {error && (
-            <p
-              role="alert"
-              className="flex items-start gap-2 rounded-dk bg-danger-soft px-4 py-3 text-base text-danger"
-            >
-              <span aria-hidden="true" className="font-bold">
-                !
-              </span>
-              {error}
-            </p>
+          {movimentos.length === 0 ? (
+            <CardBody>
+              <p className="text-base text-ink-muted">Nenhuma movimentação ainda.</p>
+            </CardBody>
+          ) : (
+            <ul className="mt-2 border-t border-line-subtle">
+              {[...movimentos].reverse().map((movimento) => (
+                <Row key={movimento.id}>
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">
+                      {TIPOS.find((t) => t.value === movimento.tipo)?.label}
+                      {movimento.documento ? (
+                        <span className="font-normal text-ink-muted">
+                          {" "}
+                          · {movimento.documento}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="text-sm text-ink-muted">
+                      {dateBr(movimento.ocorrido_em.slice(0, 10))} ·{" "}
+                      <span className="tabular">
+                        {num(movimento.quantidade_digitada, 3)}
+                      </span>{" "}
+                      {porId.get(movimento.unidade_id)?.nome ?? ""}
+                    </p>
+                  </div>
+                  <span
+                    className={
+                      "tabular shrink-0 font-semibold " +
+                      (movimento.tipo === "saida" ? "text-ink-muted" : "text-action")
+                    }
+                  >
+                    {movimento.tipo === "saida" ? "−" : "+"}
+                    {num(movimento.quantidade, 3)}
+                  </span>
+                </Row>
+              ))}
+            </ul>
           )}
-
-          <Button
-            type="submit"
-            loading={busy}
-            disabled={!quantidade || (produto.controla_lote && !loteId)}
-          >
-            Registrar
-          </Button>
-        </form>
-      </section>
-
-      {produto.controla_lote && (
-        <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-          <h2 className="text-xl font-semibold text-ink">Novo lote</h2>
-          <form onSubmit={criarLote} className="mt-4 flex flex-col gap-4" noValidate>
-            <TextField
-              label="Código do lote"
-              value={novoLote}
-              onChange={(e) => setNovoLote(e.target.value)}
-            />
-            {produto.controla_validade && (
-              <TextField
-                label="Validade"
-                type="date"
-                value={novaValidade}
-                onChange={(e) => setNovaValidade(e.target.value)}
-              />
-            )}
-            <Button variant="ghost" type="submit" disabled={!novoLote.trim()}>
-              Cadastrar lote
-            </Button>
-          </form>
-        </section>
-      )}
-
-      <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">
-          Histórico ({movimentos.length})
-        </h2>
-        <p className="mt-1 text-base text-ink-muted">
-          É daqui que sai o saldo. Nada é apagado: correção entra como ajuste.
-        </p>
-
-        {movimentos.length === 0 ? (
-          <p className="mt-4 text-base text-ink-muted">Nenhuma movimentação ainda.</p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-3">
-            {[...movimentos].reverse().map((movimento) => (
-              <li
-                key={movimento.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3 last:border-0"
-              >
-                <div>
-                  <p className="text-base font-medium text-ink">
-                    {TIPOS.find((t) => t.value === movimento.tipo)?.label}
-                    {movimento.documento ? ` · ${movimento.documento}` : ""}
-                  </p>
-                  <p className="text-base text-ink-muted">
-                    {dateBr(movimento.ocorrido_em.slice(0, 10))} ·{" "}
-                    {num(movimento.quantidade_digitada, 3)}{" "}
-                    {porId.get(movimento.unidade_id)?.nome ?? ""}
-                  </p>
-                </div>
-                <p className="text-lg font-semibold text-ink">
-                  {movimento.tipo === "saida" ? "−" : "+"}
-                  {num(movimento.quantidade, 3)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+        </Card>
+      </div>
+    </Page>
   );
 }

@@ -1,44 +1,69 @@
 @import "tailwindcss";
+
+/* Fonte hospedada no projeto, não em CDN: o PDV precisa abrir sem internet. */
+@import "@fontsource-variable/inter";
+
 @import "../../../packages/tokens/tokens.css";
 
 /* `inline` faz as utilitárias emitirem var(--dk-*) em vez do valor resolvido. É isso que
-   permite trocar de tema em tempo de execução mexendo só no atributo data-theme: as
-   classes continuam as mesmas e o valor por trás muda.
+   permite trocar de tema em tempo de execução mexendo só no atributo data-theme.
    Regras e justificativa da paleta: docs/BRAND.md */
 @theme inline {
   --color-bg: var(--dk-bg);
   --color-surface: var(--dk-surface);
+  --color-sunken: var(--dk-surface-sunken);
   --color-line: var(--dk-border);
+  --color-line-subtle: var(--dk-border-subtle);
   --color-ink: var(--dk-text);
   --color-ink-muted: var(--dk-text-muted);
+  --color-ink-faint: var(--dk-text-faint);
 
   --color-brand: var(--dk-brand-700);
-  --color-brand-strong: var(--dk-brand-800);
+  --color-brand-deep: var(--dk-brand-800);
+  --color-brand-950: var(--dk-brand-950);
   --color-brand-soft: var(--dk-brand-100);
+  --color-brand-tint: var(--dk-brand-50);
   --color-brand-link: var(--dk-brand-500);
 
   --color-action: var(--dk-action-600);
   --color-action-hover: var(--dk-action-700);
+  --color-action-bright: var(--dk-action-500);
   --color-action-soft: var(--dk-action-100);
+  --color-action-tint: var(--dk-action-50);
 
   --color-warn: var(--dk-warn-600);
+  --color-warn-strong: var(--dk-warn-500);
   --color-warn-soft: var(--dk-warn-100);
 
   --color-danger: var(--dk-danger-600);
   --color-danger-soft: var(--dk-danger-100);
 
   --font-sans: var(--dk-font-sans);
+  --font-mono: var(--dk-font-mono);
+
+  --radius-sm: var(--dk-radius-sm);
   --radius-dk: var(--dk-radius);
+  --radius-lg: var(--dk-radius-lg);
+  --radius-xl: var(--dk-radius-xl);
+
+  --shadow-xs: var(--dk-shadow-xs);
+  --shadow-sm: var(--dk-shadow-sm);
+  --shadow-md: var(--dk-shadow-md);
+  --shadow-lg: var(--dk-shadow-lg);
 
   --spacing-touch: var(--dk-touch-min);
   --spacing-touch-pos: var(--dk-touch-pos);
+
+  --ease-dk: var(--dk-ease);
 }
 
 @layer base {
   html {
-    /* Corpo mínimo de 16px: o público inclui pessoas idosas operando o dia inteiro. */
     font-size: 100%;
     -webkit-text-size-adjust: 100%;
+    /* Sem isto a Inter sai com o espaçamento do século passado. */
+    font-feature-settings: "cv11", "ss01";
+    font-variant-ligatures: contextual;
   }
 
   body {
@@ -46,15 +71,40 @@
     color: var(--dk-text);
     font-family: var(--dk-font-sans);
     font-size: var(--dk-text-base);
-    line-height: 1.5;
+    line-height: 1.55;
     margin: 0;
     min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Foco sempre visível: quem opera caixa trabalha por teclado, não por mouse. */
+  /* Título com tracking negativo e peso alto. É o detalhe que separa "moderno" do
+     padrão do navegador, e custa uma linha. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: var(--dk-tracking-tight);
+    font-weight: 650;
+  }
+
+  /* Número em tabela e saldo alinham por casa decimal. Sem isto a coluna dança. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Foco sempre visível: quem opera caixa trabalha por teclado, não por mouse.
+     Anel difuso em vez de contorno duro — some menos com a estética e vê-se igual. */
   :focus-visible {
-    outline: 3px solid var(--dk-brand-500);
+    outline: 2px solid transparent;
     outline-offset: 2px;
+    box-shadow: var(--dk-shadow-focus);
+    border-radius: var(--dk-radius-sm);
+  }
+
+  ::selection {
+    background-color: var(--dk-brand-100);
+    color: var(--dk-text);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -64,5 +114,37 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+@layer utilities {
+  /* Entrada curta e discreta. Movimento aqui é para orientar, não para enfeitar:
+     o público opera isto o dia inteiro. */
+  @keyframes dk-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes dk-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-rise {
+    animation: dk-rise 0.22s var(--dk-ease) both;
+  }
+
+  .animate-fade {
+    animation: dk-fade 0.16s var(--dk-ease) both;
   }
 }

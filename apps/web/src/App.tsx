@@ -1,26 +1,27 @@
 import { useEffect, useState } from "react";
 
-import { Button } from "./components/Button";
-import { ThemeToggle } from "./components/ThemeToggle";
+import { AppShell, Page, PageHeader } from "./components/AppShell";
+import type { NavItem } from "./components/AppShell";
+import { Card } from "./components/Card";
 import { fetchSession, logout, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
 import type { Produto } from "./lib/comercial";
 import { ChooseProfilePage } from "./pages/ChooseProfilePage";
-import { NovoProdutoWizard } from "./pages/NovoProdutoWizard";
-import { ProdutoDetailPage } from "./pages/ProdutoDetailPage";
-import { ProdutosPage } from "./pages/ProdutosPage";
-import { UnidadesPage } from "./pages/UnidadesPage";
 import { CompanyPage } from "./pages/CompanyPage";
 import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewPlanWizard } from "./pages/NewPlanWizard";
+import { NovoProdutoWizard } from "./pages/NovoProdutoWizard";
 import { PlanDetailPage } from "./pages/PlanDetailPage";
 import { PlansPage } from "./pages/PlansPage";
+import { ProdutoDetailPage } from "./pages/ProdutoDetailPage";
+import { ProdutosPage } from "./pages/ProdutosPage";
+import { UnidadesPage } from "./pages/UnidadesPage";
 
-/* Navegação por estado, sem biblioteca de rotas: são três telas e o peso do pacote é
- * requisito, não detalhe. Quando houver deep link ou histórico a navegar, entra um
- * roteador — ver docs/ROADMAP.md. */
+/* Navegação por estado, sem biblioteca de rotas: o peso do pacote é requisito, não
+ * detalhe. Quando houver deep link ou histórico a navegar, entra um roteador — ver
+ * docs/ROADMAP.md. */
 type View =
   | { name: "home" }
   | { name: "plans" }
@@ -32,6 +33,21 @@ type View =
   | { name: "novoProduto" }
   | { name: "produto"; produto: Produto }
   | { name: "unidades" };
+
+/* A chave do menu que fica marcada em cada tela. Uma tela de detalhe mantém aceso o item
+ * que levou até ela — perder a marcação ao navegar desorienta. */
+const SECTION: Record<View["name"], string> = {
+  home: "home",
+  plans: "agro",
+  newPlan: "agro",
+  plan: "agro",
+  consolidation: "agro",
+  produtos: "comercial",
+  novoProduto: "comercial",
+  produto: "comercial",
+  unidades: "comercial",
+  company: "company",
+};
 
 export default function App() {
   const [info, setInfo] = useState<SessionInfo | null>(null);
@@ -47,7 +63,7 @@ export default function App() {
   if (checking) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg">
-        <p className="text-lg text-ink-muted">Carregando…</p>
+        <p className="animate-fade text-base text-ink-muted">Carregando…</p>
       </div>
     );
   }
@@ -68,11 +84,9 @@ export default function App() {
   if (info.active_modules.length === 0 && info.permissions.includes("core.module.activate")) {
     return (
       <div className="min-h-dvh bg-bg">
-        <header className="flex items-center justify-between gap-4 bg-brand px-6 py-4 text-white">
-          <div>
-            <p className="text-xl font-bold tracking-tight">Decko</p>
-            <p className="text-base text-white/70">{info.tenant.name}</p>
-          </div>
+        <header className="bg-brand-deep px-5 py-4 sm:px-8">
+          <p className="text-lg font-bold tracking-tight text-white">Decko</p>
+          <p className="text-sm text-white/60">{info.tenant.name}</p>
         </header>
         <ChooseProfilePage
           onContracted={() => {
@@ -85,86 +99,96 @@ export default function App() {
     );
   }
 
+  const items: NavItem[] = [
+    {
+      key: "home",
+      label: "Início",
+      icon: "◆",
+      onSelect: () => setView({ name: "home" }),
+    },
+  ];
+
+  if (hasComercial) {
+    items.push({
+      key: "comercial",
+      label: "Produtos e estoque",
+      icon: "▣",
+      onSelect: () => setView({ name: "produtos" }),
+    });
+  }
+  if (hasAgro) {
+    items.push({
+      key: "agro",
+      label: "Pulverização",
+      icon: "✦",
+      onSelect: () => setView({ name: "plans" }),
+    });
+  }
+  if (canEditCompany) {
+    items.push({
+      key: "company",
+      label: "Dados da empresa",
+      icon: "⚙",
+      onSelect: () => setView({ name: "company" }),
+    });
+  }
+
   return (
-    <div className="min-h-dvh bg-bg">
-      <header className="flex items-center justify-between gap-4 bg-brand px-6 py-4 text-white">
-        <button
-          type="button"
-          onClick={() => setView({ name: "home" })}
-          className="text-left"
-        >
-          <p className="text-xl font-bold tracking-tight">Decko</p>
-          <p className="text-base text-white/70">{info.tenant.name}</p>
-        </button>
-        <p className="hidden text-base text-white/80 sm:block">{info.user.full_name}</p>
-      </header>
-
+    <AppShell
+      tenantName={info.tenant.name}
+      userName={info.user.full_name}
+      items={items}
+      activeKey={SECTION[view.name]}
+      onHome={() => setView({ name: "home" })}
+      onSignOut={() => {
+        void logout().then(() => {
+          setInfo(null);
+          setView({ name: "home" });
+        });
+      }}
+    >
       {view.name === "home" && (
-        <main className="mx-auto max-w-2xl px-6 py-10">
-          <h1 className="text-3xl font-bold text-ink">Olá, {info.user.full_name}</h1>
+        <Page wide>
+          <PageHeader
+            title={`Olá, ${info.user.full_name.split(" ")[0]}`}
+            description="Escolha por onde começar."
+          />
 
-          {hasComercial && (
-            <button
-              type="button"
-              onClick={() => setView({ name: "produtos" })}
-              className="mt-6 w-full rounded-dk border border-line bg-surface px-6 py-6 text-left hover:border-brand-link"
-            >
-              <p className="text-2xl font-semibold text-ink">Produtos e estoque</p>
-              <p className="mt-1 text-lg text-ink-muted">
-                Cadastro com unidade, caixa e fardo, lote e validade, entradas e saídas.
-              </p>
-            </button>
-          )}
-
-          {hasAgro && (
-            <button
-              type="button"
-              onClick={() => setView({ name: "plans" })}
-              className="mt-4 w-full rounded-dk border border-line bg-surface px-6 py-6 text-left hover:border-brand-link"
-            >
-              <p className="text-2xl font-semibold text-ink">Pulverização</p>
-              <p className="mt-1 text-lg text-ink-muted">
-                Planejamentos operacionais, condição do tempo e relatório para o MAPA.
-              </p>
-            </button>
-          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {hasComercial && (
+              <ModuleCard
+                title="Produtos e estoque"
+                description="Cadastro com unidade, caixa e fardo, lote e validade, entradas e saídas."
+                icon="▣"
+                onClick={() => setView({ name: "produtos" })}
+              />
+            )}
+            {hasAgro && (
+              <ModuleCard
+                title="Pulverização"
+                description="Planejamentos operacionais, condição do tempo e relatório para o MAPA."
+                icon="✦"
+                onClick={() => setView({ name: "plans" })}
+              />
+            )}
+            {canEditCompany && (
+              <ModuleCard
+                title="Dados da empresa"
+                description="Registro no MAPA, CREA e inscrições — o cabeçalho dos documentos."
+                icon="⚙"
+                onClick={() => setView({ name: "company" })}
+              />
+            )}
+          </div>
 
           {!hasAgro && !hasComercial && (
-            <p className="mt-6 text-lg text-ink-muted">
-              Nenhum módulo de negócio instalado ainda nesta empresa.
-            </p>
-          )}
-
-          {canEditCompany && (
-            <button
-              type="button"
-              onClick={() => setView({ name: "company" })}
-              className="mt-4 w-full rounded-dk border border-line bg-surface px-6 py-5 text-left hover:border-brand-link"
-            >
-              <p className="text-xl font-semibold text-ink">Dados da empresa</p>
-              <p className="mt-1 text-base text-ink-muted">
-                Registro no MAPA, CREA e inscrições — o cabeçalho dos documentos.
+            <Card muted>
+              <p className="px-6 py-8 text-base text-ink-muted">
+                Nenhum módulo de negócio instalado ainda nesta empresa.
               </p>
-            </button>
+            </Card>
           )}
-
-          <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
-            <ThemeToggle />
-            <div className="w-full sm:w-auto">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  void logout().then(() => {
-                    setInfo(null);
-                    setView({ name: "home" });
-                  });
-                }}
-              >
-                Sair
-              </Button>
-            </div>
-          </div>
-        </main>
+        </Page>
       )}
 
       {view.name === "plans" && (
@@ -218,6 +242,38 @@ export default function App() {
       {view.name === "unidades" && (
         <UnidadesPage onBack={() => setView({ name: "produtos" })} />
       )}
-    </div>
+    </AppShell>
+  );
+}
+
+function ModuleCard({
+  title,
+  description,
+  icon,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  icon: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group animate-rise rounded-lg bg-surface p-6 text-left shadow-sm ring-1 ring-line-subtle
+                 transition-[box-shadow,transform] duration-200 ease-dk
+                 hover:-translate-y-0.5 hover:shadow-md"
+    >
+      <span
+        aria-hidden="true"
+        className="flex size-11 items-center justify-center rounded-dk bg-brand-soft text-lg text-brand-link
+                   transition-colors duration-200 ease-dk group-hover:bg-brand-link group-hover:text-white"
+      >
+        {icon}
+      </span>
+      <p className="mt-4 text-lg font-semibold text-ink">{title}</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">{description}</p>
+    </button>
   );
 }

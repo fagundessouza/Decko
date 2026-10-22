@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 
+import { Page, PageHeader } from "../components/AppShell";
+import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { Card, Row } from "../components/Card";
 import { comercial } from "../lib/comercial";
 import type { Produto, Unidade } from "../lib/comercial";
 import { num } from "../lib/format";
@@ -40,53 +43,54 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades }: Props) {
       (produto.gtin ?? "").includes(termo),
   );
 
-  return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-8">
-      <button
-        type="button"
-        onClick={onBack}
-        className="min-h-touch text-base font-medium text-brand-link"
-      >
-        ← Voltar
-      </button>
+  const semUnidades = unidades.length === 0 && produtos !== null;
 
-      <h1 className="mt-2 text-3xl font-bold text-ink">Produtos</h1>
+  return (
+    <Page wide>
+      <PageHeader
+        title="Produtos"
+        description="O catálogo da loja e o saldo de cada item."
+        onBack={onBack}
+        action={
+          !semUnidades && (
+            <div className="flex gap-2">
+              <Button inline variant="secondary" onClick={onUnidades}>
+                Unidades
+              </Button>
+              <Button inline onClick={onNew}>
+                Novo produto
+              </Button>
+            </div>
+          )
+        }
+      />
 
       {/* Sem unidade não há como cadastrar produto. Em vez de deixar o erro acontecer no
           formulário, a tela leva para onde se resolve. */}
-      {unidades.length === 0 && produtos !== null && (
-        <div className="mt-6 rounded-dk border-2 border-warn bg-warn-soft px-4 py-4">
-          <p className="text-lg font-bold text-ink">
-            <span aria-hidden="true">⚠ </span>
-            Falta dizer em que você conta
-          </p>
-          <p className="mt-1 text-base text-ink">
-            Todo produto precisa de uma unidade — peça, quilo, litro. Cadastre a sua antes
-            de continuar.
-          </p>
-          <div className="mt-4">
-            <Button onClick={onUnidades}>Cadastrar unidades</Button>
+      {semUnidades && (
+        <Card className="animate-rise border-l-4 border-l-warn-strong">
+          <div className="p-6">
+            <p className="flex items-center gap-2 text-lg font-semibold text-ink">
+              <span aria-hidden="true">⚠</span>
+              Falta dizer em que você conta
+            </p>
+            <p className="mt-2 max-w-prose text-base text-ink-muted">
+              Todo produto precisa de uma unidade — peça, quilo, litro. Cadastre a sua
+              antes de continuar.
+            </p>
+            <div className="mt-5">
+              <Button inline onClick={onUnidades}>
+                Cadastrar unidades
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
-
-      {unidades.length > 0 && (
-        <div className="mt-6 flex flex-col gap-3">
-          <Button onClick={onNew}>Novo produto</Button>
-          <button
-            type="button"
-            onClick={onUnidades}
-            className="min-h-touch text-base font-medium text-brand-link"
-          >
-            Unidades e embalagens
-          </button>
-        </div>
+        </Card>
       )}
 
       {error && (
         <p
           role="alert"
-          className="mt-6 flex items-start gap-2 rounded-dk bg-danger-soft px-4 py-3 text-base text-danger"
+          className="mb-6 flex items-start gap-2 rounded-dk bg-danger-soft px-4 py-3 text-base text-danger ring-1 ring-inset ring-danger/20"
         >
           <span aria-hidden="true" className="font-bold">
             !
@@ -95,44 +99,85 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades }: Props) {
         </p>
       )}
 
-      {produtos === null && <p className="mt-6 text-lg text-ink-muted">Carregando…</p>}
+      {produtos === null && (
+        <p className="animate-fade text-base text-ink-muted">Carregando…</p>
+      )}
 
       {produtos !== null && produtos.length > 0 && (
         <>
-          <input
-            type="search"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome, código ou código de barras"
-            aria-label="Buscar produto"
-            className="mt-6 min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink placeholder:text-ink-muted/70 focus:border-brand-link focus:outline-none"
-          />
+          <div className="relative mb-5">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-faint"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.75" />
+                <path
+                  d="m11 11 3 3"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <input
+              type="search"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome, código ou código de barras"
+              aria-label="Buscar produto"
+              className="min-h-touch w-full rounded-dk bg-surface pl-11 pr-4 text-base text-ink
+                         shadow-xs ring-1 ring-line transition-shadow duration-150 ease-dk
+                         placeholder:text-ink-faint hover:ring-ink-faint/40
+                         focus:outline-none focus:ring-2 focus:ring-brand-link"
+            />
+          </div>
 
-          <ul className="mt-4 flex flex-col gap-3">
-            {visiveis.map((produto) => (
-              <li key={produto.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(produto)}
-                  className="min-h-touch w-full rounded-dk border border-line bg-surface px-5 py-4 text-left hover:border-brand-link"
-                >
-                  <p className="text-xl font-semibold text-ink">{produto.nome}</p>
-                  <p className="text-base text-ink-muted">
-                    {produto.codigo}
-                    {produto.gtin ? ` · ${produto.gtin}` : ""} ·{" "}
-                    {porId.get(produto.unidade_id)?.nome ?? "—"}
-                    {produto.preco_venda ? ` · R$ ${num(produto.preco_venda, 2)}` : ""}
-                  </p>
-                  {produto.controla_lote && (
-                    <p className="mt-1 text-sm text-ink-muted">Controla lote</p>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <Card>
+            <ul>
+              {visiveis.map((produto) => (
+                <Row key={produto.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(produto)}
+                    className="-m-1 flex min-w-0 flex-1 items-center gap-4 rounded-dk p-1 text-left"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="hidden size-10 shrink-0 items-center justify-center rounded-dk bg-brand-soft text-sm font-semibold text-brand-link sm:flex"
+                    >
+                      {produto.nome.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-ink">
+                        {produto.nome}
+                      </span>
+                      <span className="block truncate text-sm text-ink-muted">
+                        {produto.codigo}
+                        {produto.gtin ? ` · ${produto.gtin}` : ""} ·{" "}
+                        {porId.get(produto.unidade_id)?.nome ?? "—"}
+                      </span>
+                    </span>
+                  </button>
+
+                  <div className="flex shrink-0 items-center gap-3">
+                    {produto.controla_lote && <Badge tone="info">Lote</Badge>}
+                    {produto.preco_venda && (
+                      <span className="tabular text-base font-semibold text-ink">
+                        R$ {num(produto.preco_venda, 2)}
+                      </span>
+                    )}
+                    <span aria-hidden="true" className="text-ink-faint">
+                      ›
+                    </span>
+                  </div>
+                </Row>
+              ))}
+            </ul>
+          </Card>
 
           {visiveis.length === 0 && (
-            <p className="mt-4 text-lg text-ink-muted">
+            <p className="mt-5 text-base text-ink-muted">
               Nenhum produto corresponde a “{busca}”.
             </p>
           )}
@@ -140,10 +185,18 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades }: Props) {
       )}
 
       {produtos !== null && produtos.length === 0 && unidades.length > 0 && (
-        <p className="mt-6 rounded-dk border border-line bg-surface px-5 py-6 text-lg text-ink-muted">
-          Nenhum produto cadastrado. Crie o primeiro para começar a controlar o estoque.
-        </p>
+        <Card muted>
+          <div className="px-6 py-10 text-center">
+            <p className="text-base text-ink-muted">
+              Nenhum produto cadastrado. Crie o primeiro para começar a controlar o
+              estoque.
+            </p>
+            <div className="mx-auto mt-5 max-w-xs">
+              <Button onClick={onNew}>Novo produto</Button>
+            </div>
+          </div>
+        </Card>
       )}
-    </div>
+    </Page>
   );
 }
