@@ -49,7 +49,7 @@ export function NewClientForm({ onCreated, onCancel }: ClientProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-dk border border-line bg-brand-soft/40 p-4">
+    <div className="flex flex-col gap-4 rounded-dk ring-1 ring-inset ring-line bg-brand-soft/40 p-4">
       <p className="text-base font-medium text-ink">Novo contratante</p>
 
       <TextField
@@ -157,7 +157,7 @@ export function NewPropertyForm({ clientId, onCreated, onCancel }: PropertyProps
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-dk border border-line bg-brand-soft/40 p-4">
+    <div className="flex flex-col gap-4 rounded-dk ring-1 ring-inset ring-line bg-brand-soft/40 p-4">
       <p className="text-base font-medium text-ink">Nova propriedade</p>
 
       <TextField

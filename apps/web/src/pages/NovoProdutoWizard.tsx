@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 
+import { Alert } from "../components/Alert";
+import { Page, PageHeader } from "../components/AppShell";
+import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { Wizard } from "../components/Wizard";
 import { comercial, describeUnidade } from "../lib/comercial";
@@ -83,7 +86,8 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
     (step === 0 && (!codigo.trim() || !nome.trim())) || (step === 1 && !unidadeId);
 
   return (
-    <div className="mx-auto w-full max-w-xl px-6 py-8">
+    <Page>
+      <PageHeader title="Novo produto" onBack={onCancel} />
       <Wizard
         steps={STEPS}
         current={step}
@@ -120,41 +124,28 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
 
         {step === 1 && (
           <>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-base font-medium text-ink">Unidade de contagem</label>
-              <select
-                value={unidadeId}
-                onChange={(e) => setUnidadeId(e.target.value)}
-                className="min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink"
-              >
-                {unidades.map((unidade) => (
-                  <option key={unidade.id} value={unidade.id}>
-                    {describeUnidade(unidade, raiz)}
-                  </option>
-                ))}
-              </select>
-              <p className="text-sm text-ink-muted">
-                É nela que o saldo é somado. Você ainda poderá dar entrada em caixa ou
-                fardo — o sistema converte.
-              </p>
-            </div>
+            <Select
+              label="Unidade de contagem"
+              hint="É nela que o saldo é somado. Você ainda poderá dar entrada em caixa ou fardo — o sistema converte."
+              value={unidadeId}
+              onChange={setUnidadeId}
+              options={unidades.map((unidade) => ({
+                value: unidade.id,
+                label: describeUnidade(unidade, raiz),
+              }))}
+            />
 
             {categorias.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-base font-medium text-ink">Categoria</label>
-                <select
-                  value={categoriaId}
-                  onChange={(e) => setCategoriaId(e.target.value)}
-                  className="min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink"
-                >
-                  <option value="">Sem categoria</option>
-                  {categorias.map((categoria) => (
-                    <option key={categoria.id} value={categoria.id}>
-                      {categoria.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                label="Categoria"
+                value={categoriaId}
+                onChange={setCategoriaId}
+                placeholder="Sem categoria"
+                options={categorias.map((categoria) => ({
+                  value: categoria.id,
+                  label: categoria.nome,
+                }))}
+              />
             )}
           </>
         )}
@@ -200,19 +191,9 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
           </>
         )}
 
-        {error && (
-          <p
-            role="alert"
-            className="flex items-start gap-2 rounded-dk bg-danger-soft px-4 py-3 text-base text-danger"
-          >
-            <span aria-hidden="true" className="font-bold">
-              !
-            </span>
-            {error}
-          </p>
-        )}
+        {error && <Alert tone="danger">{error}</Alert>}
       </Wizard>
-    </div>
+    </Page>
   );
 }
 

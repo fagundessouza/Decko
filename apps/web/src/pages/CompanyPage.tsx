@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { Alert } from "../components/Alert";
+import { Page, PageHeader } from "../components/AppShell";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { tenant } from "../lib/api";
@@ -81,22 +83,14 @@ export function CompanyPage({ onBack }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl px-6 py-8">
-      <button
-        type="button"
-        onClick={onBack}
-        className="min-h-touch text-base font-medium text-brand-link"
-      >
-        ← Voltar
-      </button>
+    <Page>
+      <PageHeader
+        title="Dados da empresa"
+        description="É o que sai impresso no cabeçalho do Planejamento Operacional. Em branco, o documento sai sem a identificação que a fiscalização procura."
+        onBack={onBack}
+      />
 
-      <h1 className="mt-2 text-3xl font-bold text-ink">Dados da empresa</h1>
-      <p className="mt-1 text-lg text-ink-muted">
-        É o que sai impresso no cabeçalho do Planejamento Operacional. Em branco, o
-        documento sai sem a identificação que a fiscalização procura.
-      </p>
-
-      <div className="mt-8 flex flex-col gap-5">
+      <div className="flex flex-col gap-5">
         <TextField
           label="Razão social"
           value={campos.name}
@@ -142,11 +136,7 @@ export function CompanyPage({ onBack }: Props) {
           onChange={(evento) => alterar("rodape", evento.target.value)}
         />
 
-        {erro && (
-          <p role="alert" className="rounded-dk bg-danger-soft px-4 py-3 text-base text-danger">
-            {erro}
-          </p>
-        )}
+        {erro && <Alert tone="danger">{erro}</Alert>}
 
         {/* Confirmação escrita, e não só o botão voltando ao normal: sem ela não dá para
             saber se o toque pegou. */}
@@ -164,6 +154,6 @@ export function CompanyPage({ onBack }: Props) {
           Salvar
         </Button>
       </div>
-    </div>
+    </Page>
   );
 }

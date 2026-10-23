@@ -59,8 +59,8 @@ export function PlanProducts({ planId, prescriptionId }: Props) {
 
   return (
     <>
-      <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">Produtos aplicados ({lines.length})</h2>
+      <section className="mt-6 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle p-5">
+        <h2 className="text-lg font-semibold text-ink">Produtos aplicados ({lines.length})</h2>
         <p className="mt-1 text-base text-ink-muted">
           As linhas saem impressas no relatório. Formulação e classe toxicológica são
           copiadas do cadastro no momento do lançamento.
@@ -133,8 +133,8 @@ export function PlanProducts({ planId, prescriptionId }: Props) {
         )}
       </section>
 
-      <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">Receituário agronômico</h2>
+      <section className="mt-6 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle p-5">
+        <h2 className="text-lg font-semibold text-ink">Receituário agronômico</h2>
         <p className="mt-1 text-base text-ink-muted">
           O formulário remete as precauções de uso ao receituário. Sem o vínculo, o
           relatório sai sem a referência que a fiscalização procura.

@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
 import { Page, PageHeader } from "../components/AppShell";
+import { Alert } from "../components/Alert";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader, Row } from "../components/Card";
+import { Modal } from "../components/Modal";
 import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { comercial, describeUnidade } from "../lib/comercial";
@@ -36,6 +38,7 @@ export function ProdutoDetailPage({ produto, onBack }: Props) {
   const [loteId, setLoteId] = useState("");
   const [documento, setDocumento] = useState("");
 
+  const [loteModal, setLoteModal] = useState(false);
   const [novoLote, setNovoLote] = useState("");
   const [novaValidade, setNovaValidade] = useState("");
 
@@ -85,6 +88,7 @@ export function ProdutoDetailPage({ produto, onBack }: Props) {
       setNovaValidade("");
       await load();
       setLoteId(lote.id);
+      setLoteModal(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível criar o lote.");
     } finally {
@@ -244,16 +248,27 @@ export function ProdutoDetailPage({ produto, onBack }: Props) {
                 )}
 
                 {produto.controla_lote && (
-                  <Select
-                    label="Lote"
-                    value={loteId}
-                    onChange={setLoteId}
-                    placeholder="Selecione…"
-                    options={lotes.map((lote) => ({
-                      value: lote.id,
-                      label: `${lote.codigo}${lote.validade ? ` — vence ${dateBr(lote.validade)}` : ""}`,
-                    }))}
-                  />
+                  <div className="flex flex-col gap-2">
+                    <Select
+                      label="Lote"
+                      value={loteId}
+                      onChange={setLoteId}
+                      placeholder="Selecione…"
+                      options={lotes.map((lote) => ({
+                        value: lote.id,
+                        label: `${lote.codigo}${lote.validade ? ` — vence ${dateBr(lote.validade)}` : ""}`,
+                      }))}
+                    />
+                    {/* Cadastrar lote é tarefa curta e secundária: sai em sobreposição
+                        para não empurrar o formulário principal tela abaixo. */}
+                    <button
+                      type="button"
+                      onClick={() => setLoteModal(true)}
+                      className="self-start text-sm font-medium text-brand-link hover:underline"
+                    >
+                      + Cadastrar novo lote
+                    </button>
+                  </div>
                 )}
 
                 <TextField
@@ -286,31 +301,6 @@ export function ProdutoDetailPage({ produto, onBack }: Props) {
             </CardBody>
           </Card>
 
-          {produto.controla_lote && (
-            <Card muted>
-              <CardHeader title="Novo lote" />
-              <CardBody>
-                <form onSubmit={criarLote} className="flex flex-col gap-4" noValidate>
-                  <TextField
-                    label="Código do lote"
-                    value={novoLote}
-                    onChange={(e) => setNovoLote(e.target.value)}
-                  />
-                  {produto.controla_validade && (
-                    <TextField
-                      label="Validade"
-                      type="date"
-                      value={novaValidade}
-                      onChange={(e) => setNovaValidade(e.target.value)}
-                    />
-                  )}
-                  <Button variant="secondary" type="submit" disabled={!novoLote.trim()}>
-                    Cadastrar lote
-                  </Button>
-                </form>
-              </CardBody>
-            </Card>
-          )}
         </div>
 
         <Card>
@@ -360,6 +350,46 @@ export function ProdutoDetailPage({ produto, onBack }: Props) {
           )}
         </Card>
       </div>
+
+      <Modal
+        open={loteModal}
+        title="Novo lote"
+        description={`Para ${produto.nome}.`}
+        onClose={() => setLoteModal(false)}
+      >
+        <form id="form-lote" onSubmit={criarLote} className="flex flex-col gap-4" noValidate>
+          <TextField
+            label="Código do lote"
+            hint="Como vem impresso na embalagem ou na nota."
+            value={novoLote}
+            onChange={(e) => setNovoLote(e.target.value)}
+          />
+          {produto.controla_validade && (
+            <TextField
+              label="Validade"
+              type="date"
+              value={novaValidade}
+              onChange={(e) => setNovaValidade(e.target.value)}
+            />
+          )}
+          {error && <Alert tone="danger">{error}</Alert>}
+        </form>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button inline variant="secondary" onClick={() => setLoteModal(false)}>
+            Cancelar
+          </Button>
+          <Button
+            inline
+            type="submit"
+            form="form-lote"
+            loading={busy}
+            disabled={!novoLote.trim()}
+          >
+            Cadastrar lote
+          </Button>
+        </div>
+      </Modal>
     </Page>
   );
 }

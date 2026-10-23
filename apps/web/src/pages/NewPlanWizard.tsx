@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { NewClientForm, NewPropertyForm } from "../components/NewClientForm";
+import { Alert } from "../components/Alert";
+import { Page, PageHeader } from "../components/AppShell";
 import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { Wizard } from "../components/Wizard";
@@ -95,7 +97,8 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
   const blocked = step === 0 && (!clientId || !propertyId);
 
   return (
-    <div className="mx-auto w-full max-w-xl px-6 py-8">
+    <Page>
+      <PageHeader title="Novo planejamento" onBack={onCancel} />
       <Wizard
         steps={STEPS}
         current={step}
@@ -234,19 +237,9 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
           </>
         )}
 
-        {error && (
-          <p
-            role="alert"
-            className="flex items-start gap-2 rounded-dk bg-danger-soft px-4 py-3 text-base text-danger"
-          >
-            <span aria-hidden="true" className="font-bold">
-              !
-            </span>
-            {error}
-          </p>
-        )}
+        {error && <Alert tone="danger">{error}</Alert>}
       </Wizard>
-    </div>
+    </Page>
   );
 }
 

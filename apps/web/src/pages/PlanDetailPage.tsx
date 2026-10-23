@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { Page, PageHeader } from "../components/AppShell";
 import { Button } from "../components/Button";
 import { PlanProducts } from "../components/PlanProducts";
 import { TextField } from "../components/TextField";
@@ -74,26 +75,15 @@ export function PlanDetailPage({ plan, onBack }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-8">
-      <button
-        type="button"
-        onClick={onBack}
-        className="min-h-touch text-base font-medium text-brand-link"
-      >
-        ← Voltar
-      </button>
+    <Page wide>
+      <PageHeader
+        title={`Planejamento nº ${plan.numero}`}
+        description={`Limites: vento ${num(plan.param_velocidade_vento_max_kmh)} km/h, temperatura ${num(plan.param_temperatura_maxima_c)} °C, umidade mínima ${num(plan.param_umidade_relativa_min_pct, 0)}%`}
+        onBack={onBack}
+      />
 
-      <h1 className="mt-2 text-3xl font-bold text-ink">
-        Planejamento nº {plan.numero}
-      </h1>
-      <p className="mt-1 text-lg text-ink-muted">
-        Limites: vento {num(plan.param_velocidade_vento_max_kmh)} km/h, temperatura{" "}
-        {num(plan.param_temperatura_maxima_c)} °C, umidade mínima{" "}
-        {num(plan.param_umidade_relativa_min_pct, 0)}%
-      </p>
-
-      <section className="mt-8 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">Registrar condição do tempo</h2>
+      <section className="mt-8 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle p-5">
+        <h2 className="text-lg font-semibold text-ink">Registrar condição do tempo</h2>
         <p className="mt-1 text-base text-ink-muted">
           O sistema busca temperatura, umidade e vento do local e do horário informados.
         </p>
@@ -180,8 +170,8 @@ export function PlanDetailPage({ plan, onBack }: Props) {
         )}
       </section>
 
-      <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">
+      <section className="mt-6 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle p-5">
+        <h2 className="text-lg font-semibold text-ink">
           Leituras registradas ({readings.length})
         </h2>
         {readings.length === 0 ? (
@@ -229,7 +219,7 @@ export function PlanDetailPage({ plan, onBack }: Props) {
           Baixar relatório em PDF
         </Button>
       </div>
-    </div>
+    </Page>
   );
 }
 

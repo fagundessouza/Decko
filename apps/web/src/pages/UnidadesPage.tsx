@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
+import { Alert } from "../components/Alert";
+import { Page, PageHeader } from "../components/AppShell";
+import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { Card, CardBody, CardHeader, Row } from "../components/Card";
+import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { comercial } from "../lib/comercial";
 import type { Unidade } from "../lib/comercial";
@@ -63,162 +68,159 @@ export function UnidadesPage({ onBack, onChanged }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-8">
-      <button
-        type="button"
-        onClick={onBack}
-        className="min-h-touch text-base font-medium text-brand-link"
-      >
-        ← Voltar
-      </button>
+    <Page wide>
+      <PageHeader
+        title="Unidades e embalagens"
+        description="Comece pela unidade em que você conta o produto — peça, quilo, litro. Depois descreva as embalagens em cima dela: a caixa tem tantas peças, o fardo tem tantas caixas."
+        onBack={onBack}
+      />
 
-      <h1 className="mt-2 text-3xl font-bold text-ink">Unidades e embalagens</h1>
-      <p className="mt-2 text-lg text-ink-muted">
-        Comece pela unidade em que você conta o produto — peça, quilo, litro. Depois
-        descreva as embalagens em cima dela: a caixa tem tantas peças, o fardo tem tantas
-        caixas.
-      </p>
-
-      <section className="mt-8 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">Nova unidade</h2>
-
-        <form onSubmit={submit} className="mt-5 flex flex-col gap-4" noValidate>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-base font-medium text-ink">O que você vai criar</label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => setReferenciaId("")}
-                aria-pressed={!criandoEmbalagem}
-                className={
-                  "min-h-touch flex-1 rounded-dk border px-4 text-lg font-medium " +
-                  (!criandoEmbalagem
-                    ? "border-action bg-action-soft text-ink"
-                    : "border-line bg-surface text-ink-muted")
-                }
-              >
-                Unidade de contagem
-              </button>
-              <button
-                type="button"
-                onClick={() => setReferenciaId(raizes[0]?.id ?? "")}
-                disabled={raizes.length === 0}
-                aria-pressed={criandoEmbalagem}
-                className={
-                  "min-h-touch flex-1 rounded-dk border px-4 text-lg font-medium " +
-                  "disabled:cursor-not-allowed disabled:text-ink-muted/50 " +
-                  (criandoEmbalagem
-                    ? "border-action bg-action-soft text-ink"
-                    : "border-line bg-surface text-ink-muted")
-                }
-              >
-                Embalagem
-              </button>
-            </div>
-            {raizes.length === 0 && (
-              <p className="text-sm text-ink-muted">
-                Crie primeiro uma unidade de contagem para poder descrever embalagens.
-              </p>
-            )}
-          </div>
-
-          <TextField
-            label="Nome"
-            hint={criandoEmbalagem ? "Caixa, fardo, pacote…" : "Peça, quilo, litro…"}
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            required
-          />
-
-          {!criandoEmbalagem && (
-            <TextField
-              label="Símbolo"
-              hint="Opcional. Aparece nos documentos: un, kg, L."
-              value={simbolo}
-              onChange={(e) => setSimbolo(e.target.value)}
-            />
-          )}
-
-          {criandoEmbalagem && (
-            <>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="h-fit">
+          <CardHeader title="Nova unidade" />
+          <CardBody>
+            <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
               <div className="flex flex-col gap-1.5">
-                <label className="text-base font-medium text-ink">Contém o quê</label>
-                <select
-                  value={referenciaId}
-                  onChange={(e) => setReferenciaId(e.target.value)}
-                  className="min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg text-ink"
-                >
-                  {(unidades ?? []).map((unidade) => (
-                    <option key={unidade.id} value={unidade.id}>
-                      {unidade.nome}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-sm text-ink-muted">
-                  O fardo é descrito em caixas, não em peças — o sistema faz a conta.
-                </p>
+                <span className="text-sm font-medium text-ink">O que você vai criar</span>
+                <div className="flex gap-1 rounded-dk bg-sunken p-1">
+                  <button
+                    type="button"
+                    onClick={() => setReferenciaId("")}
+                    aria-pressed={!criandoEmbalagem}
+                    className={
+                      "min-h-[2.5rem] flex-1 rounded-sm text-base font-medium " +
+                      "transition-[background-color,box-shadow,color] duration-150 ease-dk " +
+                      (!criandoEmbalagem
+                        ? "bg-surface text-ink shadow-xs"
+                        : "text-ink-muted hover:text-ink")
+                    }
+                  >
+                    Unidade de contagem
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReferenciaId(raizes[0]?.id ?? "")}
+                    disabled={raizes.length === 0}
+                    aria-pressed={criandoEmbalagem}
+                    className={
+                      "min-h-[2.5rem] flex-1 rounded-sm text-base font-medium " +
+                      "transition-[background-color,box-shadow,color] duration-150 ease-dk " +
+                      "disabled:cursor-not-allowed disabled:text-ink-faint/60 " +
+                      (criandoEmbalagem
+                        ? "bg-surface text-ink shadow-xs"
+                        : "text-ink-muted hover:text-ink")
+                    }
+                  >
+                    Embalagem
+                  </button>
+                </div>
+                {raizes.length === 0 && (
+                  <p className="text-sm text-ink-muted">
+                    Crie primeiro uma unidade de contagem para poder descrever embalagens.
+                  </p>
+                )}
               </div>
 
               <TextField
-                label="Quantas"
-                type="number"
-                inputMode="decimal"
-                hint={`Quantas ${porId.get(referenciaId)?.nome ?? "unidades"} cabem nesta embalagem.`}
-                value={fator}
-                onChange={(e) => setFator(e.target.value)}
+                label="Nome"
+                hint={criandoEmbalagem ? "Caixa, fardo, pacote…" : "Peça, quilo, litro…"}
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
                 required
               />
-            </>
+
+              {!criandoEmbalagem && (
+                <TextField
+                  label="Símbolo"
+                  hint="Opcional. Aparece nos documentos: un, kg, L."
+                  value={simbolo}
+                  onChange={(e) => setSimbolo(e.target.value)}
+                />
+              )}
+
+              {criandoEmbalagem && (
+                <>
+                  <Select
+                    label="Contém o quê"
+                    hint="O fardo é descrito em caixas, não em peças — o sistema faz a conta."
+                    value={referenciaId}
+                    onChange={setReferenciaId}
+                    options={(unidades ?? []).map((unidade) => ({
+                      value: unidade.id,
+                      label: unidade.nome,
+                    }))}
+                  />
+
+                  <TextField
+                    label="Quantas"
+                    type="number"
+                    inputMode="decimal"
+                    hint={`Quantas ${porId.get(referenciaId)?.nome ?? "unidades"} cabem nesta embalagem.`}
+                    value={fator}
+                    onChange={(e) => setFator(e.target.value)}
+                    required
+                  />
+                </>
+              )}
+
+              {error && <Alert tone="danger">{error}</Alert>}
+
+              <Button
+                type="submit"
+                loading={busy}
+                disabled={!nome || (criandoEmbalagem && !fator)}
+              >
+                Salvar
+              </Button>
+            </form>
+          </CardBody>
+        </Card>
+
+        <Card className="h-fit">
+          <CardHeader title={`Cadastradas (${unidades?.length ?? 0})`} />
+
+          {unidades !== null && unidades.length === 0 ? (
+            <CardBody>
+              <p className="text-base text-ink-muted">Nenhuma ainda.</p>
+            </CardBody>
+          ) : (
+            <ul className="mt-2 border-t border-line-subtle">
+              {(unidades ?? []).map((unidade) => {
+                const referencia = unidade.referencia_id
+                  ? porId.get(unidade.referencia_id)
+                  : undefined;
+                return (
+                  <Row key={unidade.id}>
+                    <div className="min-w-0">
+                      <p className="font-medium text-ink">
+                        {unidade.nome}
+                        {unidade.simbolo ? (
+                          <span className="font-normal text-ink-muted">
+                            {" "}
+                            ({unidade.simbolo})
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-sm text-ink-muted">
+                        {referencia
+                          ? `${num(unidade.fator_relativo)} ${referencia.nome}`
+                          : "Unidade de contagem"}
+                      </p>
+                    </div>
+                    {referencia ? (
+                      <Badge tone="info">
+                        <span className="tabular">= {num(unidade.fator)}</span> na base
+                      </Badge>
+                    ) : (
+                      <Badge tone="neutral">base</Badge>
+                    )}
+                  </Row>
+                );
+              })}
+            </ul>
           )}
-
-          {error && (
-            <p
-              role="alert"
-              className="flex items-start gap-2 rounded-dk bg-danger-soft px-4 py-3 text-base text-danger"
-            >
-              <span aria-hidden="true" className="font-bold">
-                !
-              </span>
-              {error}
-            </p>
-          )}
-
-          <Button type="submit" loading={busy} disabled={!nome || (criandoEmbalagem && !fator)}>
-            Salvar
-          </Button>
-        </form>
-      </section>
-
-      <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-        <h2 className="text-xl font-semibold text-ink">
-          Cadastradas ({unidades?.length ?? 0})
-        </h2>
-
-        {unidades !== null && unidades.length === 0 && (
-          <p className="mt-2 text-base text-ink-muted">Nenhuma ainda.</p>
-        )}
-
-        <ul className="mt-4 flex flex-col gap-3">
-          {(unidades ?? []).map((unidade) => {
-            const referencia = unidade.referencia_id
-              ? porId.get(unidade.referencia_id)
-              : undefined;
-            return (
-              <li key={unidade.id} className="border-b border-line pb-3 last:border-0">
-                <p className="text-base font-medium text-ink">
-                  {unidade.nome}
-                  {unidade.simbolo ? ` (${unidade.simbolo})` : ""}
-                </p>
-                <p className="text-base text-ink-muted">
-                  {referencia
-                    ? `${num(unidade.fator_relativo)} ${referencia.nome} · equivale a ${num(unidade.fator)} na unidade de contagem`
-                    : "Unidade de contagem"}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-    </div>
+        </Card>
+      </div>
+    </Page>
   );
 }

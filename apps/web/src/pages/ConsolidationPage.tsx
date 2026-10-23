@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { Alert } from "../components/Alert";
+import { Page, PageHeader } from "../components/AppShell";
 import { Button } from "../components/Button";
 import { Select } from "../components/Select";
 import { agro } from "../lib/agro";
@@ -75,21 +77,14 @@ export function ConsolidationPage({ onBack }: Props) {
   const dados = estado.fase === "pronto" ? estado.dados : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-8">
-      <button
-        type="button"
-        onClick={onBack}
-        className="min-h-touch text-base font-medium text-brand-link"
-      >
-        ← Voltar
-      </button>
+    <Page wide>
+      <PageHeader
+        title="Fechamento do mês"
+        description="O que foi aplicado no período, pronto para conferência e para a planilha."
+        onBack={onBack}
+      />
 
-      <h1 className="mt-2 text-3xl font-bold text-ink">Fechamento do mês</h1>
-      <p className="mt-1 text-lg text-ink-muted">
-        O que foi aplicado no período, pronto para conferência e para a planilha.
-      </p>
-
-      <div className="mt-6 flex flex-col gap-4 sm:flex-row">
+      <div className="flex flex-col gap-4 sm:flex-row">
         <div className="flex-1">
           <Select
             label="Mês"
@@ -114,13 +109,13 @@ export function ConsolidationPage({ onBack }: Props) {
       </div>
 
       {estado.fase === "erro" && (
-        <p role="alert" className="mt-6 rounded-dk bg-danger-soft px-4 py-3 text-base text-danger">
-          {estado.mensagem}
-        </p>
+        <div className="mt-6">
+          <Alert tone="danger">{estado.mensagem}</Alert>
+        </div>
       )}
 
       {estado.fase === "carregando" && (
-        <p className="mt-6 text-lg text-ink-muted">Carregando…</p>
+        <p className="mt-6 animate-fade text-base text-ink-muted">Carregando…</p>
       )}
 
       {dados && (
@@ -133,19 +128,17 @@ export function ConsolidationPage({ onBack }: Props) {
           {/* O aviso de deriva vem antes da lista: é o que a empresa precisa ver antes de
               fechar o mês, não depois de ser autuada. */}
           {dados.planos_com_violacao > 0 && (
-            <p
-              role="alert"
-              className="mt-3 rounded-dk border-2 border-warn bg-warn-soft px-4 py-3 text-base font-medium text-ink"
-            >
-              <span aria-hidden="true">⚠ </span>
-              {dados.planos_com_violacao === 1
-                ? "1 planejamento teve leitura fora dos limites planejados."
-                : `${dados.planos_com_violacao} planejamentos tiveram leitura fora dos limites planejados.`}
-            </p>
+            <div className="mt-3">
+              <Alert tone="warn">
+                {dados.planos_com_violacao === 1
+                  ? "1 planejamento teve leitura fora dos limites planejados."
+                  : `${dados.planos_com_violacao} planejamentos tiveram leitura fora dos limites planejados.`}
+              </Alert>
+            </div>
           )}
 
           {dados.planos_sem_data > 0 && (
-            <p className="mt-3 rounded-dk border border-line bg-surface px-4 py-3 text-base text-ink-muted">
+            <p className="mt-3 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle px-4 py-3 text-base text-ink-muted">
               {dados.planos_sem_data === 1
                 ? "1 planejamento está sem data de aplicação e não entra em mês nenhum."
                 : `${dados.planos_sem_data} planejamentos estão sem data de aplicação e não entram em mês nenhum.`}
@@ -153,8 +146,8 @@ export function ConsolidationPage({ onBack }: Props) {
           )}
 
           {dados.totais_por_produto.length > 0 && (
-            <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-              <h2 className="text-xl font-semibold text-ink">Produtos no período</h2>
+            <section className="mt-6 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle p-5">
+              <h2 className="text-lg font-semibold text-ink">Produtos no período</h2>
               <ul className="mt-3 flex flex-col gap-2">
                 {dados.totais_por_produto.map((item) => (
                   <li
@@ -169,8 +162,8 @@ export function ConsolidationPage({ onBack }: Props) {
             </section>
           )}
 
-          <section className="mt-6 rounded-dk border border-line bg-surface p-5">
-            <h2 className="text-xl font-semibold text-ink">Planejamentos</h2>
+          <section className="mt-6 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle p-5">
+            <h2 className="text-lg font-semibold text-ink">Planejamentos</h2>
             {dados.planos.length === 0 ? (
               <p className="mt-2 text-base text-ink-muted">
                 Nenhuma aplicação registrada em {MESES[mes - 1].toLowerCase()} de {ano}.
@@ -232,13 +225,13 @@ export function ConsolidationPage({ onBack }: Props) {
           </div>
         </>
       )}
-    </div>
+    </Page>
   );
 }
 
 function Numero({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="rounded-dk border border-line bg-surface px-4 py-4">
+    <div className="rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle px-4 py-4">
       <p className="text-base text-ink-muted">{titulo}</p>
       <p className="mt-1 text-2xl font-bold text-ink">{valor}</p>
     </div>
