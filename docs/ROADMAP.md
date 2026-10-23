@@ -36,6 +36,8 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
 - [x] Ativação de módulo por empresa: `tenant_module`, verificação aplicada pelo host na
       montagem do router, catálogo e contratação pela API, menu alimentado pelos módulos
       ativos — ver `docs/adr/0004-ativacao-de-modulo-por-empresa.md`
+- [ ] Recusar senha conhecidamente vazada no cadastro e na troca. Vale mais que exigir
+      comprimento alto, que é o que o mínimo de caracteres tenta aproximar e não entrega
 - [ ] Escrita na trilha de auditoria nos fluxos de autenticação (o bootstrap já registra)
 - [ ] Troca de empresa para quem opera em mais de uma
 - [x] Perfil de segmento: `profiles/*.toml`, tela de escolha do ramo e contratação em um
