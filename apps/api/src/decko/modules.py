@@ -12,7 +12,9 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
+
+from decko.activation import activation_guard_for
 
 API_PREFIX = "/api/v1"
 
@@ -33,11 +35,22 @@ class ModuleManifest:
     permissions: tuple[str, ...] = ()
     menu: dict[str, object] = field(default_factory=dict)
 
+    # Como o módulo aparece na vitrine. Fica no manifesto, e não numa lista na interface,
+    # porque senão acrescentar um módulo exigiria lembrar de editar dois lugares — e um
+    # deles ficaria para trás.
+    category: str = "Outros"
+    summary: str = ""
+    icon: str = "apps"
+    # Cor de identidade do módulo na vitrine. Nome do papel, não valor: a cor mora nos
+    # tokens — ver docs/BRAND.md, seção 2.1.
+    accent: str = "slate"
+
     @classmethod
     def from_file(cls, path: Path) -> "ModuleManifest":
         data = tomllib.loads(path.read_text(encoding="utf-8"))
         try:
             module = data["module"]
+            menu = data.get("menu", {})
             return cls(
                 name=module["name"],
                 label=module.get("label", module["name"]),
@@ -47,7 +60,13 @@ class ModuleManifest:
                 required=bool(module.get("required", False)),
                 branch_label=data.get("migrations", {}).get("branch_label"),
                 permissions=tuple(data.get("permissions", {}).get("provides", [])),
-                menu=data.get("menu", {}),
+                menu=menu,
+                category=module.get("category", "Outros"),
+                summary=module.get("summary", ""),
+                # Nome do ícone, não símbolo: a arte mora na interface, que a resolve
+                # pelo nome — ver apps/web/src/components/ModuleIcon.tsx.
+                icon=str(module.get("icon") or "apps"),
+                accent=str(module.get("accent") or "slate"),
             )
         except KeyError as exc:
             raise ModuleError(f"{path}: campo obrigatório ausente: {exc}") from exc
@@ -94,6 +113,35 @@ def resolve_order(manifests: dict[str, ModuleManifest]) -> list[ModuleManifest]:
     return ordered
 
 
+def with_dependencies(name: str, manifests: dict[str, ModuleManifest]) -> list[str]:
+    """O módulo pedido e tudo de que ele precisa, em ordem de dependência.
+
+    Quem contrata escolhe o que quer fazer, não a árvore técnica por baixo. Ativar um
+    módulo sem o que ele usa deixaria a empresa com uma tela que não abre.
+    """
+    resolvido: list[str] = []
+
+    def visit(atual: str) -> None:
+        if atual in resolvido:
+            return
+        manifest = manifests[atual]
+        for dependency in manifest.depends:
+            visit(dependency)
+        resolvido.append(atual)
+
+    visit(name)
+    return resolvido
+
+
+def dependents(name: str, manifests: dict[str, ModuleManifest]) -> list[str]:
+    """Os módulos que deixariam de funcionar se este saísse — direta ou indiretamente."""
+    return sorted(
+        other.name
+        for other in manifests.values()
+        if other.name != name and name in with_dependencies(other.name, manifests)
+    )
+
+
 def load_into(app: FastAPI, modules_dir: Path) -> list[ModuleManifest]:
     """Importa cada módulo e monta seu router em /api/v1/<nome>."""
     loaded: list[ModuleManifest] = []
@@ -112,6 +160,17 @@ def load_into(app: FastAPI, modules_dir: Path) -> list[ModuleManifest]:
         if not isinstance(router, APIRouter):
             raise ModuleError(f"módulo '{manifest.name}': 'router' não é um APIRouter")
 
-        app.include_router(router, prefix=f"{API_PREFIX}/{manifest.name}", tags=[manifest.name])
+        # Módulo obrigatório não é verificado: o núcleo é o que permite autenticar, e
+        # exigir ativação para poder conferir ativação não fecha.
+        # A verificação é acrescentada aqui, na montagem, e não escrita dentro do módulo:
+        # assim nenhum módulo consegue ficar desprotegido por esquecimento.
+        guards = [] if manifest.required else [Depends(activation_guard_for(manifest.name))]
+
+        app.include_router(
+            router,
+            prefix=f"{API_PREFIX}/{manifest.name}",
+            tags=[manifest.name],
+            dependencies=guards,
+        )
         loaded.append(manifest)
     return loaded

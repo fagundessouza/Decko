@@ -5,6 +5,10 @@
 [module]
 name = "core"
 label = "Núcleo"
+category = "Plataforma"
+icon = "settings"
+accent = "slate"
+summary = "Empresas, usuários, permissões e trilha de auditoria. Base de tudo."
 version = "0.1.0"
 package = "decko_modules.core"
 depends = []
@@ -25,9 +29,10 @@ provides = [
   "core.role.read",
   "core.role.assign",
   "core.audit.read",
+  "core.module.read",
+  "core.module.activate",
 ]
 
 [menu]
 label = "Configurações"
-icon = "settings"
 order = 900

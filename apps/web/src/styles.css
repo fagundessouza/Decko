@@ -1,44 +1,69 @@
 @import "tailwindcss";
+
+/* Fonte hospedada no projeto, não em CDN: o PDV precisa abrir sem internet. */
+@import "@fontsource-variable/inter";
+
 @import "../../../packages/tokens/tokens.css";
 
 /* `inline` faz as utilitárias emitirem var(--dk-*) em vez do valor resolvido. É isso que
-   permite trocar de tema em tempo de execução mexendo só no atributo data-theme: as
-   classes continuam as mesmas e o valor por trás muda.
+   permite trocar de tema em tempo de execução mexendo só no atributo data-theme.
    Regras e justificativa da paleta: docs/BRAND.md */
 @theme inline {
   --color-bg: var(--dk-bg);
   --color-surface: var(--dk-surface);
+  --color-sunken: var(--dk-surface-sunken);
   --color-line: var(--dk-border);
+  --color-line-subtle: var(--dk-border-subtle);
   --color-ink: var(--dk-text);
   --color-ink-muted: var(--dk-text-muted);
+  --color-ink-faint: var(--dk-text-faint);
 
   --color-brand: var(--dk-brand-700);
-  --color-brand-strong: var(--dk-brand-800);
+  --color-brand-deep: var(--dk-brand-800);
+  --color-brand-950: var(--dk-brand-950);
   --color-brand-soft: var(--dk-brand-100);
+  --color-brand-tint: var(--dk-brand-50);
   --color-brand-link: var(--dk-brand-500);
 
   --color-action: var(--dk-action-600);
   --color-action-hover: var(--dk-action-700);
+  --color-action-bright: var(--dk-action-500);
   --color-action-soft: var(--dk-action-100);
+  --color-action-tint: var(--dk-action-50);
 
   --color-warn: var(--dk-warn-600);
+  --color-warn-strong: var(--dk-warn-500);
   --color-warn-soft: var(--dk-warn-100);
 
   --color-danger: var(--dk-danger-600);
   --color-danger-soft: var(--dk-danger-100);
 
   --font-sans: var(--dk-font-sans);
+  --font-mono: var(--dk-font-mono);
+
+  --radius-sm: var(--dk-radius-sm);
   --radius-dk: var(--dk-radius);
+  --radius-lg: var(--dk-radius-lg);
+  --radius-xl: var(--dk-radius-xl);
+
+  --shadow-xs: var(--dk-shadow-xs);
+  --shadow-sm: var(--dk-shadow-sm);
+  --shadow-md: var(--dk-shadow-md);
+  --shadow-lg: var(--dk-shadow-lg);
 
   --spacing-touch: var(--dk-touch-min);
   --spacing-touch-pos: var(--dk-touch-pos);
+
+  --ease-dk: var(--dk-ease);
 }
 
 @layer base {
   html {
-    /* Corpo mínimo de 16px: o público inclui pessoas idosas operando o dia inteiro. */
     font-size: 100%;
     -webkit-text-size-adjust: 100%;
+    /* Sem isto a Inter sai com o espaçamento do século passado. */
+    font-feature-settings: "cv11", "ss01";
+    font-variant-ligatures: contextual;
   }
 
   body {
@@ -46,15 +71,40 @@
     color: var(--dk-text);
     font-family: var(--dk-font-sans);
     font-size: var(--dk-text-base);
-    line-height: 1.5;
+    line-height: 1.55;
     margin: 0;
     min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Foco sempre visível: quem opera caixa trabalha por teclado, não por mouse. */
+  /* Título com tracking negativo e peso alto. É o detalhe que separa "moderno" do
+     padrão do navegador, e custa uma linha. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: var(--dk-tracking-tight);
+    font-weight: 650;
+  }
+
+  /* Número em tabela e saldo alinham por casa decimal. Sem isto a coluna dança. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Foco sempre visível: quem opera caixa trabalha por teclado, não por mouse.
+     Anel difuso em vez de contorno duro — some menos com a estética e vê-se igual. */
   :focus-visible {
-    outline: 3px solid var(--dk-brand-500);
+    outline: 2px solid transparent;
     outline-offset: 2px;
+    box-shadow: var(--dk-shadow-focus);
+    border-radius: var(--dk-radius-sm);
+  }
+
+  ::selection {
+    background-color: var(--dk-brand-100);
+    color: var(--dk-text);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -64,5 +114,132 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+@layer components {
+  /* Placa de módulo: o cartão da vitrine e do início.
+     Mora aqui, e não em classes utilitárias no componente, porque o efeito depende de
+     pseudo-elemento, de `color-mix` com o acento e de valores que trocam com o tema —
+     coisas que não cabem em atributo `class` sem virar sopa ilegível.
+     Regras da cor de acento: docs/BRAND.md, seção 2.1. */
+
+  /* O acento é escolhido por atributo: o componente diz qual é a identidade do módulo e
+     o CSS resolve a cor. Nenhum valor de cor passa pelo TSX. */
+  [data-accent="teal"] {
+    --dk-accent: var(--dk-accent-teal);
+  }
+  [data-accent="blue"] {
+    --dk-accent: var(--dk-accent-blue);
+  }
+  [data-accent="lime"] {
+    --dk-accent: var(--dk-accent-lime);
+  }
+  [data-accent="violet"] {
+    --dk-accent: var(--dk-accent-violet);
+  }
+  [data-accent="slate"] {
+    --dk-accent: var(--dk-accent-slate);
+  }
+
+  .dk-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--dk-radius-lg);
+    background-color: var(--dk-tile-bg);
+    /* Translucidez sobre o fundo da aplicação. O desfoque é pequeno de propósito: é
+       efeito caro de desenhar, e o alvo inclui PC antigo de caixa. */
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--dk-tile-border);
+    box-shadow: var(--dk-shadow-sm);
+    transition:
+      transform 0.3s var(--dk-ease),
+      box-shadow 0.3s var(--dk-ease),
+      border-color 0.3s var(--dk-ease);
+  }
+
+  /* Fio de luz na borda de cima. No repouso quase não existe; no hover, acende. */
+  .dk-tile::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    border-radius: var(--dk-radius-lg) var(--dk-radius-lg) 0 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--dk-tile-sheen),
+      color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) 60%, transparent),
+      transparent
+    );
+    opacity: 0.35;
+    transition: opacity 0.3s var(--dk-ease);
+    pointer-events: none;
+  }
+
+  .dk-tile--interactive:hover,
+  .dk-tile--interactive:focus-visible {
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) 42%, transparent);
+    box-shadow:
+      var(--dk-shadow-md),
+      0 12px 32px -14px
+        color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) var(--dk-tile-glow), transparent);
+  }
+
+  .dk-tile--interactive:hover::before,
+  .dk-tile--interactive:focus-visible::before {
+    opacity: 1;
+  }
+
+  /* Placa do ícone: gradiente sutil do acento sobre a superfície, com borda fina. */
+  .dk-tile__icon {
+    background-image: linear-gradient(
+      160deg,
+      color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) var(--dk-tile-wash), var(--dk-surface)),
+      var(--dk-surface)
+    );
+    border: 1px solid
+      color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) 24%, transparent);
+    color: var(--dk-accent, var(--dk-accent-slate));
+    transition: transform 0.3s var(--dk-ease);
+  }
+
+  .dk-tile--interactive:hover .dk-tile__icon,
+  .dk-tile--interactive:focus-visible .dk-tile__icon {
+    transform: scale(1.08);
+  }
+}
+
+@layer utilities {
+  /* Entrada curta e discreta. Movimento aqui é para orientar, não para enfeitar:
+     o público opera isto o dia inteiro. */
+  @keyframes dk-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes dk-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-rise {
+    animation: dk-rise 0.22s var(--dk-ease) both;
+  }
+
+  .animate-fade {
+    animation: dk-fade 0.16s var(--dk-ease) both;
   }
 }

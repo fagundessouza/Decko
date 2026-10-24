@@ -1,14 +1,31 @@
 import { useId, useState } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, Ref } from "react";
 
 interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   label: string;
   hint?: string;
+  /** Pinta a dica como erro e marca o campo. A dica vira a explicação do problema. */
+  invalid?: boolean;
   /** Acrescenta o botão de mostrar/ocultar. Ver nota abaixo. */
   revealable?: boolean;
+  /** Texto fixo à esquerda, como "R$". Evita repetir a unidade dentro do valor.
+   *  Não se chama `prefix` porque esse é um atributo HTML e o tipo colidiria. */
+  leading?: ReactNode;
+  /** Para o PDV devolver o foco ao campo de código depois de cada item. No React 19 a
+   *  ref é uma prop comum; não precisa de forwardRef. */
+  ref?: Ref<HTMLInputElement>;
 }
 
-export function TextField({ label, hint, revealable = false, type, ...rest }: Props) {
+export function TextField({
+  label,
+  hint,
+  invalid = false,
+  revealable = false,
+  leading,
+  type,
+  className = "",
+  ...rest
+}: Props) {
   const id = useId();
   const hintId = `${id}-hint`;
   const [revealed, setRevealed] = useState(false);
@@ -17,21 +34,36 @@ export function TextField({ label, hint, revealable = false, type, ...rest }: Pr
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-base font-medium text-ink">
+      <label htmlFor={id} className="text-sm font-medium text-ink">
         {label}
       </label>
 
-      <div className="relative">
+      <div
+        className={
+          "flex min-h-touch items-center gap-2 rounded-dk bg-surface px-4 shadow-xs " +
+          "ring-1 transition-shadow duration-150 ease-dk " +
+          "focus-within:ring-2 " +
+          (invalid
+            ? "ring-danger focus-within:ring-danger "
+            : "ring-line hover:ring-ink-faint/40 focus-within:ring-brand-link ")
+        }
+      >
+        {leading && (
+          <span aria-hidden="true" className="shrink-0 text-base text-ink-faint">
+            {leading}
+          </span>
+        )}
+
         <input
           {...rest}
           id={id}
           type={inputType}
           aria-describedby={hint ? hintId : undefined}
+          aria-invalid={invalid || undefined}
           className={
-            "min-h-touch w-full rounded-dk border border-line bg-surface px-4 text-lg " +
-            "text-ink placeholder:text-ink-muted/70 " +
-            "focus:border-brand-link focus:outline-none " +
-            (revealable ? "pr-28" : "")
+            "min-w-0 flex-1 bg-transparent py-2 text-base text-ink outline-none " +
+            "placeholder:text-ink-faint focus:shadow-none " +
+            className
           }
         />
 
@@ -41,16 +73,17 @@ export function TextField({ label, hint, revealable = false, type, ...rest }: Pr
           <button
             type="button"
             onClick={() => setRevealed((value) => !value)}
-            className="absolute inset-y-0 right-2 my-1 rounded-dk px-3 text-base
-                       font-medium text-brand-link hover:bg-brand-soft"
+            className="shrink-0 rounded-sm px-2 py-1 text-sm font-medium text-brand-link hover:bg-brand-soft"
           >
             {revealed ? "Ocultar" : "Mostrar"}
           </button>
         )}
       </div>
 
+      {/* Não é só cor: o campo recebe aria-invalid e a explicação vem escrita, porque
+          cor sozinha não informa. Ver docs/BRAND.md. */}
       {hint && (
-        <p id={hintId} className="text-sm text-ink-muted">
+        <p id={hintId} className={invalid ? "text-sm text-danger" : "text-sm text-ink-muted"}>
           {hint}
         </p>
       )}

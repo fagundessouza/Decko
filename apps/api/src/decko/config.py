@@ -32,6 +32,10 @@ class Settings(BaseSettings):
         return REPO_ROOT / "modules"
 
     @property
+    def profiles_dir(self) -> Path:
+        return REPO_ROOT / "profiles"
+
+    @property
     def is_production(self) -> bool:
         return self.env == "production"
 

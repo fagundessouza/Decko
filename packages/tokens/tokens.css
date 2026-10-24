@@ -1,80 +1,184 @@
-/* Decko design tokens — fonte única de cor e tipografia.
-   Regras e justificativa: docs/BRAND.md
-   Cor não é escrita direto em componente. Se falta um token, falta uma definição semântica. */
+/* Decko design tokens — fonte única de cor, tipografia, elevação e ritmo.
+   Regras semânticas e justificativa: docs/BRAND.md
+
+   Cor não é escrita direto em componente. Se falta um token, falta uma definição.
+
+   A hierarquia semântica continua a mesma — azul-grafite é estrutura, verde é ação,
+   âmbar é alerta, vermelho é erro. O que mudou aqui é o acabamento: neutros com
+   temperatura em vez de cinza puro, elevação em camadas no lugar de borda cinza em tudo,
+   raio maior e escala tipográfica com saltos de verdade. */
 
 :root {
-  /* Estrutura — azul-grafite dessaturado */
-  --dk-brand-900: #0e151d;
-  --dk-brand-800: #16202b;
-  --dk-brand-700: #1e2a38;
-  --dk-brand-600: #27405c;
-  --dk-brand-500: #2f5d8a;
-  --dk-brand-400: #4a82b8;
-  --dk-brand-100: #e6eef6;
+  /* ---------------------------------------------------------------- estrutura
+     Azul-grafite. Fria e dessaturada: carrega a interface sem disputar atenção. */
+  --dk-brand-950: #070b12;
+  --dk-brand-900: #0b1017;
+  --dk-brand-800: #121a27;
+  --dk-brand-700: #1b2638;
+  --dk-brand-600: #24334a;
+  --dk-brand-500: #3b6ca8; /* vínculo e seleção */
+  --dk-brand-400: #5b8dc9;
+  --dk-brand-100: #e8eef7;
+  --dk-brand-50: #f3f7fc;
 
-  /* Ação — verde. Exclusivo de elementos acionáveis e de confirmação. */
-  --dk-action-700: #0a6633;
-  --dk-action-600: #0e7c3f;
-  --dk-action-500: #16a34a;
-  --dk-action-100: #e3f5e9;
+  /* ---------------------------------------------------------------- ação
+     Verde. Exclusivo de elemento acionável e de confirmação — é o que impede o
+     botão principal de se perder no azul. */
+  --dk-action-700: #0a7f58;
+  --dk-action-600: #0d9668;
+  --dk-action-500: #12b981;
+  --dk-action-100: #dcf5ec;
+  --dk-action-50: #f0fbf7;
 
-  /* Atenção — âmbar. Apenas alerta. Nunca em área grande. */
-  --dk-warn-600: #b87d04;
-  --dk-warn-500: #e0a106;
-  --dk-warn-100: #fef6e0;
+  /* ---------------------------------------------------------------- atenção
+     Âmbar. Apenas alerta. Nunca em área grande: cansa a vista. */
+  --dk-warn-700: #92600a;
+  --dk-warn-600: #b8790c;
+  --dk-warn-500: #e2a008;
+  --dk-warn-100: #fdf3dc;
 
-  /* Erro — vermelho. Apenas erro e ação destrutiva. */
-  --dk-danger-600: #be2727;
-  --dk-danger-500: #d93838;
-  --dk-danger-100: #fdecec;
+  /* ---------------------------------------------------------------- erro
+     Vermelho. Apenas erro e ação destrutiva. Decoração aqui tira o poder de parar. */
+  --dk-danger-700: #a01f2c;
+  --dk-danger-600: #c62b39;
+  --dk-danger-500: #e14152;
+  --dk-danger-100: #fdeaec;
 
-  /* Neutros */
+  /* ---------------------------------------------------------------- identidade de módulo
+     Cor de identidade, não de estado: serve para o olho reconhecer o módulo na
+     vitrine e no início sem ler o rótulo. Regra e limites em docs/BRAND.md, seção 2.1.
+
+     Nenhuma delas é o verde de ação, o âmbar de alerta ou o vermelho de erro — e o
+     acento nunca preenche botão nem área grande, só a placa do ícone e o brilho do
+     hover. É esse limite que mantém verde significando "aperte aqui". */
+  --dk-accent-teal: #0ea5a4;
+  --dk-accent-blue: #2f86d9;
+  --dk-accent-lime: #86b81b;
+  --dk-accent-violet: #7c6cf0;
+  --dk-accent-slate: #5b7ba6;
+
+  /* ---------------------------------------------------------------- neutros
+     Levemente azulados. Cinza puro é o que faz interface parecer planilha. */
   --dk-neutral-0: #ffffff;
-  --dk-neutral-50: #f6f8fa;
-  --dk-neutral-100: #eef2f6;
-  --dk-neutral-200: #dde4ec;
-  --dk-neutral-400: #9aaabb;
-  --dk-neutral-600: #5a6b7c;
-  --dk-neutral-900: #16202b;
+  --dk-neutral-25: #fbfcfd;
+  --dk-neutral-50: #f6f7f9;
+  --dk-neutral-100: #eef1f5;
+  --dk-neutral-200: #e2e6ed;
+  --dk-neutral-300: #cfd5e0;
+  --dk-neutral-400: #9aa5b6;
+  --dk-neutral-500: #717d8f;
+  --dk-neutral-600: #5b6676;
+  --dk-neutral-700: #404a59;
+  --dk-neutral-900: #0f1826;
 
-  /* Papéis semânticos — modo claro (padrão) */
+  /* ---------------------------------------------------------------- papéis
+     Modo claro, o padrão. */
   --dk-bg: var(--dk-neutral-50);
   --dk-surface: var(--dk-neutral-0);
+  --dk-surface-sunken: var(--dk-neutral-100);
   --dk-border: var(--dk-neutral-200);
+  --dk-border-subtle: var(--dk-neutral-100);
   --dk-text: var(--dk-neutral-900);
   --dk-text-muted: var(--dk-neutral-600);
-  --dk-nav-bg: var(--dk-brand-700);
+  --dk-text-faint: var(--dk-neutral-400);
+  --dk-nav-bg: var(--dk-brand-800);
   --dk-nav-text: var(--dk-neutral-0);
 
-  /* Tipografia — corpo mínimo 16px; 18px no PDV e no app de campo */
-  --dk-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* ---------------------------------------------------------------- placa de módulo
+     A superfície translúcida dos cartões de módulo. No claro é branco sobre o fundo
+     levemente azulado; no escuro, azul-grafite com transparência — o mesmo efeito
+     pede valores opostos, e é por isso que ele é token e não valor em componente. */
+  --dk-tile-bg: rgba(255, 255, 255, 0.82);
+  --dk-tile-border: rgba(15, 24, 38, 0.07);
+  /* O fio de luz na borda de cima: some no repouso, acende no hover. */
+  --dk-tile-sheen: rgba(255, 255, 255, 0.9);
+  /* Quanto do acento entra na placa do ícone e no brilho. Separado da cor para o
+     modo escuro poder usar o mesmo tom com outra intensidade. */
+  --dk-tile-wash: 10%;
+  --dk-tile-glow: 22%;
+
+  /* ---------------------------------------------------------------- elevação
+     Sombra em duas camadas: uma curta que assenta, outra longa e difusa que
+     levanta. Borda de 1px em tudo é o que deixa a tela com cara de formulário. */
+  --dk-shadow-xs: 0 1px 2px rgba(15, 24, 38, 0.04);
+  --dk-shadow-sm: 0 1px 2px rgba(15, 24, 38, 0.04), 0 2px 6px rgba(15, 24, 38, 0.05);
+  --dk-shadow-md: 0 2px 4px rgba(15, 24, 38, 0.04), 0 10px 20px -6px rgba(15, 24, 38, 0.1);
+  --dk-shadow-lg: 0 4px 8px rgba(15, 24, 38, 0.04), 0 24px 44px -12px rgba(15, 24, 38, 0.16);
+  --dk-shadow-focus: 0 0 0 3px rgba(59, 108, 168, 0.28);
+  --dk-shadow-focus-danger: 0 0 0 3px rgba(225, 65, 82, 0.28);
+
+  /* ---------------------------------------------------------------- tipografia
+     Inter hospedada no projeto: o PDV precisa funcionar sem internet, então a
+     fonte não pode vir de CDN. */
+  --dk-font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --dk-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* Corpo mínimo 16px: boa parte do público é idosa e opera o dia inteiro.
+     Títulos com tracking negativo — é o que separa "moderno" de "padrão do navegador". */
+  --dk-text-xs: 0.8125rem;
   --dk-text-sm: 0.875rem;
   --dk-text-base: 1rem;
   --dk-text-pos: 1.125rem;
   --dk-text-lg: 1.25rem;
   --dk-text-xl: 1.5rem;
+  --dk-text-2xl: 1.875rem;
+  --dk-text-3xl: 2.25rem;
+  --dk-tracking-tight: -0.02em;
+  --dk-tracking-snug: -0.011em;
 
-  /* Área de toque — 48px geral, 64px no PDV */
-  --dk-touch-min: 48px;
+  /* ---------------------------------------------------------------- forma
+     Raio maior. 8px é a cara de 2015; 12 a 16 é o que lê como atual. */
+  --dk-radius-sm: 8px;
+  --dk-radius: 12px;
+  --dk-radius-lg: 16px;
+  --dk-radius-xl: 20px;
+  --dk-radius-full: 9999px;
+
+  /* Área de toque: 44px no geral, 64px no PDV, onde se acerta sem olhar. */
+  --dk-touch-min: 44px;
   --dk-touch-pos: 64px;
 
-  --dk-radius: 8px;
   --dk-space: 8px;
+  --dk-ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* Modo escuro — opcional e escolhido por estação de trabalho, nunca imposto.
-   Sem preto puro: ver docs/BRAND.md, seção 3. */
+   Sem preto puro, e sem sombra: no escuro ela não aparece, então a profundidade
+   vem de superfície mais clara. Ver docs/BRAND.md, seção 3. */
 :root[data-theme="dark"] {
-  --dk-bg: var(--dk-brand-900);
-  --dk-surface: var(--dk-brand-800);
-  --dk-border: #2c3a49;
-  --dk-text: #e8edf3;
-  --dk-text-muted: var(--dk-neutral-400);
-  --dk-nav-bg: var(--dk-brand-800);
-  --dk-nav-text: #e8edf3;
+  --dk-bg: var(--dk-brand-950);
+  --dk-surface: #111a28;
+  --dk-surface-sunken: #0d1420;
+  --dk-border: #243247;
+  --dk-border-subtle: #1b2638;
+  --dk-text: #e9edf4;
+  --dk-text-muted: #9aa8bd;
+  --dk-text-faint: #6b7a91;
+  --dk-nav-bg: #0d1420;
+  --dk-nav-text: #e9edf4;
+
+  --dk-brand-100: #1d2b3f;
+  --dk-brand-50: #16202f;
+  --dk-brand-500: #6c9fd8;
 
   --dk-action-600: var(--dk-action-500);
-  --dk-warn-100: #3a2e10;
-  --dk-danger-100: #3a1b1b;
-  --dk-brand-100: #1d2c3c;
+  --dk-action-100: #10342a;
+  --dk-action-50: #0e241e;
+  --dk-warn-100: #3a2b0c;
+  --dk-danger-100: #3a1720;
+
+  --dk-tile-bg: rgba(17, 26, 40, 0.72);
+  --dk-tile-border: rgba(233, 237, 244, 0.08);
+  --dk-tile-sheen: rgba(233, 237, 244, 0.22);
+  /* No escuro o acento precisa de mais presença para aparecer, e o brilho de menos
+     para não virar néon. */
+  --dk-tile-wash: 16%;
+  --dk-tile-glow: 34%;
+
+  --dk-shadow-xs: none;
+  --dk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --dk-shadow-md: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+  --dk-shadow-lg: 0 24px 48px -16px rgba(0, 0, 0, 0.7);
+  --dk-shadow-focus: 0 0 0 3px rgba(108, 159, 216, 0.35);
 }

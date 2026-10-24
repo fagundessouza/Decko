@@ -35,8 +35,24 @@ class Tenant(TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    # Guardado sem máscara e conferido pelo dígito verificador na entrada — ver
+    # decko.documents. Catorze posições servem tanto ao CNPJ numérico quanto ao
+    # alfanumérico, que manteve o tamanho.
     cnpj: Mapped[str | None] = mapped_column(String(14), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # Identificação da empresa aplicadora no cabeçalho do Planejamento Operacional.
+    # São registros profissionais e fiscais que o formulário exige impressos; sem eles o
+    # documento sai com o bloco em branco. Ficam no núcleo, e não no módulo agro, porque
+    # identificam a empresa — o agro apenas os imprime.
+    registro_mapa: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    crea: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    cda: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    inscricao_estadual: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    inscricao_municipal: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # Endereço, telefone e e-mail como saem no rodapé do talão. Texto livre porque é
+    # exatamente isso no papel, numa única linha — ver questão Q2 do discovery.
+    rodape: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     users: Mapped[list["User"]] = relationship(back_populates="tenant")
 
@@ -171,6 +187,36 @@ class AuditLog(TenantMixin, Base):
     )
 
 
+class TenantModule(TenantMixin, Base):
+    """Módulo ativo em uma empresa.
+
+    A ausência de linha é a resposta "inativo": o padrão é negar, do mesmo jeito que a
+    política de RLS trata o tenant não definido.
+
+    ``module_name`` é texto e não chave estrangeira porque a lista de módulos existentes
+    vem dos manifestos em disco, não do banco. Uma tabela de módulos aqui sairia de
+    sincronia com o que está instalado na plataforma.
+
+    Decisão: ``docs/adr/0004-ativacao-de-modulo-por-empresa.md``.
+    """
+
+    __tablename__ = "tenant_module"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "module_name", name="uq_tenant_module_tenant_id_module_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    module_name: Mapped[str] = mapped_column(String(60), nullable=False)
+    activated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    activated_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
+    )
+
+
 # Tabelas sujeitas a Row Level Security. A migração lê esta lista, de modo que uma tabela
 # nova com tenant_id não pode ser esquecida sem que o teste de isolamento acuse.
 TENANT_SCOPED_TABLES = (
@@ -180,4 +226,5 @@ TENANT_SCOPED_TABLES = (
     UserRole.__tablename__,
     RefreshToken.__tablename__,
     AuditLog.__tablename__,
+    TenantModule.__tablename__,
 )
