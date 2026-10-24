@@ -10,6 +10,7 @@ depends = ["core"]
 required = false
 category = "Setores"
 icon = "✦"
+accent = "lime"
 summary = "Planejamento operacional, clima com registro probatório e relatório do MAPA."
 
 [migrations]

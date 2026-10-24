@@ -104,6 +104,7 @@ def _module_out(manifest: ModuleManifest, *, active: bool) -> ModuleOut:
         category=manifest.category,
         summary=manifest.summary,
         icon=manifest.icon,
+        accent=manifest.accent,
         depends=list(manifest.depends),
     )
 

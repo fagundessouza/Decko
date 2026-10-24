@@ -117,6 +117,101 @@
   }
 }
 
+@layer components {
+  /* Placa de módulo: o cartão da vitrine e do início.
+     Mora aqui, e não em classes utilitárias no componente, porque o efeito depende de
+     pseudo-elemento, de `color-mix` com o acento e de valores que trocam com o tema —
+     coisas que não cabem em atributo `class` sem virar sopa ilegível.
+     Regras da cor de acento: docs/BRAND.md, seção 2.1. */
+
+  /* O acento é escolhido por atributo: o componente diz qual é a identidade do módulo e
+     o CSS resolve a cor. Nenhum valor de cor passa pelo TSX. */
+  [data-accent="teal"] {
+    --dk-accent: var(--dk-accent-teal);
+  }
+  [data-accent="blue"] {
+    --dk-accent: var(--dk-accent-blue);
+  }
+  [data-accent="lime"] {
+    --dk-accent: var(--dk-accent-lime);
+  }
+  [data-accent="violet"] {
+    --dk-accent: var(--dk-accent-violet);
+  }
+  [data-accent="slate"] {
+    --dk-accent: var(--dk-accent-slate);
+  }
+
+  .dk-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--dk-radius-lg);
+    background-color: var(--dk-tile-bg);
+    /* Translucidez sobre o fundo da aplicação. O desfoque é pequeno de propósito: é
+       efeito caro de desenhar, e o alvo inclui PC antigo de caixa. */
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--dk-tile-border);
+    box-shadow: var(--dk-shadow-sm);
+    transition:
+      transform 0.3s var(--dk-ease),
+      box-shadow 0.3s var(--dk-ease),
+      border-color 0.3s var(--dk-ease);
+  }
+
+  /* Fio de luz na borda de cima. No repouso quase não existe; no hover, acende. */
+  .dk-tile::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    border-radius: var(--dk-radius-lg) var(--dk-radius-lg) 0 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--dk-tile-sheen),
+      color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) 60%, transparent),
+      transparent
+    );
+    opacity: 0.35;
+    transition: opacity 0.3s var(--dk-ease);
+    pointer-events: none;
+  }
+
+  .dk-tile--interactive:hover,
+  .dk-tile--interactive:focus-visible {
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) 42%, transparent);
+    box-shadow:
+      var(--dk-shadow-md),
+      0 12px 32px -14px
+        color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) var(--dk-tile-glow), transparent);
+  }
+
+  .dk-tile--interactive:hover::before,
+  .dk-tile--interactive:focus-visible::before {
+    opacity: 1;
+  }
+
+  /* Placa do ícone: gradiente sutil do acento sobre a superfície, com borda fina. */
+  .dk-tile__icon {
+    background-image: linear-gradient(
+      160deg,
+      color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) var(--dk-tile-wash), var(--dk-surface)),
+      var(--dk-surface)
+    );
+    border: 1px solid
+      color-mix(in oklab, var(--dk-accent, var(--dk-accent-slate)) 24%, transparent);
+    color: var(--dk-accent, var(--dk-accent-slate));
+    transition: transform 0.3s var(--dk-ease);
+  }
+
+  .dk-tile--interactive:hover .dk-tile__icon,
+  .dk-tile--interactive:focus-visible .dk-tile__icon {
+    transform: scale(1.08);
+  }
+}
+
 @layer utilities {
   /* Entrada curta e discreta. Movimento aqui é para orientar, não para enfeitar:
      o público opera isto o dia inteiro. */

@@ -12,6 +12,7 @@ depends = ["core", "comercial"]
 required = false
 category = "Operação"
 icon = "⌁"
+accent = "teal"
 summary = "Venda de balcão: bipa o produto, recebe em dinheiro, cartão ou pix e baixa o estoque."
 
 [migrations]

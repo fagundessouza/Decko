@@ -91,6 +91,8 @@ class ModuleOut(BaseModel):
     category: str
     summary: str
     icon: str
+    # Cor de identidade na vitrine. Nome do papel; o valor está nos tokens.
+    accent: str
     # O que o módulo precisa que já esteja instalado. A vitrine avisa antes de instalar.
     depends: list[str]
 

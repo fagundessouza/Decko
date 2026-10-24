@@ -41,6 +41,9 @@ class ModuleManifest:
     category: str = "Outros"
     summary: str = ""
     icon: str = "▣"
+    # Cor de identidade do módulo na vitrine. Nome do papel, não valor: a cor mora nos
+    # tokens — ver docs/BRAND.md, seção 2.1.
+    accent: str = "slate"
 
     @classmethod
     def from_file(cls, path: Path) -> "ModuleManifest":
@@ -63,6 +66,7 @@ class ModuleManifest:
                 # O ícone do menu é um nome ("settings"), não um símbolo: ele serve a um
                 # conjunto de ícones que ainda não existe. A vitrine usa o do manifesto.
                 icon=str(module.get("icon") or "▣"),
+                accent=str(module.get("accent") or "slate"),
             )
         except KeyError as exc:
             raise ModuleError(f"{path}: campo obrigatório ausente: {exc}") from exc

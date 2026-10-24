@@ -24,6 +24,37 @@ Daí decorre a regra que organiza toda a paleta: **cor aqui tem função semânt
 A paleta conversa com a bandeira brasileira, mas a hierarquia é funcional. Amarelo e verde não são
 usados por patriotismo — estão lá porque alerta e confirmação precisam dessas cores.
 
+### 2.1 Acento de módulo — identidade, não estado
+
+A tabela acima cobre o que a cor **comunica**. Falta um papel que a vitrine de aplicativos
+trouxe: **qual módulo é este**. Com um módulo só, o rótulo bastava. Com uma prateleira de
+aplicativos, o olho precisa reconhecer o ponto de venda sem ler.
+
+Cada módulo declara um acento no próprio `module.toml`, pelo nome do papel — nunca pelo
+valor:
+
+| Módulo | Acento | |
+|---|---|---|
+| Ponto de venda | `teal` | azul-esverdeado |
+| Produtos e estoque | `blue` | azul |
+| Pulverização agrícola | `lime` | verde-limão, a cor do campo |
+| Núcleo e configurações | `violet` | violeta |
+| Sem acento declarado | `slate` | azul-ardósia |
+
+**O acento não pode virar decoração**, ou a seção 3 cai junto. Três limites o seguram:
+
+1. Nenhum acento é o verde de ação, o âmbar de alerta ou o vermelho de erro. Por isso o
+   ponto de venda é azul-esverdeado e não esmeralda: esmeralda **é** o verde do botão, e
+   um ícone esmeralda ao lado de "Fechar venda" ensina que verde não quer dizer nada.
+2. O acento aparece em dois lugares, e só: a placa do ícone (48px) e o brilho da borda no
+   hover. Nunca em botão, texto corrido ou área grande.
+3. Ele nunca carrega informação sozinho. O que diz se o módulo está instalado é a etiqueta
+   escrita "Instalado", como manda a seção 5.
+
+Os valores estão em `packages/tokens/tokens.css`, e o quanto do acento entra na placa é
+token separado da cor (`--dk-tile-wash`), porque no modo escuro o mesmo tom precisa de
+mais presença para aparecer.
+
 ## 3. Duas descobertas que viraram requisito
 
 **Azul em tudo mata o botão principal.** Se "Finalizar venda" for azul sobre fundo azul, o olho não

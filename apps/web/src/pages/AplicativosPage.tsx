@@ -6,6 +6,8 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Modal } from "../components/Modal";
+import { ModuleTile } from "../components/ModuleTile";
+import type { Accent } from "../components/ModuleTile";
 import { TextField } from "../components/TextField";
 import { platform } from "../lib/profiles";
 import type { Module } from "../lib/profiles";
@@ -207,59 +209,41 @@ function AppCard({
   onInstalar: () => void;
   onDesinstalar: () => void;
 }) {
+  const aviso =
+    dependencias.length > 0 && !module.active
+      ? ` Instala junto: ${dependencias.map((item) => item.label).join(", ")}.`
+      : "";
+
   return (
-    <Card className="flex flex-1 animate-rise flex-col">
-      <div className="flex flex-1 flex-col p-6">
-        <div className="flex items-start gap-4">
-          <span
-            aria-hidden="true"
-            className="flex size-12 shrink-0 items-center justify-center rounded-dk bg-brand-soft text-xl text-brand-link"
-          >
-            {module.icon}
-          </span>
-
-          <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold leading-snug tracking-tight text-ink">
-              {module.label}
-            </h3>
-            <p className="mt-0.5 text-xs tabular-nums text-ink-faint">v{module.version}</p>
-          </div>
-
-          {module.active && (
-            <span className="shrink-0">
-              <Badge tone="success" icon="✓">
-                Instalado
-              </Badge>
-            </span>
-          )}
-        </div>
-
-        <p className="mt-4 flex-1 text-base leading-relaxed text-ink-muted">
-          {module.summary}
-        </p>
-
-        {dependencias.length > 0 && !module.active && (
-          <p className="mt-3 text-sm text-ink-faint">
-            Instala junto: {dependencias.map((item) => item.label).join(", ")}.
+    <ModuleTile
+      className="flex-1"
+      title={module.label}
+      meta={`v${module.version}`}
+      description={module.summary + aviso}
+      icon={module.icon}
+      accent={module.accent as Accent}
+      badge={
+        module.active ? (
+          <Badge tone="success" icon="✓">
+            Instalado
+          </Badge>
+        ) : undefined
+      }
+      footer={
+        module.required ? (
+          <p className="text-sm text-ink-faint">
+            Faz parte da plataforma. Não pode ser desinstalado.
           </p>
-        )}
-
-        <div className="mt-6">
-          {module.required ? (
-            <p className="text-sm text-ink-faint">
-              Faz parte da plataforma. Não pode ser desinstalado.
-            </p>
-          ) : module.active ? (
-            <Button variant="secondary" inline loading={busy} onClick={onDesinstalar}>
-              Desinstalar
-            </Button>
-          ) : (
-            <Button inline loading={busy} onClick={onInstalar}>
-              {busy ? "Instalando…" : "Instalar"}
-            </Button>
-          )}
-        </div>
-      </div>
-    </Card>
+        ) : module.active ? (
+          <Button variant="secondary" inline loading={busy} onClick={onDesinstalar}>
+            Desinstalar
+          </Button>
+        ) : (
+          <Button inline loading={busy} onClick={onInstalar}>
+            {busy ? "Instalando…" : "Instalar"}
+          </Button>
+        )
+      }
+    />
   );
 }

@@ -12,6 +12,7 @@ depends = ["core"]
 required = false
 category = "Operação"
 icon = "▣"
+accent = "blue"
 summary = "Catálogo com unidade, caixa e fardo, lote e validade, e estoque com histórico."
 
 [migrations]

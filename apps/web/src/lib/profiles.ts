@@ -18,6 +18,8 @@ export interface Module {
   category: string;
   summary: string;
   icon: string;
+  /** Cor de identidade do módulo. Nome do papel; o valor mora nos tokens. */
+  accent: string;
   /** O que precisa estar instalado junto. Instalar já traz, mas a vitrine avisa antes. */
   depends: string[];
 }

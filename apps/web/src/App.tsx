@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AppShell, Page, PageHeader } from "./components/AppShell";
 import type { NavItem } from "./components/AppShell";
 import { Card } from "./components/Card";
+import { ModuleTile } from "./components/ModuleTile";
 import { logout, renewSession, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
@@ -189,42 +190,47 @@ export default function App() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             {hasPdv && (
-              <ModuleCard
+              <ModuleTile
                 title="Ponto de venda"
                 description="Bipe o produto, receba em dinheiro, cartão ou pix e baixe o estoque."
                 icon="⌁"
+                accent="teal"
                 onClick={() => setView({ name: "pdv" })}
               />
             )}
             {hasComercial && (
-              <ModuleCard
+              <ModuleTile
                 title="Produtos e estoque"
                 description="Cadastro com unidade, caixa e fardo, lote e validade, entradas e saídas."
                 icon="▣"
+                accent="blue"
                 onClick={() => setView({ name: "produtos" })}
               />
             )}
             {hasAgro && (
-              <ModuleCard
+              <ModuleTile
                 title="Pulverização"
                 description="Planejamentos operacionais, condição do tempo e relatório para o MAPA."
                 icon="✦"
+                accent="lime"
                 onClick={() => setView({ name: "plans" })}
               />
             )}
             {canInstall && (
-              <ModuleCard
+              <ModuleTile
                 title="Aplicativos"
                 description="Instale o que esta empresa precisa: ponto de venda, estoque, pulverização."
                 icon="⊞"
+                accent="violet"
                 onClick={() => setView({ name: "aplicativos" })}
               />
             )}
             {canEditCompany && (
-              <ModuleCard
+              <ModuleTile
                 title="Dados da empresa"
                 description="Registro no MAPA, CREA e inscrições — o cabeçalho dos documentos."
                 icon="⚙"
+                accent="violet"
                 onClick={() => setView({ name: "company" })}
               />
             )}
@@ -296,37 +302,5 @@ export default function App() {
         <UnidadesPage onBack={() => setView({ name: "produtos" })} />
       )}
     </AppShell>
-  );
-}
-
-function ModuleCard({
-  title,
-  description,
-  icon,
-  onClick,
-}: {
-  title: string;
-  description: string;
-  icon: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group animate-rise rounded-lg bg-surface p-6 text-left shadow-sm ring-1 ring-line-subtle
-                 transition-[box-shadow,transform] duration-200 ease-dk
-                 hover:-translate-y-0.5 hover:shadow-md"
-    >
-      <span
-        aria-hidden="true"
-        className="flex size-11 items-center justify-center rounded-dk bg-brand-soft text-lg text-brand-link
-                   transition-colors duration-200 ease-dk group-hover:bg-brand-link group-hover:text-white"
-      >
-        {icon}
-      </span>
-      <p className="mt-4 text-lg font-semibold text-ink">{title}</p>
-      <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">{description}</p>
-    </button>
   );
 }
