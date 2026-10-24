@@ -15,6 +15,8 @@ import { CompanyPage } from "./pages/CompanyPage";
 import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewPlanWizard } from "./pages/NewPlanWizard";
+import { NotaConferenciaPage } from "./pages/NotaConferenciaPage";
+import { NotasPage } from "./pages/NotasPage";
 import { NovoProdutoWizard } from "./pages/NovoProdutoWizard";
 import { PdvPage } from "./pages/PdvPage";
 import { PlanDetailPage } from "./pages/PlanDetailPage";
@@ -35,6 +37,8 @@ type View =
   | { name: "newPlan" }
   | { name: "plan"; plan: Plan }
   | { name: "pdv" }
+  | { name: "notas" }
+  | { name: "nota"; notaId: string }
   | { name: "produtos" }
   | { name: "novoProduto" }
   | { name: "produto"; produto: Produto }
@@ -50,6 +54,8 @@ const SECTION: Record<View["name"], string> = {
   plan: "agro",
   consolidation: "agro",
   pdv: "pdv",
+  notas: "compras",
+  nota: "compras",
   produtos: "comercial",
   novoProduto: "comercial",
   produto: "comercial",
@@ -89,6 +95,7 @@ export default function App() {
   const hasAgro = info.active_modules.includes("agro");
   const hasComercial = info.active_modules.includes("comercial");
   const hasPdv = info.active_modules.includes("pdv");
+  const hasCompras = info.active_modules.includes("compras");
   const canEditCompany = info.permissions.includes("core.tenant.update");
   const canInstall = info.permissions.includes("core.module.activate");
 
@@ -133,6 +140,14 @@ export default function App() {
       label: "Ponto de venda",
       icon: <ModuleIcon name="register" size={22} />,
       onSelect: () => setView({ name: "pdv" }),
+    });
+  }
+  if (hasCompras) {
+    items.push({
+      key: "compras",
+      label: "Compras",
+      icon: <ModuleIcon name="truck" size={22} />,
+      onSelect: () => setView({ name: "notas" }),
     });
   }
   if (hasComercial) {
@@ -199,6 +214,15 @@ export default function App() {
                 onClick={() => setView({ name: "pdv" })}
               />
             )}
+            {hasCompras && (
+              <ModuleTile
+                title="Compras"
+                description="Importe o XML da nota do fornecedor e o estoque entra conferido."
+                icon={<ModuleIcon name="truck" />}
+                accent="violet"
+                onClick={() => setView({ name: "notas" })}
+              />
+            )}
             {hasComercial && (
               <ModuleTile
                 title="Produtos e estoque"
@@ -237,7 +261,7 @@ export default function App() {
             )}
           </div>
 
-          {!hasAgro && !hasComercial && !hasPdv && (
+          {!hasAgro && !hasComercial && !hasPdv && !hasCompras && (
             <Card muted>
               <p className="px-6 py-8 text-base text-ink-muted">
                 Nenhum aplicativo de negócio instalado ainda nesta empresa.
@@ -250,6 +274,21 @@ export default function App() {
       {view.name === "aplicativos" && <AplicativosPage onChanged={reloadSession} />}
 
       {view.name === "pdv" && <PdvPage onBack={() => setView({ name: "home" })} />}
+
+      {view.name === "notas" && (
+        <NotasPage
+          onBack={() => setView({ name: "home" })}
+          onAbrir={(notaId) => setView({ name: "nota", notaId })}
+        />
+      )}
+
+      {view.name === "nota" && (
+        <NotaConferenciaPage
+          notaId={view.notaId}
+          onBack={() => setView({ name: "notas" })}
+          onConfirmada={() => undefined}
+        />
+      )}
 
       {view.name === "plans" && (
         <PlansPage

@@ -168,6 +168,52 @@ class Produto(TenantMixin, TimestampMixin, Base):
     unidade: Mapped["Unidade"] = relationship()
 
 
+class ProdutoFornecedor(TenantMixin, TimestampMixin, Base):
+    """Como um fornecedor chama um produto que já existe no cadastro.
+
+    O mesmo refrigerante chega como ``COCA COLA 2L RET`` numa nota e
+    ``Refrigerante Coca-Cola 2 Litros Retornável`` na outra. Esta tabela é a memória da
+    decisão do lojista: confirmada uma vez, a nota seguinte daquele fornecedor entra
+    sozinha — ver ``docs/adr/0009-identidade-de-produto-e-entrada-por-nota.md``.
+
+    A chave é (fornecedor, código no fornecedor), porque é isso que o emitente repete de
+    nota para nota. O nome não é chave: ele muda, e é justamente por mudar que esta
+    tabela existe.
+    """
+
+    __tablename__ = "comercial_produto_fornecedor"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "fornecedor_cnpj",
+            "codigo_fornecedor",
+            name="uq_comercial_produto_fornecedor_codigo",
+        ),
+        Index(
+            "ix_comercial_produto_fornecedor_produto_id",
+            "tenant_id",
+            "produto_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = primary_key()
+    produto_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("comercial_produto.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # Só os dígitos, como em toda parte do sistema.
+    fornecedor_cnpj: Mapped[str] = mapped_column(String(14), nullable=False)
+    fornecedor_nome: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    codigo_fornecedor: Mapped[str] = mapped_column(String(60), nullable=False)
+    # A descrição como veio na nota. Guardada para o lojista reconhecer de onde veio a
+    # ligação quando for conferir ou desfazer.
+    descricao_fornecedor: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+    produto: Mapped["Produto"] = relationship()
+
+
 class Lote(TenantMixin, TimestampMixin, Base):
     """Lote de um produto, com validade opcional."""
 
@@ -258,6 +304,7 @@ TENANT_SCOPED_TABLES = (
     Unidade.__tablename__,
     Categoria.__tablename__,
     Produto.__tablename__,
+    ProdutoFornecedor.__tablename__,
     Lote.__tablename__,
     Movimento.__tablename__,
 )

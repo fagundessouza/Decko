@@ -5,6 +5,7 @@ import home from "../assets/icons/home.png";
 import register from "../assets/icons/register.png";
 import settings from "../assets/icons/settings.png";
 import store from "../assets/icons/store.png";
+import truck from "../assets/icons/truck.png";
 
 /* Os ícones do Decko, desenhados para o projeto. A folha de origem e o recorte estão em
  * docs/brand/ — ver docs/BRAND.md, seção 2.2.
@@ -20,6 +21,7 @@ const ARTE: Record<string, string> = {
   register,
   settings,
   store,
+  truck,
 };
 
 /** O ícone genérico, para módulo que declara um nome que esta versão ainda não tem. */

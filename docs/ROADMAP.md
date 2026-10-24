@@ -138,6 +138,13 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [x] Identificação fiscal do produto: NCM e CEST, com busca por NCM. Veio da experiência
       do dono do projeto como vendedor na Fujioka, onde o comprador de licitação pedia o
       NCM antes do preço — ver `docs/discovery/comercial-produto-fiscal.md`
+- [x] Módulo `compras`: importa o XML da NF-e, reconhece o produto por código de barras
+      e por código do fornecedor, sugere por semelhança sem decidir sozinho, e dá entrada
+      no estoque só depois de conferido — ver
+      `docs/adr/0009-identidade-de-produto-e-entrada-por-nota.md`
+- [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
+      do destinatário. O QR do cupom não carrega os itens
+- [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
 - [ ] Responder as perguntas em aberto do discovery fiscal (origem da mercadoria, CATMAT,
       marca e modelo, unidade tributável, tabela oficial de NCM). Nenhuma foi suposta
 - [x] Módulo `pdv`: venda de balcão com busca por código de barras, pagamento em dinheiro,
