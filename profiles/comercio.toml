@@ -9,7 +9,7 @@ name = "comercio"
 label = "Comércio em geral"
 description = """
 Cadastro de produtos com unidade, caixa e fardo, categorias, controle de lote e validade, \
-e estoque com histórico de entradas e saídas. É a base comum a qualquer loja — e o ponto \
-de partida enquanto o seu ramo não tem um perfil próprio.
+estoque com histórico de entradas e saídas, e o ponto de venda do balcão. É a base comum \
+a qualquer loja — e o ponto de partida enquanto o seu ramo não tem um perfil próprio.
 """
-modules = ["comercial"]
+modules = ["comercial", "pdv"]

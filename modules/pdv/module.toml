@@ -1,0 +1,31 @@
+# Ponto de venda. Decisões e limites: docs/adr/0008-ponto-de-venda.md
+#
+# Depende de `comercial` porque vende os produtos dele e baixa o estoque dele — ver
+# docs/adr/0007-dependencia-entre-modulos.md. Instalar o PDV traz a base comercial junto.
+
+[module]
+name = "pdv"
+label = "Ponto de venda"
+version = "0.1.0"
+package = "decko_modules.pdv"
+depends = ["core", "comercial"]
+required = false
+category = "Operação"
+icon = "⌁"
+summary = "Venda de balcão: bipa o produto, recebe em dinheiro, cartão ou pix e baixa o estoque."
+
+[migrations]
+branch_label = "pdv"
+
+[permissions]
+provides = [
+  "pdv.venda.read",
+  "pdv.venda.write",
+  "pdv.venda.finalizar",
+  "pdv.venda.cancelar",
+]
+
+[menu]
+label = "Ponto de venda"
+icon = "register"
+order = 50

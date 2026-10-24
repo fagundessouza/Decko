@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode, Ref } from "react";
 
 interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   label: string;
@@ -11,6 +11,9 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   /** Texto fixo à esquerda, como "R$". Evita repetir a unidade dentro do valor.
    *  Não se chama `prefix` porque esse é um atributo HTML e o tipo colidiria. */
   leading?: ReactNode;
+  /** Para o PDV devolver o foco ao campo de código depois de cada item. No React 19 a
+   *  ref é uma prop comum; não precisa de forwardRef. */
+  ref?: Ref<HTMLInputElement>;
 }
 
 export function TextField({

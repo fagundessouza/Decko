@@ -42,6 +42,10 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
 - [ ] Troca de empresa para quem opera em mais de uma
 - [x] Perfil de segmento: `profiles/*.toml`, tela de escolha do ramo e contratação em um
       clique — ver `docs/adr/0005-perfil-de-segmento.md`
+- [x] Vitrine de aplicativos: catálogo agrupado por categoria, com instalar e desinstalar
+      a qualquer momento. Rótulo, categoria, resumo e ícone saem do `module.toml`, então
+      acrescentar um módulo ao produto não exige tocar na interface. Instalar traz junto
+      o que o módulo depende; desinstalar é recusado enquanto outro módulo ativo o usa
 - [ ] Dado-semente por módulo com identidade estável (lacuna 4.3 do benchmark). É o que
       falta para o perfil **configurar** o ambiente, e não só ligar os módulos. Bloqueia
       qualquer vertical que traga catálogo, unidade ou categoria
@@ -130,7 +134,16 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [x] Módulo `comercial`: unidade em árvore (unidade → caixa → fardo), categoria, produto
       com código de barras, lote e validade, preço de custo e venda, e estoque como razão
       somente-inserção — ver `docs/adr/0006-base-comercial.md`
-- [ ] Telas do comercial: cadastro de produto, entrada por embalagem e consulta de saldo
+- [x] Telas do comercial: cadastro de produto, entrada por embalagem e consulta de saldo
+- [x] Módulo `pdv`: venda de balcão com busca por código de barras, pagamento em dinheiro,
+      débito, crédito e pix, troco, e baixa de estoque na mesma transação da venda — ver
+      `docs/adr/0008-ponto-de-venda.md`. É também o primeiro módulo a depender de outro
+      módulo de negócio, o que exigiu `docs/adr/0007-dependencia-entre-modulos.md`
+- [ ] Emissão fiscal (NFC-e/SAT) como módulo próprio. É o que falta para o PDV substituir
+      o caixa de uma loja de verdade, e é o que não pode ser suposto: certificado digital,
+      homologação na SEFAZ do estado, contingência e layout versionado
+- [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito
+- [ ] Devolução de venda. Hoje venda finalizada não é cancelada, e a recusa diz por quê
 - [ ] PDV offline-first
 - [ ] Verticais sobre a base. **Cada uma exige documento real da operação**, como o agro
       exigiu o talão do MAPA. Sem isso vira suposição, que é o defeito que o projeto

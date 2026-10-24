@@ -85,7 +85,13 @@ export const comercial = {
   createCategoria: (body: { nome: string; pai_id?: string | null }): Promise<Categoria> =>
     authedJson("/comercial/categorias", { method: "POST", body }),
 
-  listProdutos: (): Promise<Produto[]> => authedJson("/comercial/produtos"),
+  /** Sem `busca`, traz o começo do catálogo; com, filtra no banco (código, GTIN ou nome). */
+  listProdutos: (busca?: string): Promise<Produto[]> =>
+    authedJson(
+      busca && busca.trim() !== ""
+        ? `/comercial/produtos?busca=${encodeURIComponent(busca.trim())}`
+        : "/comercial/produtos",
+    ),
 
   createProduto: (body: Record<string, unknown>): Promise<Produto> =>
     authedJson("/comercial/produtos", { method: "POST", body }),

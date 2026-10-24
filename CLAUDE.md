@@ -58,6 +58,10 @@ tradução atrapalharia a conferência com a lei: `receituario`, `croqui`, `plan
 
 - Monorepo. `apps/` são executáveis, `modules/` são módulos de negócio instaláveis,
   `packages/` é código compartilhado, `infra/` é infraestrutura.
+- Um módulo só importa de outro que ele declare em `depends`, no `module.toml`, e nunca
+  escreve na tabela de outro módulo — chama o serviço dele. O teste de fronteira
+  (`apps/api/tests/test_module_boundaries.py`) recusa import não declarado. Decisão e
+  motivo: `docs/adr/0007-dependencia-entre-modulos.md`.
 - Backend: Python, FastAPI, SQLAlchemy, Alembic, Pydantic.
 - Frontend: React, Vite, TypeScript, Tailwind.
 - Containers: Podman (rootless).

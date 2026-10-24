@@ -96,6 +96,12 @@ nomear conjuntos antes de haver módulos para agrupar.
 
 ### 4.2 Extensão de entidade entre módulos — sem mecanismo
 
+> **Atualização de 23/10/2026.** A primeira metade desta lacuna — *um módulo pode importar
+> de outro?* — foi fechada por `docs/adr/0007-dependencia-entre-modulos.md`: pode, se
+> declarar no manifesto, e um teste de fronteira cobra isso. O PDV foi o caso que obrigou
+> a decidir. O que continua aberto é o parágrafo abaixo: **acrescentar campo em tabela de
+> outro módulo**.
+
 `docs/ARCHITECTURE.md` §2 diz: *"um módulo nunca importa diretamente de outro módulo irmão"*. A
 regra é boa e é exatamente o que evita o emaranhado de 696 módulos do Odoo. Mas ela deixa uma
 pergunta sem resposta: **como o módulo `distribuidora` adiciona um campo em `core.tenant`?**

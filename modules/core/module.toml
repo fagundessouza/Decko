@@ -5,6 +5,9 @@
 [module]
 name = "core"
 label = "Núcleo"
+category = "Plataforma"
+icon = "⚙"
+summary = "Empresas, usuários, permissões e trilha de auditoria. Base de tudo."
 version = "0.1.0"
 package = "decko_modules.core"
 depends = []

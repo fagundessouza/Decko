@@ -19,7 +19,7 @@ from decko.db import SessionFactory, bind_tenant
 from decko.main import create_app
 from decko_modules.core import activation
 from decko_modules.core.cli import _bootstrap
-from decko_modules.core.models import Tenant
+from decko_modules.core.models import RolePermission, Tenant
 
 PASSWORD = "senha-local-de-teste-123"
 CORE = "/api/v1/core"
@@ -30,6 +30,8 @@ AGRO = "/api/v1/agro"
 class Company:
     tenant_id: uuid.UUID
     token: str
+    slug: str
+    email: str
 
 
 async def _create(client: AsyncClient, *, modules: list[str]) -> Company:
@@ -54,7 +56,7 @@ async def _create(client: AsyncClient, *, modules: list[str]) -> Company:
         json={"tenant_slug": slug, "email": email, "password": PASSWORD},
     )
     assert login.status_code == 200, login.text
-    return Company(tenant_id=tenant_id, token=login.json()["access_token"])
+    return Company(tenant_id=tenant_id, token=login.json()["access_token"], slug=slug, email=email)
 
 
 def _auth(company: Company) -> dict[str, str]:
@@ -153,7 +155,8 @@ async def test_activating_opens_the_module(client: AsyncClient) -> None:
 
     activated = await client.post(f"{CORE}/modules/agro/activate", headers=_auth(company))
     assert activated.status_code == 200
-    assert activated.json()["active"] is True
+    assert [m["name"] for m in activated.json()] == ["agro"]
+    assert activated.json()[0]["active"] is True
 
     assert (await client.get(f"{AGRO}/clients", headers=_auth(company))).status_code == 200
 
@@ -174,7 +177,7 @@ async def test_activating_twice_is_not_an_error(client: AsyncClient) -> None:
     again = await client.post(f"{CORE}/modules/agro/activate", headers=_auth(company))
 
     assert again.status_code == 200
-    assert again.json()["active"] is True
+    assert again.json()[0]["active"] is True
 
 
 async def test_the_core_cannot_be_deactivated(client: AsyncClient) -> None:
@@ -205,3 +208,62 @@ async def test_activation_of_one_company_does_not_reach_another(
     async with SessionFactory() as session, session.begin():
         await bind_tenant(session, sem_agro.tenant_id)
         assert await activation.active_modules(session, sem_agro.tenant_id) == []
+
+
+async def test_activating_brings_what_the_module_depends_on(client: AsyncClient) -> None:
+    """Quem contrata escolhe o que quer fazer, não a árvore técnica por baixo."""
+    company = await _company(client, modules=[])
+
+    activated = await client.post(f"{CORE}/modules/comercial/activate", headers=_auth(company))
+
+    assert activated.status_code == 200
+    # O core é dependência, mas é obrigatório: já vale como ativo e não ganha linha.
+    assert [module["name"] for module in activated.json()] == ["comercial"]
+
+
+async def test_the_catalogue_describes_each_module(client: AsyncClient) -> None:
+    """A vitrine se monta a partir do manifesto, não de uma lista escrita na interface."""
+    company = await _company(client, modules=[])
+
+    modules = (await client.get(f"{CORE}/modules", headers=_auth(company))).json()
+    by_name = {module["name"]: module for module in modules}
+
+    assert by_name["comercial"]["category"]
+    assert by_name["comercial"]["summary"]
+    assert by_name["comercial"]["depends"] == ["core"]
+
+
+async def test_installing_later_grants_the_module_permissions(client: AsyncClient) -> None:
+    """Instalar depois do cadastro precisa deixar o módulo utilizável, não só montado.
+
+    O papel de administrador é montado no bootstrap a partir dos módulos que existiam
+    naquele momento. A empresa cadastrada antes de o módulo existir não tinha como receber
+    as permissões dele, e instalar entregava um menu que abre numa tela de "permissão
+    necessária". Aqui a situação é reproduzida tirando as permissões do papel.
+    """
+    company = await _company(client, modules=[])
+
+    async with SessionFactory() as session, session.begin():
+        await bind_tenant(session, company.tenant_id)
+        await session.execute(
+            delete(RolePermission).where(RolePermission.permission.like("comercial.%"))
+        )
+
+    # O token carrega as permissões de quando foi emitido, então a conferência precisa de
+    # um login novo — que é também o que acontece na vida real.
+    async def permissoes() -> list[str]:
+        login = await client.post(
+            f"{CORE}/auth/login",
+            json={"tenant_slug": company.slug, "email": company.email, "password": PASSWORD},
+        )
+        assert login.status_code == 200, login.text
+        token = {"Authorization": f"Bearer {login.json()['access_token']}"}
+        me = await client.get(f"{CORE}/auth/me", headers=token)
+        return list(me.json()["permissions"])
+
+    assert not [p for p in await permissoes() if p.startswith("comercial.")]
+
+    activated = await client.post(f"{CORE}/modules/comercial/activate", headers=_auth(company))
+    assert activated.status_code == 200, activated.text
+
+    assert "comercial.produto.read" in await permissoes()

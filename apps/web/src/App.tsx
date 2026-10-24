@@ -3,16 +3,18 @@ import { useEffect, useState } from "react";
 import { AppShell, Page, PageHeader } from "./components/AppShell";
 import type { NavItem } from "./components/AppShell";
 import { Card } from "./components/Card";
-import { fetchSession, logout, restoreSession } from "./lib/api";
+import { logout, renewSession, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
 import type { Produto } from "./lib/comercial";
+import { AplicativosPage } from "./pages/AplicativosPage";
 import { ChooseProfilePage } from "./pages/ChooseProfilePage";
 import { CompanyPage } from "./pages/CompanyPage";
 import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewPlanWizard } from "./pages/NewPlanWizard";
 import { NovoProdutoWizard } from "./pages/NovoProdutoWizard";
+import { PdvPage } from "./pages/PdvPage";
 import { PlanDetailPage } from "./pages/PlanDetailPage";
 import { PlansPage } from "./pages/PlansPage";
 import { ProdutoDetailPage } from "./pages/ProdutoDetailPage";
@@ -24,11 +26,13 @@ import { UnidadesPage } from "./pages/UnidadesPage";
  * docs/ROADMAP.md. */
 type View =
   | { name: "home" }
+  | { name: "aplicativos" }
   | { name: "plans" }
   | { name: "company" }
   | { name: "consolidation" }
   | { name: "newPlan" }
   | { name: "plan"; plan: Plan }
+  | { name: "pdv" }
   | { name: "produtos" }
   | { name: "novoProduto" }
   | { name: "produto"; produto: Produto }
@@ -38,10 +42,12 @@ type View =
  * que levou até ela — perder a marcação ao navegar desorienta. */
 const SECTION: Record<View["name"], string> = {
   home: "home",
+  aplicativos: "aplicativos",
   plans: "agro",
   newPlan: "agro",
   plan: "agro",
   consolidation: "agro",
+  pdv: "pdv",
   produtos: "comercial",
   novoProduto: "comercial",
   produto: "comercial",
@@ -53,6 +59,9 @@ export default function App() {
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [checking, setChecking] = useState(true);
   const [view, setView] = useState<View>({ name: "home" });
+  /* Empresa nova: a primeira tela é a escolha do ramo, mas quem prefere montar aplicativo
+   * por aplicativo troca para a vitrine aqui mesmo, antes de existir menu. */
+  const [montandoNaMao, setMontandoNaMao] = useState(false);
 
   useEffect(() => {
     restoreSession()
@@ -77,24 +86,32 @@ export default function App() {
   // mostrava menu de módulo que a empresa não tem — e o servidor respondia 404.
   const hasAgro = info.active_modules.includes("agro");
   const hasComercial = info.active_modules.includes("comercial");
+  const hasPdv = info.active_modules.includes("pdv");
   const canEditCompany = info.permissions.includes("core.tenant.update");
+  const canInstall = info.permissions.includes("core.module.activate");
+
+  // A sessão é relida porque o menu depende dos módulos ativos, que acabaram de mudar no
+  // servidor. Com token novo, porque instalar um aplicativo também concede permissões —
+  // e as do token são as de quando ele foi emitido.
+  const reloadSession = () => void renewSession().then(setInfo);
 
   // Empresa recém-criada não tem nada contratado. Em vez de uma tela vazia explicando que
   // está vazia, a primeira coisa é a escolha do ramo — ver ADR 0005.
-  if (info.active_modules.length === 0 && info.permissions.includes("core.module.activate")) {
+  if (info.active_modules.length === 0 && canInstall) {
     return (
       <div className="min-h-dvh bg-bg">
         <header className="bg-brand-deep px-5 py-4 sm:px-8">
           <p className="text-lg font-bold tracking-tight text-white">Decko</p>
           <p className="text-sm text-white/60">{info.tenant.name}</p>
         </header>
-        <ChooseProfilePage
-          onContracted={() => {
-            // A sessão é relida porque o menu depende dos módulos ativos, que acabaram
-            // de mudar no servidor.
-            void fetchSession().then(setInfo);
-          }}
-        />
+        {montandoNaMao ? (
+          <AplicativosPage onChanged={reloadSession} />
+        ) : (
+          <ChooseProfilePage
+            onContracted={reloadSession}
+            onBrowseApps={() => setMontandoNaMao(true)}
+          />
+        )}
       </div>
     );
   }
@@ -108,6 +125,14 @@ export default function App() {
     },
   ];
 
+  if (hasPdv) {
+    items.push({
+      key: "pdv",
+      label: "Ponto de venda",
+      icon: "⌁",
+      onSelect: () => setView({ name: "pdv" }),
+    });
+  }
   if (hasComercial) {
     items.push({
       key: "comercial",
@@ -122,6 +147,14 @@ export default function App() {
       label: "Pulverização",
       icon: "✦",
       onSelect: () => setView({ name: "plans" }),
+    });
+  }
+  if (canInstall) {
+    items.push({
+      key: "aplicativos",
+      label: "Aplicativos",
+      icon: "⊞",
+      onSelect: () => setView({ name: "aplicativos" }),
     });
   }
   if (canEditCompany) {
@@ -155,6 +188,14 @@ export default function App() {
           />
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {hasPdv && (
+              <ModuleCard
+                title="Ponto de venda"
+                description="Bipe o produto, receba em dinheiro, cartão ou pix e baixe o estoque."
+                icon="⌁"
+                onClick={() => setView({ name: "pdv" })}
+              />
+            )}
             {hasComercial && (
               <ModuleCard
                 title="Produtos e estoque"
@@ -171,6 +212,14 @@ export default function App() {
                 onClick={() => setView({ name: "plans" })}
               />
             )}
+            {canInstall && (
+              <ModuleCard
+                title="Aplicativos"
+                description="Instale o que esta empresa precisa: ponto de venda, estoque, pulverização."
+                icon="⊞"
+                onClick={() => setView({ name: "aplicativos" })}
+              />
+            )}
             {canEditCompany && (
               <ModuleCard
                 title="Dados da empresa"
@@ -181,15 +230,19 @@ export default function App() {
             )}
           </div>
 
-          {!hasAgro && !hasComercial && (
+          {!hasAgro && !hasComercial && !hasPdv && (
             <Card muted>
               <p className="px-6 py-8 text-base text-ink-muted">
-                Nenhum módulo de negócio instalado ainda nesta empresa.
+                Nenhum aplicativo de negócio instalado ainda nesta empresa.
               </p>
             </Card>
           )}
         </Page>
       )}
+
+      {view.name === "aplicativos" && <AplicativosPage onChanged={reloadSession} />}
+
+      {view.name === "pdv" && <PdvPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "plans" && (
         <PlansPage

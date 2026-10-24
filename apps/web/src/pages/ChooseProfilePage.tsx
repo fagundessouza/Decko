@@ -11,12 +11,14 @@ import type { Profile } from "../lib/profiles";
 interface Props {
   /** Chamado depois de contratar, para a sessão ser relida com os módulos novos. */
   onContracted: () => void;
+  /** Quem já sabe o que quer não precisa passar pelo ramo. */
+  onBrowseApps?: () => void;
 }
 
 /* A primeira coisa que o dono da empresa vê quando ainda não há nada ativo. Ele escolhe o
  * ramo — que é o que ele sabe — e o sistema liga os módulos, que é o que ele não precisa
  * saber. Ver docs/adr/0005-perfil-de-segmento.md. */
-export function ChooseProfilePage({ onContracted }: Props) {
+export function ChooseProfilePage({ onContracted, onBrowseApps }: Props) {
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +110,14 @@ export function ChooseProfilePage({ onContracted }: Props) {
           </li>
         ))}
       </ul>
+
+      {onBrowseApps && (
+        <div className="mt-8">
+          <Button variant="ghost" inline onClick={onBrowseApps}>
+            Prefiro escolher aplicativo por aplicativo
+          </Button>
+        </div>
+      )}
     </Page>
   );
 }

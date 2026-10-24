@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +36,7 @@ def _conflito(detalhe: str) -> HTTPException:
 
 
 def _invalido(exc: service.ComercialError) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
 
 
 # ---------------------------------------------------------------- unidades
@@ -108,8 +108,26 @@ async def criar_categoria(
 async def listar_produtos(
     session: SessionDep,
     _: Annotated[object, Depends(require("comercial.produto.read"))],
+    busca: Annotated[str | None, Query(max_length=120)] = None,
+    limite: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> list[Produto]:
-    result = await session.execute(select(Produto).order_by(Produto.nome))
+    """Lista produtos, opcionalmente filtrando por código, código de barras ou nome.
+
+    A busca acontece no banco e não na tela porque o caixa de um supermercado tem dezenas
+    de milhares de produtos, e baixar o catálogo inteiro a cada abertura de venda é o tipo
+    de peso que o projeto trata como defeito.
+    """
+    consulta = select(Produto).order_by(Produto.nome).limit(limite)
+
+    if busca:
+        termo = busca.strip()
+        consulta = consulta.where(
+            # Código e código de barras são exatos: o leitor não erra, e casar por
+            # aproximação traria o produto errado para a frente do cliente.
+            (Produto.codigo == termo) | (Produto.gtin == termo) | (Produto.nome.ilike(f"%{termo}%"))
+        )
+
+    result = await session.execute(consulta)
     return list(result.scalars().all())
 
 

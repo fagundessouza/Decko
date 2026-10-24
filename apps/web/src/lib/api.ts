@@ -198,6 +198,18 @@ export async function fetchSession(): Promise<SessionInfo> {
   return response.json();
 }
 
+/** Relê a sessão com um token novo em folha.
+ *
+ * Usada depois de instalar ou desinstalar um aplicativo. O token de acesso carrega as
+ * permissões de quando foi emitido; instalar um módulo concede permissões novas ao papel
+ * de administrador, e sem renovar o token o menu apareceria com as telas do módulo
+ * levando a "permissão necessária" até o próximo login.
+ */
+export async function renewSession(): Promise<SessionInfo> {
+  await refresh();
+  return fetchSession();
+}
+
 /** Restaura a sessão ao abrir a página, quando existe refresh token guardado. */
 export async function restoreSession(): Promise<SessionInfo | null> {
   if (!session.getRefreshToken()) return null;

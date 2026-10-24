@@ -3,11 +3,14 @@
 
 [module]
 name = "agro"
-label = "Agro"
+label = "Pulverização agrícola"
 version = "0.1.0"
 package = "decko_modules.agro"
 depends = ["core"]
 required = false
+category = "Setores"
+icon = "✦"
+summary = "Planejamento operacional, clima com registro probatório e relatório do MAPA."
 
 [migrations]
 branch_label = "agro"

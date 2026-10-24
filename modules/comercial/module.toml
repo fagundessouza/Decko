@@ -5,11 +5,14 @@
 
 [module]
 name = "comercial"
-label = "Comercial"
+label = "Produtos e estoque"
 version = "0.1.0"
 package = "decko_modules.comercial"
 depends = ["core"]
 required = false
+category = "Operação"
+icon = "▣"
+summary = "Catálogo com unidade, caixa e fardo, lote e validade, e estoque com histórico."
 
 [migrations]
 branch_label = "comercial"

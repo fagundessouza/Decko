@@ -14,6 +14,12 @@ export interface Module {
   version: string;
   required: boolean;
   active: boolean;
+  /** Como o módulo aparece na vitrine. Vem do manifesto, não de uma lista na interface. */
+  category: string;
+  summary: string;
+  icon: string;
+  /** O que precisa estar instalado junto. Instalar já traz, mas a vitrine avisa antes. */
+  depends: string[];
 }
 
 export const platform = {
@@ -25,6 +31,10 @@ export const platform = {
 
   listModules: (): Promise<Module[]> => authedJson("/core/modules"),
 
-  activateModule: (name: string): Promise<Module> =>
+  /** Instala o módulo e o que ele precisa. Devolve tudo o que passou a existir. */
+  activateModule: (name: string): Promise<Module[]> =>
     authedJson(`/core/modules/${name}/activate`, { method: "POST" }),
+
+  deactivateModule: (name: string): Promise<Module> =>
+    authedJson(`/core/modules/${name}/activate`, { method: "DELETE" }),
 };

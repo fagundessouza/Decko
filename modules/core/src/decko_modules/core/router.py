@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
-from decko.modules import ModuleManifest
+from decko.modules import ModuleManifest, dependents, with_dependencies
 from decko.profiles import Profile, modules_to_activate
 from decko_modules.core import activation, service
 from decko_modules.core.deps import CurrentPrincipal, require
@@ -89,6 +89,25 @@ async def me(principal: CurrentPrincipal, session: SessionDep) -> SessionOut:
     )
 
 
+def _module_out(manifest: ModuleManifest, *, active: bool) -> ModuleOut:
+    """O módulo como a vitrine o mostra.
+
+    Tudo o que descreve o módulo vem do manifesto; só o active vem do banco. Assim
+    acrescentar um módulo é escrever um module.toml, e não editar também a interface.
+    """
+    return ModuleOut(
+        name=manifest.name,
+        label=manifest.label,
+        version=manifest.version,
+        required=manifest.required,
+        active=active,
+        category=manifest.category,
+        summary=manifest.summary,
+        icon=manifest.icon,
+        depends=list(manifest.depends),
+    )
+
+
 @router.get("/modules", response_model=list[ModuleOut])
 async def list_modules(
     request: Request,
@@ -105,13 +124,7 @@ async def list_modules(
     manifests: list[ModuleManifest] = request.app.state.modules
 
     return [
-        ModuleOut(
-            name=manifest.name,
-            label=manifest.label,
-            version=manifest.version,
-            required=manifest.required,
-            active=manifest.required or manifest.name in active,
-        )
+        _module_out(manifest, active=manifest.required or manifest.name in active)
         for manifest in manifests
     ]
 
@@ -179,51 +192,64 @@ async def activate_profile(
             module_name=module_name,
             activated_by=principal.user_id,
         )
-
-    return [
-        ModuleOut(
-            name=manifests[name].name,
-            label=manifests[name].label,
-            version=manifests[name].version,
-            required=manifests[name].required,
-            active=True,
+        await activation.grant_module_permissions(
+            session,
+            tenant_id=principal.tenant_id,
+            permissions=manifests[module_name].permissions,
         )
-        for name in profile.modules
-    ]
+
+    return [_module_out(manifests[name], active=True) for name in profile.modules]
+
+
+def _manifests(request: Request) -> dict[str, ModuleManifest]:
+    return {manifest.name: manifest for manifest in request.app.state.modules}
 
 
 def _manifest_or_404(request: Request, module_name: str) -> ModuleManifest:
-    for manifest in request.app.state.modules:
-        if manifest.name == module_name:
-            return manifest
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Não existe módulo '{module_name}' nesta instalação.",
-    )
+    manifest = _manifests(request).get(module_name)
+    if manifest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Não existe módulo '{module_name}' nesta instalação.",
+        )
+    return manifest
 
 
-@router.post("/modules/{module_name}/activate", response_model=ModuleOut)
+@router.post("/modules/{module_name}/activate", response_model=list[ModuleOut])
 async def activate_module(
     module_name: str,
     request: Request,
     session: SessionDep,
     principal: CurrentPrincipal,
     _: Annotated[object, Depends(require("core.module.activate"))],
-) -> ModuleOut:
+) -> list[ModuleOut]:
+    """Instala o módulo na empresa, junto com o que ele precisa para funcionar.
+
+    Devolve a lista, e não só o módulo pedido, porque quem chamou precisa saber que
+    outras coisas passaram a existir no menu.
+    """
     manifest = _manifest_or_404(request, module_name)
-    await activation.activate(
-        session,
-        tenant_id=principal.tenant_id,
-        module_name=manifest.name,
-        activated_by=principal.user_id,
-    )
-    return ModuleOut(
-        name=manifest.name,
-        label=manifest.label,
-        version=manifest.version,
-        required=manifest.required,
-        active=True,
-    )
+    manifests = _manifests(request)
+
+    ativados: list[ModuleOut] = []
+    for name in with_dependencies(manifest.name, manifests):
+        dependencia = manifests[name]
+        if dependencia.required:
+            continue
+        await activation.activate(
+            session,
+            tenant_id=principal.tenant_id,
+            module_name=name,
+            activated_by=principal.user_id,
+        )
+        # As permissões do módulo entram no papel de administrador agora. O papel é
+        # montado no cadastro da empresa, a partir dos módulos que existiam naquele
+        # momento; sem isto, módulo instalado depois ficaria com as telas inalcançáveis.
+        await activation.grant_module_permissions(
+            session, tenant_id=principal.tenant_id, permissions=dependencia.permissions
+        )
+        ativados.append(_module_out(dependencia, active=True))
+    return ativados
 
 
 @router.delete("/modules/{module_name}/activate", response_model=ModuleOut)
@@ -234,6 +260,7 @@ async def deactivate_module(
     principal: CurrentPrincipal,
     _: Annotated[object, Depends(require("core.module.activate"))],
 ) -> ModuleOut:
+    """Desinstala o módulo. Os dados dele permanecem no banco — ver ADR 0004."""
     manifest = _manifest_or_404(request, module_name)
     if manifest.required:
         raise HTTPException(
@@ -241,14 +268,21 @@ async def deactivate_module(
             detail=f"O módulo '{manifest.name}' é obrigatório e não pode ser desativado.",
         )
 
+    # Desligar um módulo de que outro depende deixaria o segundo com telas que não abrem.
+    # Recusar e dizer quais são é mais honesto do que desinstalar em cascata sem avisar.
+    ativos = set(await activation.active_modules(session, principal.tenant_id))
+    presos = [name for name in dependents(manifest.name, _manifests(request)) if name in ativos]
+    if presos:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"O módulo '{manifest.name}' é usado por: {', '.join(presos)}. "
+                "Desinstale esses antes."
+            ),
+        )
+
     await activation.deactivate(session, tenant_id=principal.tenant_id, module_name=manifest.name)
-    return ModuleOut(
-        name=manifest.name,
-        label=manifest.label,
-        version=manifest.version,
-        required=manifest.required,
-        active=False,
-    )
+    return _module_out(manifest, active=False)
 
 
 async def _current_tenant(session: AsyncSession, principal: CurrentPrincipal) -> Tenant:

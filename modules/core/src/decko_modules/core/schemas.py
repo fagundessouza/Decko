@@ -79,7 +79,7 @@ class TenantProfileIn(BaseModel):
 
 
 class ModuleOut(BaseModel):
-    """Um módulo instalado na plataforma, com o estado dele nesta empresa."""
+    """Um módulo disponível na plataforma, com o estado dele nesta empresa."""
 
     name: str
     label: str
@@ -87,6 +87,12 @@ class ModuleOut(BaseModel):
     # Obrigatório não pode ser desativado e vale como ativo sempre.
     required: bool
     active: bool
+    # Como aparece na vitrine. Vem do manifesto do módulo, não de uma lista na interface.
+    category: str
+    summary: str
+    icon: str
+    # O que o módulo precisa que já esteja instalado. A vitrine avisa antes de instalar.
+    depends: list[str]
 
 
 class ProfileOut(BaseModel):

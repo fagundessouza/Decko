@@ -14,6 +14,7 @@ members = [
     "decko-module-agro",
     "decko-module-comercial",
     "decko-module-core",
+    "decko-module-pdv",
 ]
 
 [[package]]
@@ -457,6 +458,7 @@ dependencies = [
     { name = "decko-module-agro" },
     { name = "decko-module-comercial" },
     { name = "decko-module-core" },
+    { name = "decko-module-pdv" },
 ]
 
 [package.dev-dependencies]
@@ -475,6 +477,7 @@ requires-dist = [
     { name = "decko-module-agro", editable = "modules/agro" },
     { name = "decko-module-comercial", editable = "modules/comercial" },
     { name = "decko-module-core", editable = "modules/core" },
+    { name = "decko-module-pdv", editable = "modules/pdv" },
 ]
 
 [package.metadata.requires-dev]
@@ -567,6 +570,23 @@ requires-dist = [
     { name = "email-validator", specifier = ">=2.3" },
     { name = "pyjwt", specifier = ">=2.10" },
     { name = "python-multipart", specifier = ">=0.0.20" },
+]
+
+[[package]]
+name = "decko-module-pdv"
+version = "0.1.0"
+source = { editable = "modules/pdv" }
+dependencies = [
+    { name = "decko-api" },
+    { name = "decko-module-comercial" },
+    { name = "decko-module-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "decko-api", editable = "apps/api" },
+    { name = "decko-module-comercial", editable = "modules/comercial" },
+    { name = "decko-module-core", editable = "modules/core" },
 ]
 
 [[package]]

@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decko.config import get_settings
 from decko.db import SessionFactory, bind_tenant, engine
 from decko.modules import discover
+from decko_modules.core.activation import ADMIN_ROLE_NAME
 from decko_modules.core.activation import activate as activate_module
 from decko_modules.core.models import (
     AuditLog,
@@ -50,7 +51,6 @@ SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # tempo de resposta igualado no login. O que falta aqui, e vale mais que subir o número,
 # é recusar senha conhecidamente vazada — está no roadmap.
 MIN_PASSWORD_LENGTH = 8
-ADMIN_ROLE_NAME = "Administrador"
 PASSWORD_ENV_VAR = "DECKO_ADMIN_PASSWORD"  # noqa: S105
 
 

@@ -46,8 +46,11 @@ label = "Agro"
 **Consequências:**
 
 - Instalar um perfil de empresa = ativar um conjunto de módulos para aquele tenant.
-- Um módulo nunca importa diretamente de outro módulo irmão. Depende do `core` ou comunica por
-  eventos. Isso é o que impede o sistema de virar um emaranhado conforme os segmentos crescem.
+- Um módulo só importa de outro módulo que ele declare em `depends`. Import não declarado quebra
+  a suíte — `apps/api/tests/test_module_boundaries.py`. O grafo de dependência fica no manifesto,
+  e não escondido no código, que é o que impede o sistema de virar um emaranhado conforme os
+  segmentos crescem. Ver `docs/adr/0007-dependencia-entre-modulos.md`.
+- Módulo irmão não escreve na tabela de outro módulo: chama o serviço dele.
 - O frontend carrega o bundle do módulo sob demanda (code splitting), então um supermercado não
   baixa o código do agro. Isso atende o requisito de leveza.
 

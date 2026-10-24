@@ -8,7 +8,7 @@ Decisão: ``docs/adr/0004-ativacao-de-modulo-por-empresa.md``.
 """
 
 import uuid
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Sequence
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decko.activation import register_activation_guard
 from decko.db import get_session
 from decko_modules.core.deps import CurrentPrincipal
-from decko_modules.core.models import TenantModule
+from decko_modules.core.models import Role, RolePermission, TenantModule
 
 
 async def is_active(session: AsyncSession, tenant_id: uuid.UUID, module_name: str) -> bool:
@@ -38,6 +38,52 @@ async def active_modules(session: AsyncSession, tenant_id: uuid.UUID) -> list[st
         .order_by(TenantModule.module_name)
     )
     return list(result.scalars().all())
+
+
+# O papel criado no bootstrap, que recebe as permissões dos módulos instalados. Fica aqui,
+# e não no comando de bootstrap, porque quem precisa dele também é a ativação — e o
+# comando já importa deste arquivo.
+ADMIN_ROLE_NAME = "Administrador"
+
+
+async def grant_module_permissions(
+    session: AsyncSession, *, tenant_id: uuid.UUID, permissions: Sequence[str]
+) -> list[str]:
+    """Concede ao administrador da empresa as permissões de um módulo recém-instalado.
+
+    Sem isto, instalar um módulo depois do cadastro da empresa deixava as telas dele
+    inalcançáveis: o papel de administrador é montado no bootstrap a partir dos módulos
+    que existiam naquele momento, e um módulo instalado depois não entrava em papel nenhum.
+
+    Concede só o que falta, então reinstalar não duplica. Papéis que o cliente tenha
+    criado não são tocados: o que o operador de caixa pode fazer é decisão da empresa.
+    """
+    if not permissions:
+        return []
+
+    role = await session.scalar(
+        select(Role).where(Role.tenant_id == tenant_id, Role.name == ADMIN_ROLE_NAME)
+    )
+    if role is None:
+        # Empresa sem o papel padrão (renomeado ou removido). Não há o que supor aqui.
+        return []
+
+    ja_tem = set(
+        (
+            await session.execute(
+                select(RolePermission.permission).where(RolePermission.role_id == role.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    concedidas = sorted(set(permissions) - ja_tem)
+    for permission in concedidas:
+        session.add(RolePermission(tenant_id=tenant_id, role_id=role.id, permission=permission))
+    if concedidas:
+        await session.flush()
+    return concedidas
 
 
 async def activate(

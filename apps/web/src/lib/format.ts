@@ -30,6 +30,13 @@ export function num(value: string | number | null | undefined, casas = 1): strin
   return parsed.toLocaleString("pt-BR", { maximumFractionDigits: casas });
 }
 
+/** Valor em reais, sempre com dois decimais: dinheiro não esconde centavo. */
+export function brl(value: string | number | null | undefined): string {
+  const parsed = typeof value === "number" ? value : Number(value ?? NaN);
+  if (Number.isNaN(parsed)) return "R$ 0,00";
+  return parsed.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 /** Data ISO (aaaa-mm-dd) como dd/mm/aaaa, sem passar por Date para não deslocar o fuso. */
 export function dateBr(iso: string | null): string {
   if (!iso) return "—";
