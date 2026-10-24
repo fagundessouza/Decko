@@ -6,7 +6,7 @@ import { Button } from "../components/Button";
 import { Card, Row } from "../components/Card";
 import { comercial } from "../lib/comercial";
 import type { Produto, Unidade } from "../lib/comercial";
-import { num } from "../lib/format";
+import { ncmMask, num } from "../lib/format";
 
 interface Props {
   onBack: () => void;
@@ -35,12 +35,15 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades }: Props) {
 
   const porId = new Map(unidades.map((u) => [u.id, u]));
   const termo = busca.trim().toLowerCase();
+  // O NCM é guardado sem máscara, mas o comprador manda com ponto. Compara só dígitos.
+  const digitos = termo.replace(/\D/g, "");
   const visiveis = (produtos ?? []).filter(
     (produto) =>
       !termo ||
       produto.nome.toLowerCase().includes(termo) ||
       produto.codigo.toLowerCase().includes(termo) ||
-      (produto.gtin ?? "").includes(termo),
+      (produto.gtin ?? "").includes(termo) ||
+      (digitos !== "" && (produto.ncm ?? "").includes(digitos)),
   );
 
   const semUnidades = unidades.length === 0 && produtos !== null;
@@ -124,7 +127,7 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades }: Props) {
               type="search"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por nome, código ou código de barras"
+              placeholder="Buscar por nome, código, código de barras ou NCM"
               aria-label="Buscar produto"
               className="min-h-touch w-full rounded-dk bg-surface pl-11 pr-4 text-base text-ink
                          shadow-xs ring-1 ring-line transition-shadow duration-150 ease-dk
@@ -154,7 +157,8 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades }: Props) {
                       </span>
                       <span className="block truncate text-sm text-ink-muted">
                         {produto.codigo}
-                        {produto.gtin ? ` · ${produto.gtin}` : ""} ·{" "}
+                        {produto.gtin ? ` · ${produto.gtin}` : ""}
+                        {produto.ncm ? ` · NCM ${ncmMask(produto.ncm)}` : ""} ·{" "}
                         {porId.get(produto.unidade_id)?.nome ?? "—"}
                       </span>
                     </span>

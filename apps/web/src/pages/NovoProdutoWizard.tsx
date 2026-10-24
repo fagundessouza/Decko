@@ -6,6 +6,7 @@ import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { Wizard } from "../components/Wizard";
 import { comercial, describeUnidade } from "../lib/comercial";
+import { cestMask, ncmMask } from "../lib/format";
 import type { Categoria, Produto, Unidade } from "../lib/comercial";
 
 const STEPS = ["O que é o produto", "Como você conta", "Preço e controle"];
@@ -25,6 +26,8 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
   const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
   const [gtin, setGtin] = useState("");
+  const [ncm, setNcm] = useState("");
+  const [cest, setCest] = useState("");
   const [unidadeId, setUnidadeId] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
   const [precoCusto, setPrecoCusto] = useState("");
@@ -65,6 +68,8 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
           codigo: codigo.trim(),
           nome: nome.trim(),
           gtin: gtin.trim() || null,
+          ncm: ncm.trim() || null,
+          cest: cest.trim() || null,
           unidade_id: unidadeId,
           categoria_id: categoriaId || null,
           preco_custo: precoCusto ? Number(precoCusto) : null,
@@ -106,8 +111,8 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
               required
             />
             <TextField
-              label="Código interno"
-              hint="Como você chama esse item na sua loja."
+              label="Código (SKU)"
+              hint="Como você chama esse item na sua loja. É o que o cliente usa para conferir o que chegou."
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
               required
@@ -118,6 +123,22 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
               inputMode="numeric"
               value={gtin}
               onChange={(e) => setGtin(e.target.value.replace(/\D/g, ""))}
+            />
+            <TextField
+              label="NCM"
+              hint="Opcional. Pedido por quem compra para licitação e exigido na nota fiscal."
+              inputMode="numeric"
+              placeholder="0000.00.00"
+              value={ncm}
+              onChange={(e) => setNcm(ncmMask(e.target.value))}
+            />
+            <TextField
+              label="CEST"
+              hint="Opcional. Só para mercadoria de substituição tributária."
+              inputMode="numeric"
+              placeholder="00.000.00"
+              value={cest}
+              onChange={(e) => setCest(cestMask(e.target.value))}
             />
           </>
         )}

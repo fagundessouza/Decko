@@ -3,11 +3,12 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
+from decko.fiscal import NCM_LENGTH, strip_mask
 from decko_modules.comercial import service
 from decko_modules.comercial.models import Categoria, Lote, Movimento, Produto, Unidade
 from decko_modules.comercial.schemas import (
@@ -111,7 +112,7 @@ async def listar_produtos(
     busca: Annotated[str | None, Query(max_length=120)] = None,
     limite: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> list[Produto]:
-    """Lista produtos, opcionalmente filtrando por código, código de barras ou nome.
+    """Lista produtos, filtrando por código, código de barras, NCM ou nome.
 
     A busca acontece no banco e não na tela porque o caixa de um supermercado tem dezenas
     de milhares de produtos, e baixar o catálogo inteiro a cada abertura de venda é o tipo
@@ -121,11 +122,20 @@ async def listar_produtos(
 
     if busca:
         termo = busca.strip()
-        consulta = consulta.where(
+        # "O que vocês têm no NCM 8544.42.00?" é pergunta de comprador de licitação, e
+        # chega com máscara. O campo guarda só os dígitos.
+        digitos = strip_mask(termo)
+        criterios = [
             # Código e código de barras são exatos: o leitor não erra, e casar por
             # aproximação traria o produto errado para a frente do cliente.
-            (Produto.codigo == termo) | (Produto.gtin == termo) | (Produto.nome.ilike(f"%{termo}%"))
-        )
+            Produto.codigo == termo,
+            Produto.gtin == termo,
+            Produto.nome.ilike(f"%{termo}%"),
+        ]
+        if len(digitos) == NCM_LENGTH:
+            criterios.append(Produto.ncm == digitos)
+
+        consulta = consulta.where(or_(*criterios))
 
     result = await session.execute(consulta)
     return list(result.scalars().all())

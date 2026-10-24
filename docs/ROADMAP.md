@@ -135,6 +135,11 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       com código de barras, lote e validade, preço de custo e venda, e estoque como razão
       somente-inserção — ver `docs/adr/0006-base-comercial.md`
 - [x] Telas do comercial: cadastro de produto, entrada por embalagem e consulta de saldo
+- [x] Identificação fiscal do produto: NCM e CEST, com busca por NCM. Veio da experiência
+      do dono do projeto como vendedor na Fujioka, onde o comprador de licitação pedia o
+      NCM antes do preço — ver `docs/discovery/comercial-produto-fiscal.md`
+- [ ] Responder as perguntas em aberto do discovery fiscal (origem da mercadoria, CATMAT,
+      marca e modelo, unidade tributável, tabela oficial de NCM). Nenhuma foi suposta
 - [x] Módulo `pdv`: venda de balcão com busca por código de barras, pagamento em dinheiro,
       débito, crédito e pix, troco, e baixa de estoque na mesma transação da venda — ver
       `docs/adr/0008-ponto-de-venda.md`. É também o primeiro módulo a depender de outro

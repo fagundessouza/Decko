@@ -11,7 +11,7 @@ import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { comercial, describeUnidade } from "../lib/comercial";
 import type { Lote, Movimento, Produto, Saldo, TipoMovimento, Unidade } from "../lib/comercial";
-import { dateBr, num, todayLocal } from "../lib/format";
+import { cestMask, dateBr, ncmMask, num, todayLocal } from "../lib/format";
 
 interface Props {
   produto: Produto;
@@ -186,6 +186,35 @@ export function ProdutoDetailPage({ produto, onBack }: Props) {
             })}
           </ul>
         )}
+      </Card>
+
+      {/* A ficha de identificação do produto. Quem compra por licitação pergunta o NCM
+          antes de perguntar o preço, e hoje isso era uma ligação para a empresa — ver
+          docs/discovery/comercial-produto-fiscal.md. */}
+      <Card className="mb-6">
+        <CardHeader title="Identificação" />
+        <ul>
+          <Row>
+            <span className="text-ink-muted">Código (SKU)</span>
+            <span className="tabular font-medium text-ink">{produto.codigo}</span>
+          </Row>
+          <Row>
+            <span className="text-ink-muted">Código de barras</span>
+            <span className="tabular font-medium text-ink">{produto.gtin ?? "—"}</span>
+          </Row>
+          <Row>
+            <span className="text-ink-muted">NCM</span>
+            <span className="tabular font-medium text-ink">
+              {ncmMask(produto.ncm ?? "") || "—"}
+            </span>
+          </Row>
+          {produto.cest && (
+            <Row>
+              <span className="text-ink-muted">CEST</span>
+              <span className="tabular font-medium text-ink">{cestMask(produto.cest)}</span>
+            </Row>
+          )}
+        </ul>
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">

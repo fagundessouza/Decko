@@ -22,6 +22,9 @@ export interface Produto {
   nome: string;
   descricao: string | null;
   gtin: string | null;
+  /** Classificação fiscal, só com os dígitos. A máscara é posta na leitura. */
+  ncm: string | null;
+  cest: string | null;
   categoria_id: string | null;
   unidade_id: string;
   preco_custo: string | null;

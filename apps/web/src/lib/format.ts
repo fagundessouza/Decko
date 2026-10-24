@@ -30,6 +30,27 @@ export function num(value: string | number | null | undefined, casas = 1): strin
   return parsed.toLocaleString("pt-BR", { maximumFractionDigits: casas });
 }
 
+/** NCM como se lê no edital: 8 dígitos viram 0000.00.00.
+ *
+ * O comprador confere esse número contra o edital, dígito a dígito. Oito caracteres
+ * corridos é o formato que faz errar. Vale também enquanto a pessoa digita: o campo
+ * mostra o ponto na hora certa e não aceita o nono dígito.
+ */
+export function ncmMask(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 4) return d;
+  if (d.length <= 6) return `${d.slice(0, 4)}.${d.slice(4)}`;
+  return `${d.slice(0, 4)}.${d.slice(4, 6)}.${d.slice(6)}`;
+}
+
+/** CEST: 7 dígitos viram 00.000.00. */
+export function cestMask(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 7);
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+}
+
 /** Valor em reais, sempre com dois decimais: dinheiro não esconde centavo. */
 export function brl(value: string | number | null | undefined): string {
   const parsed = typeof value === "number" ? value : Number(value ?? NaN);

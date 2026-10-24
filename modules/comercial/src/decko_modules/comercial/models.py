@@ -122,6 +122,10 @@ class Produto(TenantMixin, TimestampMixin, Base):
         # GTIN é único quando existe; produto sem código de barras é comum e permitido.
         UniqueConstraint("tenant_id", "gtin", name="uq_comercial_produto_tenant_id_gtin"),
         Index("ix_comercial_produto_tenant_id_nome", "tenant_id", "nome"),
+        # "O que vocês têm no NCM 8544.42.00?" é pergunta de comprador, não relatório.
+        Index("ix_comercial_produto_tenant_id_ncm", "tenant_id", "ncm"),
+        CheckConstraint("ncm IS NULL OR ncm ~ '^[0-9]{8}$'", name="ncm_oito_digitos"),
+        CheckConstraint("cest IS NULL OR cest ~ '^[0-9]{7}$'", name="cest_sete_digitos"),
         CheckConstraint("preco_venda IS NULL OR preco_venda >= 0", name="preco_venda_nao_negativo"),
         CheckConstraint("preco_custo IS NULL OR preco_custo >= 0", name="preco_custo_nao_negativo"),
     )
@@ -132,6 +136,13 @@ class Produto(TenantMixin, TimestampMixin, Base):
     descricao: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Código de barras. Chamado GTIN porque EAN-13, UPC e DUN-14 são todos GTIN.
     gtin: Mapped[str | None] = mapped_column(String(14), nullable=True)
+
+    # Classificação fiscal. Guardada só com os dígitos; a máscara volta na leitura.
+    # Quem compra por licitação pede o NCM antes de pedir o preço — ver
+    # docs/discovery/comercial-produto-fiscal.md.
+    ncm: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    # Só se aplica a mercadoria de substituição tributária, e sempre junto de um NCM.
+    cest: Mapped[str | None] = mapped_column(String(7), nullable=True)
 
     categoria_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True),

@@ -1,10 +1,17 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
+from decko.fiscal import pydantic_optional_cest, pydantic_optional_ncm
 from decko_modules.comercial.models import TipoMovimento
+
+# Aceita digitado com ou sem máscara e guarda só os dígitos. Em branco é ausência de
+# código, não erro — ver apps/api/src/decko/fiscal.py.
+OptionalNcm = Annotated[str | None, BeforeValidator(pydantic_optional_ncm)]
+OptionalCest = Annotated[str | None, BeforeValidator(pydantic_optional_cest)]
 
 
 class UnidadeIn(BaseModel):
@@ -41,10 +48,15 @@ class CategoriaOut(BaseModel):
 
 
 class ProdutoIn(BaseModel):
+    # O código é o SKU: é com ele que a loja chama o produto e o cliente confere o que
+    # chegou. Não existe um campo "sku" ao lado — seriam duas verdades para a mesma coisa.
     codigo: str = Field(min_length=1, max_length=60)
     nome: str = Field(min_length=1, max_length=200)
     descricao: str | None = None
     gtin: str | None = Field(default=None, max_length=14, pattern=r"^\d*$")
+    # Classificação fiscal. Quem compra por licitação pede o NCM antes do preço.
+    ncm: OptionalNcm = None
+    cest: OptionalCest = None
     categoria_id: uuid.UUID | None = None
     unidade_id: uuid.UUID
     preco_custo: Decimal | None = Field(default=None, ge=0)
@@ -61,6 +73,8 @@ class ProdutoOut(BaseModel):
     nome: str
     descricao: str | None
     gtin: str | None
+    ncm: str | None
+    cest: str | None
     categoria_id: uuid.UUID | None
     unidade_id: uuid.UUID
     preco_custo: Decimal | None
