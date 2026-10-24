@@ -40,7 +40,7 @@ class ModuleManifest:
     # deles ficaria para trás.
     category: str = "Outros"
     summary: str = ""
-    icon: str = "▣"
+    icon: str = "apps"
     # Cor de identidade do módulo na vitrine. Nome do papel, não valor: a cor mora nos
     # tokens — ver docs/BRAND.md, seção 2.1.
     accent: str = "slate"
@@ -63,9 +63,9 @@ class ModuleManifest:
                 menu=menu,
                 category=module.get("category", "Outros"),
                 summary=module.get("summary", ""),
-                # O ícone do menu é um nome ("settings"), não um símbolo: ele serve a um
-                # conjunto de ícones que ainda não existe. A vitrine usa o do manifesto.
-                icon=str(module.get("icon") or "▣"),
+                # Nome do ícone, não símbolo: a arte mora na interface, que a resolve
+                # pelo nome — ver apps/web/src/components/ModuleIcon.tsx.
+                icon=str(module.get("icon") or "apps"),
                 accent=str(module.get("accent") or "slate"),
             )
         except KeyError as exc:

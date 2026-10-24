@@ -6,6 +6,7 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Modal } from "../components/Modal";
+import { ModuleIcon } from "../components/ModuleIcon";
 import { ModuleTile } from "../components/ModuleTile";
 import type { Accent } from "../components/ModuleTile";
 import { TextField } from "../components/TextField";
@@ -220,7 +221,7 @@ function AppCard({
       title={module.label}
       meta={`v${module.version}`}
       description={module.summary + aviso}
-      icon={module.icon}
+      icon={<ModuleIcon name={module.icon} />}
       accent={module.accent as Accent}
       badge={
         module.active ? (

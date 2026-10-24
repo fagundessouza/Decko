@@ -9,7 +9,7 @@ package = "decko_modules.agro"
 depends = ["core"]
 required = false
 category = "Setores"
-icon = "✦"
+icon = "drone"
 accent = "lime"
 summary = "Planejamento operacional, clima com registro probatório e relatório do MAPA."
 
@@ -36,5 +36,4 @@ provides = [
 
 [menu]
 label = "Pulverização"
-icon = "drone"
 order = 100

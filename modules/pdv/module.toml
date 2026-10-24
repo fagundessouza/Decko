@@ -11,7 +11,7 @@ package = "decko_modules.pdv"
 depends = ["core", "comercial"]
 required = false
 category = "Operação"
-icon = "⌁"
+icon = "register"
 accent = "teal"
 summary = "Venda de balcão: bipa o produto, recebe em dinheiro, cartão ou pix e baixa o estoque."
 
@@ -28,5 +28,4 @@ provides = [
 
 [menu]
 label = "Ponto de venda"
-icon = "register"
 order = 50

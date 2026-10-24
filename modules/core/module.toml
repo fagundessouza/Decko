@@ -6,7 +6,7 @@
 name = "core"
 label = "Núcleo"
 category = "Plataforma"
-icon = "⚙"
+icon = "settings"
 accent = "violet"
 summary = "Empresas, usuários, permissões e trilha de auditoria. Base de tudo."
 version = "0.1.0"
@@ -35,5 +35,4 @@ provides = [
 
 [menu]
 label = "Configurações"
-icon = "settings"
 order = 900

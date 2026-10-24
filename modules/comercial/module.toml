@@ -11,7 +11,7 @@ package = "decko_modules.comercial"
 depends = ["core"]
 required = false
 category = "Operação"
-icon = "▣"
+icon = "boxes"
 accent = "blue"
 summary = "Catálogo com unidade, caixa e fardo, lote e validade, e estoque com histórico."
 
@@ -34,5 +34,4 @@ provides = [
 
 [menu]
 label = "Produtos e estoque"
-icon = "box"
 order = 100

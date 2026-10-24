@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AppShell, Page, PageHeader } from "./components/AppShell";
 import type { NavItem } from "./components/AppShell";
 import { Card } from "./components/Card";
+import { ModuleIcon } from "./components/ModuleIcon";
 import { ModuleTile } from "./components/ModuleTile";
 import { logout, renewSession, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
@@ -121,7 +122,7 @@ export default function App() {
     {
       key: "home",
       label: "Início",
-      icon: "◆",
+      icon: <ModuleIcon name="home" size={22} />,
       onSelect: () => setView({ name: "home" }),
     },
   ];
@@ -130,7 +131,7 @@ export default function App() {
     items.push({
       key: "pdv",
       label: "Ponto de venda",
-      icon: "⌁",
+      icon: <ModuleIcon name="register" size={22} />,
       onSelect: () => setView({ name: "pdv" }),
     });
   }
@@ -138,7 +139,7 @@ export default function App() {
     items.push({
       key: "comercial",
       label: "Produtos e estoque",
-      icon: "▣",
+      icon: <ModuleIcon name="boxes" size={22} />,
       onSelect: () => setView({ name: "produtos" }),
     });
   }
@@ -146,7 +147,7 @@ export default function App() {
     items.push({
       key: "agro",
       label: "Pulverização",
-      icon: "✦",
+      icon: <ModuleIcon name="drone" size={22} />,
       onSelect: () => setView({ name: "plans" }),
     });
   }
@@ -154,7 +155,7 @@ export default function App() {
     items.push({
       key: "aplicativos",
       label: "Aplicativos",
-      icon: "⊞",
+      icon: <ModuleIcon name="apps" size={22} />,
       onSelect: () => setView({ name: "aplicativos" }),
     });
   }
@@ -162,7 +163,7 @@ export default function App() {
     items.push({
       key: "company",
       label: "Dados da empresa",
-      icon: "⚙",
+      icon: <ModuleIcon name="store" size={22} />,
       onSelect: () => setView({ name: "company" }),
     });
   }
@@ -193,7 +194,7 @@ export default function App() {
               <ModuleTile
                 title="Ponto de venda"
                 description="Bipe o produto, receba em dinheiro, cartão ou pix e baixe o estoque."
-                icon="⌁"
+                icon={<ModuleIcon name="register" />}
                 accent="teal"
                 onClick={() => setView({ name: "pdv" })}
               />
@@ -202,7 +203,7 @@ export default function App() {
               <ModuleTile
                 title="Produtos e estoque"
                 description="Cadastro com unidade, caixa e fardo, lote e validade, entradas e saídas."
-                icon="▣"
+                icon={<ModuleIcon name="boxes" />}
                 accent="blue"
                 onClick={() => setView({ name: "produtos" })}
               />
@@ -211,7 +212,7 @@ export default function App() {
               <ModuleTile
                 title="Pulverização"
                 description="Planejamentos operacionais, condição do tempo e relatório para o MAPA."
-                icon="✦"
+                icon={<ModuleIcon name="drone" />}
                 accent="lime"
                 onClick={() => setView({ name: "plans" })}
               />
@@ -220,7 +221,7 @@ export default function App() {
               <ModuleTile
                 title="Aplicativos"
                 description="Instale o que esta empresa precisa: ponto de venda, estoque, pulverização."
-                icon="⊞"
+                icon={<ModuleIcon name="apps" />}
                 accent="violet"
                 onClick={() => setView({ name: "aplicativos" })}
               />
@@ -229,7 +230,7 @@ export default function App() {
               <ModuleTile
                 title="Dados da empresa"
                 description="Registro no MAPA, CREA e inscrições — o cabeçalho dos documentos."
-                icon="⚙"
+                icon={<ModuleIcon name="store" />}
                 accent="violet"
                 onClick={() => setView({ name: "company" })}
               />

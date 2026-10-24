@@ -55,6 +55,22 @@ Os valores estão em `packages/tokens/tokens.css`, e o quanto do acento entra na
 token separado da cor (`--dk-tile-wash`), porque no modo escuro o mesmo tom precisa de
 mais presença para aparecer.
 
+### 2.2 Ícones
+
+Desenho próprio, não biblioteca de terceiro: são 35 ícones numa folha única, em volume,
+na mesma família de azul e grafite da estrutura. Folha, recorte e instruções em
+`docs/brand/README.md`.
+
+Cada módulo declara o **nome** do ícone no `module.toml`, nunca o arquivo nem o símbolo —
+a arte mora na interface, que resolve o nome. Foi o que permitiu trocar os caracteres
+genéricos (`▣`, `✦`, `⊞`) sem tocar em nenhum módulo.
+
+- Dentro da placa de acento: 32px. No menu lateral: 22px.
+- O ícone é **decorativo** e sai com `alt` vazio: quem nomeia o módulo é o título ao lado.
+  Repetir o nome faria o leitor de tela dizer tudo duas vezes.
+- Entra no pacote só o que está em uso. Os 35 juntos passam de 1 MB, e leveza é requisito.
+- Nome que a interface ainda não conhece cai num ícone genérico em vez de quebrar a tela.
+
 ## 3. Duas descobertas que viraram requisito
 
 **Azul em tudo mata o botão principal.** Se "Finalizar venda" for azul sobre fundo azul, o olho não
