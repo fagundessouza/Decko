@@ -149,6 +149,12 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       endereço, busca por nome e por documento. Cadastro não é apagado, só desativado —
       venda e nota continuam apontando para alguém. A trilha registra o que mudou sem
       copiar o dado pessoal para dentro dela
+- [x] Cadastro de pilotos no agro, pedido pelo Nathan em 27/10/2026: o planejamento aponta
+      para quem voou, em vez de repetir o nome dentro da assinatura. As respostas dele às
+      questões abertas estão na seção 6 do discovery do agro
+- [x] Permissão de módulo que evolui: versão nova que declara permissão nova agora alcança
+      as empresas que já usavam o módulo, na subida da aplicação — ver a atualização no
+      `docs/adr/0004-ativacao-de-modulo-por-empresa.md`
 - [ ] Módulo de assinatura de documento: desenho na tela com o dedo, preso ao documento
       por hash, com quem, quando e de onde. A assinatura gov.br entra junto, mas depende
       de credenciamento da aplicação — ver `docs/discovery/assinaturas-dois-modulos.md`

@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import FastAPI
 
+from decko.activation import reconcile_permissions
 from decko.config import get_settings
 from decko.db import check_connection, engine
 from decko.modules import ModuleManifest, load_into
@@ -14,6 +15,12 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Módulo evolui: a versão nova declara permissão que a anterior não tinha, e quem já
+    # usava o módulo não a receberia por caminho nenhum. Acertar aqui é o que faz uma
+    # atualização chegar às empresas que já existem.
+    await reconcile_permissions(
+        {manifest.name: manifest.permissions for manifest in app.state.modules}
+    )
     yield
     await engine.dispose()
 

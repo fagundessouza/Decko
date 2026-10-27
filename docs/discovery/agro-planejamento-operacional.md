@@ -204,40 +204,111 @@ e é contado à parte, e rascunho aparece na lista com o status à mostra.
 sem resposta; deduzir um layout "do MAPA" seria inventar regra em domínio regulado. A tela
 diz isso ao operador, para ninguém supor que baixar a planilha cumpriu a obrigação.
 
-## 6. Questões abertas — perguntar ao Nathan
+## 6. Respostas do Nathan — 27/10/2026
 
-Roteiro para a conversa, com as perguntas reescritas na língua de quem opera e ordenadas por
-quanto destravam: `perguntas-para-o-nathan.md`. O roteiro é descartável; esta lista não.
+Nathan respondeu por mensagem, numerando as respostas por conta própria. **A numeração dele
+não é a desta lista** — a resposta 8, por exemplo, é sobre o talão ser de terceiro, que aqui
+é a Q2. Por isso as respostas vêm abaixo pelo assunto, com o texto dele entre aspas, e não
+encaixadas à força num número que pode não ser o certo.
 
-Não há Q10: ela tratava do formato do CPF/CNPJ e foi respondida pela Receita Federal — ver
-"Formato do CPF/CNPJ" na seção 4.2. O número fica vago porque está citado em comentários de
-código e em mensagens de commit.
+Roteiro usado na conversa: `perguntas-para-o-nathan.md`. O roteiro é descartável; esta lista
+não. Não há Q10: ela tratava do formato do CPF/CNPJ e foi respondida pela Receita Federal —
+ver "Formato do CPF/CNPJ" na seção 4.2.
 
-- **Q1.** Este formulário é o que sobe para o MAPA, ou é documento interno/para o cliente? Qual é
-  exatamente o sistema do MAPA usado no envio mensal, e qual formato ele aceita?
-- **Q2.** A logo é AgroDrone mas o rodapé é "DroneTech Brasil — Dobrada/SP". O talão é de terceiro?
-  Isso define se o branding do PDF é por tenant ou por modelo de documento.
-- **Q3.** Volume: quantos planejamentos por mês? (dimensiona o ganho real de tempo)
-- **Q4.** Qual drone/modelo, e o que o software de voo exporta (CSV, KML, log DGPS)? Define a
-  viabilidade do croqui automático.
-- **Q5.** A assinatura precisa ser física, ou o cliente/órgão aceita digital?
-- **Q6.** Como o croqui é produzido hoje?
-- **Q7.** Por quanto tempo as vias físicas precisam ser guardadas? (define retenção e backup)
-- **Q8.** Existe limite legal de vento/temperatura por produto, ou o parâmetro é definido caso a
-  caso pelo agrônomo? (define se a regra de alerta é por produto ou por planejamento)
-- **Q9.** `total_produto` é digitado a partir do receituário ou calculado? Se calculado, a
-  multiplicação usa a área planejada ou a área efetivamente aplicada? Hoje o campo é digitado,
-  porque calcular com a área errada produziria um número errado num documento com efeito legal.
-- **Q12.** De que número a emissão deve começar? O talão já vem numerado e o sistema numera por
-  empresa a partir de 1 — se ele está no nº 847, o primeiro documento emitido repete um número que
-  já existe no arquivo dele. Se papel e sistema conviverem por um tempo, como evitar duplicata?
-- **Q13.** O talão tem quatro vias com destinos diferentes (empresa, cliente, piloto e a fixa).
-  Com o PDF, quem recebe o quê, e o cliente ainda precisa de papel assinado na hora? O critério de
-  aceite diz que o PDF substitui o talão, mas o talão não é um documento, são quatro destinos.
-- **Q14.** O horímetro é um contador contínuo por aeronave, ou zera em manutenção? A dor nº 5
-  propõe puxar o horímetro inicial do voo anterior da mesma aeronave; se ele zera, a automação
-  precisa saber disso ou sugere número errado.
-- **Q11.** Como é a planilha que hoje recebe a consolidação? Com o arquivo em mãos, dá para
-  fazer o CSV sair nas mesmas colunas e na mesma ordem, em vez de aproximá-las a partir dos
-  campos do formulário. Relacionado à Q1: se o envio for por upload de arquivo, é o layout
-  dele que manda.
+### 6.1 Respondido
+
+**Quem assina (Q5, Q13).**
+> *"eu sou o agrônomo da empresa e piloto. Faço o relatório e pego assinatura do produtor
+> (muitas vezes esse cara é o responsável pela sua lavoura, quando tem Agronomo, pego dele)"*
+>
+> *"o certo seriam várias vias, mas se der pra encaminhar via PDF, cliente assina com gov, ou
+> uma caneta no celular ou tablet."*
+
+Duas coisas caem daqui. A primeira: **a mesma pessoa é o agrônomo e o piloto** — os quatro
+papéis de assinatura do formulário não são quatro pessoas. A segunda: **assinatura digital
+serve**, tanto gov.br quanto desenho na tela. A Q5 estava travando uma etapa do roadmap e
+deixou de travar — ver `docs/discovery/assinaturas-dois-modulos.md`.
+
+**Numeração (Q12).**
+> *"pode ser número corrido."*
+
+O sistema já numera por empresa a partir de 1, sequencial. Nada a mudar.
+
+**O talão e o arquivo (Q2, Q7).**
+> *"esse foi um amigo que fez e mandou, usamos ele em campo, depois que passamos pra planilha
+> do Excel eu arquivo ele por 2 anos, o físico."*
+>
+> *"nunca me pediram, eu não sei o tempo ao certo, eu guardo uns 2 anos. Se tiver digital fica
+> melhor, da pra ficar lá resto da vida."*
+
+O talão é modelo de conhecido, não produto de terceiro com identidade própria: o cabeçalho é
+da empresa dele, e a premissa da seção 4.1 se confirma. Retenção: dois anos é o costume, não
+uma exigência que alguém tenha cobrado. Guardar indefinidamente no digital resolve.
+
+**Clima (parte da Q8).**
+> *"temperatura você confronta informação pela data, hora e algum aplicativo, por ex: 'fonte:
+> UAV Forecast' (esse o app que eu uso) então o ideal é teu aplicativo fique conectado com
+> algum programa de monitoramento do clima, que já vai dar em tempo real essa informação, sem
+> precisar informar manualmente."*
+>
+> *"vento informo o do app que uso do clima."*
+
+É exatamente o que a captura automática já faz, com uma diferença que vale corrigir: **ele
+cita a fonte no documento** ("fonte: UAV Forecast"). O PDF precisa imprimir de onde veio a
+leitura, e o dado já está guardado — ver seção 4.8.
+
+**Produto e área (Q9).**
+> *"você informa a dose x área, nesse caso você faz o mapa da área. Essa informação pode ser
+> preenchida após a aplicação. Que facilita caso o cliente peça pra fazer um 'bico a mais
+> ali'."*
+
+O total é dose × área, e **a área é a aplicada, não a planejada** — por isso pode ser
+preenchida depois. O campo digitado continua certo; o que muda é que o sistema pode sugerir a
+conta quando a área aplicada estiver preenchida.
+
+**Volume (Q3).**
+> *"o certo é emitir de toda operação, hoje eu faço a metade ou menos pela trabalheira kk"*
+
+Não é um número, mas diz o essencial: **ele emite menos documento do que deveria, e o motivo é
+o trabalho**. O ganho do produto não é só tempo, é conformidade.
+
+**Drone (Q4, parte da Q6).**
+> *"uso Dji. Tem um app que mostra os hectares, relatório de voos, mostra vazão, altura, tempo
+> de voo, coordenadas, tem tudo lá."*
+
+DJI, com aplicativo que já tem hectares, vazão, altura, tempo de voo e coordenadas. O croqui
+automático e o preenchimento a partir do voo ficam viáveis — **falta saber o que o aplicativo
+exporta como arquivo**, que é o que a pergunta original pedia e continua sem resposta.
+
+**Horímetro (Q14).**
+> *"zera não. Essa informação eu nem coloco. Mas se quiser por, o drone mostra quantas horas
+> ele tem de voo, teria que informar antes da aplicação, mas é um trabalho a mais. Vou ver se
+> posso deixar sem (pq copiaram do avião)"*
+
+Não zera, e **ele não preenche**. O bloco de manutenção já é todo opcional no modelo, então
+não há o que mudar — e a dor nº 5 (puxar o horímetro do voo anterior) perde prioridade: não
+adianta automatizar um campo que ninguém usa. Ele vai confirmar se pode sair do formulário.
+
+### 6.2 Requisito novo
+
+**Cadastro de pilotos.**
+> *"Ideal era pensa tbm, uma forma da empresa cadastrar os pilotos, cada um fazia seu
+> relatório. Isso ajuda hein."*
+
+A empresa cadastra seus pilotos e o planejamento aponta para quem voou. Hoje o nome do piloto
+só existe como texto dentro da assinatura, redigitado a cada documento.
+
+### 6.3 Ainda em aberto
+
+- **Q1.** Este formulário é o que sobe para o MAPA, e por qual sistema? Continua sendo a maior
+  incógnita, e decide se o PDF substitui mesmo o talão.
+- **Q11.** A planilha do fechamento. Ele disse duas vezes que vai mandar — *"vou te mandar a
+  planilha do Excel no padrão que temos que enviar"* — e sem ela as colunas do CSV continuam
+  sendo palpite educado.
+- **Q4 (resto).** Que arquivo o aplicativo da DJI exporta? Sem um exemplo, não dá para ler.
+- **Q8 (resto).** Os limites de vento, temperatura e umidade vêm do rótulo do produto ou o
+  agrônomo define caso a caso? Ele respondeu de onde vem a **leitura**, não de onde vem o
+  **limite**.
+- **Pilotos e login.** "Cada um fazia seu relatório": cada piloto terá usuário próprio no
+  sistema, e deve ver só os planejamentos dele? Ou o cadastro serve só para não redigitar o
+  nome? Enquanto não houver resposta, o cadastro é só cadastro.

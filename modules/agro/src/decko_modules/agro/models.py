@@ -106,6 +106,32 @@ class Aircraft(TenantMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
+class Pilot(TenantMixin, TimestampMixin, Base):
+    """Piloto agrícola da empresa.
+
+    Pedido do Nathan em 27/10/2026: *"uma forma da empresa cadastrar os pilotos, cada um
+    fazia seu relatório"*. Antes o nome do piloto só existia como texto dentro da
+    assinatura, redigitado a cada documento.
+
+    O CREA é opcional e existe porque na AgroDrone **a mesma pessoa é o agrônomo e o
+    piloto** — os quatro papéis de assinatura do formulário não são quatro pessoas.
+    """
+
+    __tablename__ = "agro_pilot"
+    __table_args__ = (UniqueConstraint("tenant_id", "canac", name="uq_agro_pilot_tenant_id_canac"),)
+
+    id: Mapped[uuid.UUID] = primary_key()
+    nome: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Código ANAC do aeronavegante. É o registro que o formulário imprime ao lado da
+    # assinatura do piloto.
+    canac: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Preenchido quando o piloto também assina como engenheiro agrônomo.
+    crea: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    cpf: Mapped[str | None] = mapped_column(String(14), nullable=True)
+    telefone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class Product(TenantMixin, TimestampMixin, Base):
     """Defensivo, adjuvante ou fertilizante aplicado."""
 
@@ -169,6 +195,11 @@ class OperationalPlan(TenantMixin, TimestampMixin, Base):
     )
     aircraft_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("agro_aircraft.id", ondelete="RESTRICT"), nullable=True
+    )
+    # Quem voou. Opcional porque o documento antigo não tem, e porque a empresa de um
+    # piloto só pode nunca cadastrar ninguém.
+    pilot_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("agro_pilot.id", ondelete="RESTRICT"), nullable=True
     )
     prescription_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
@@ -378,6 +409,7 @@ TENANT_SCOPED_TABLES = (
     Client.__tablename__,
     Property.__tablename__,
     Aircraft.__tablename__,
+    Pilot.__tablename__,
     Product.__tablename__,
     Prescription.__tablename__,
     OperationalPlan.__tablename__,

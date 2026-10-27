@@ -476,3 +476,84 @@ async def test_registering_a_product_requires_authentication(scenario: Scenario)
     )
 
     assert response.status_code == 401
+
+
+async def test_cadastra_piloto(scenario: Scenario) -> None:
+    """Pedido do Nathan: a empresa cadastra seus pilotos, e o planejamento aponta quem voou.
+
+    Antes o nome do piloto só existia como texto dentro da assinatura, redigitado a cada
+    documento — ver docs/discovery/agro-planejamento-operacional.md, seção 6.2.
+    """
+    criado = await scenario.client.post(
+        f"{BASE}/pilots",
+        headers=scenario.first.auth,
+        json={"nome": "Nathan Gomes", "canac": "123456", "crea": "GO-12345"},
+    )
+
+    assert criado.status_code == 201, criado.text
+    # O CREA existe porque na AgroDrone a mesma pessoa é o agrônomo e o piloto.
+    assert criado.json()["crea"] == "GO-12345"
+
+    listados = await scenario.client.get(f"{BASE}/pilots", headers=scenario.first.auth)
+    assert [p["nome"] for p in listados.json()] == ["Nathan Gomes"]
+
+
+async def test_mesmo_canac_duas_vezes_e_recusado(scenario: Scenario) -> None:
+    corpo = {"nome": "Nathan Gomes", "canac": "123456"}
+
+    primeiro = await scenario.client.post(f"{BASE}/pilots", headers=scenario.first.auth, json=corpo)
+    assert primeiro.status_code == 201, primeiro.text
+
+    repetido = await scenario.client.post(f"{BASE}/pilots", headers=scenario.first.auth, json=corpo)
+    assert repetido.status_code == 409
+
+
+async def test_piloto_sem_canac_e_aceito(scenario: Scenario) -> None:
+    """Empresa de um piloto só pode não ter o código à mão na hora do cadastro."""
+    criado = await scenario.client.post(
+        f"{BASE}/pilots", headers=scenario.first.auth, json={"nome": "Piloto sem registro"}
+    )
+
+    assert criado.status_code == 201, criado.text
+    assert criado.json()["canac"] is None
+
+
+async def test_piloto_de_uma_empresa_nao_aparece_na_outra(scenario: Scenario) -> None:
+    await scenario.client.post(
+        f"{BASE}/pilots",
+        headers=scenario.first.auth,
+        json={"nome": "Nathan Gomes", "canac": "123456"},
+    )
+
+    vizinha = await scenario.client.get(f"{BASE}/pilots", headers=scenario.second.auth)
+
+    assert vizinha.json() == []
+
+
+async def test_planejamento_guarda_quem_voou(scenario: Scenario) -> None:
+    """O documento passa a apontar para o piloto cadastrado, em vez de só ao nome digitado."""
+    piloto = await scenario.client.post(
+        f"{BASE}/pilots",
+        headers=scenario.first.auth,
+        json={"nome": "Nathan Gomes", "canac": "123456"},
+    )
+    piloto_id = piloto.json()["id"]
+
+    # O planejamento do cenário já existe; este é outro, criado com o piloto desde o começo.
+    plano = await scenario.client.post(
+        f"{BASE}/plans",
+        headers=scenario.first.auth,
+        json={
+            "client_id": (
+                await scenario.client.get(f"{BASE}/clients", headers=scenario.first.auth)
+            ).json()[0]["id"],
+            "property_id": (
+                await scenario.client.get(f"{BASE}/properties", headers=scenario.first.auth)
+            ).json()[0]["id"],
+            "pilot_id": piloto_id,
+            "cultura": "soja",
+        },
+    )
+
+    assert plano.status_code == 201, plano.text
+    assert plano.json()["pilot_id"] == piloto_id

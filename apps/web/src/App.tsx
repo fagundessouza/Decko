@@ -23,6 +23,7 @@ import { NotaConferenciaPage } from "./pages/NotaConferenciaPage";
 import { NotasPage } from "./pages/NotasPage";
 import { NovoProdutoWizard } from "./pages/NovoProdutoWizard";
 import { PdvPage } from "./pages/PdvPage";
+import { PilotosPage } from "./pages/PilotosPage";
 import { PlanDetailPage } from "./pages/PlanDetailPage";
 import { PlansPage } from "./pages/PlansPage";
 import { ProdutoDetailPage } from "./pages/ProdutoDetailPage";
@@ -38,6 +39,7 @@ type View =
   | { name: "plans" }
   | { name: "company" }
   | { name: "consolidation" }
+  | { name: "pilotos" }
   | { name: "newPlan" }
   | { name: "plan"; plan: Plan }
   | { name: "pdv" }
@@ -59,6 +61,7 @@ const SECTION: Record<View["name"], string> = {
   newPlan: "agro",
   plan: "agro",
   consolidation: "agro",
+  pilotos: "agro",
   pdv: "pdv",
   clientes: "clientes",
   notas: "compras",
@@ -333,6 +336,7 @@ export default function App() {
           onOpen={(plan) => setView({ name: "plan", plan })}
           onCreate={() => setView({ name: "newPlan" })}
           onConsolidate={() => setView({ name: "consolidation" })}
+          onPilotos={() => setView({ name: "pilotos" })}
         />
       )}
 
@@ -342,6 +346,8 @@ export default function App() {
           onCreated={(plan) => setView({ name: "plan", plan })}
         />
       )}
+
+      {view.name === "pilotos" && <PilotosPage onBack={() => setView({ name: "plans" })} />}
 
       {view.name === "company" && <CompanyPage onBack={() => setView({ name: "home" })} />}
 

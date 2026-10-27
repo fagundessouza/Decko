@@ -12,6 +12,7 @@ from decko_modules.agro.models import (
     Aircraft,
     Client,
     OperationalPlan,
+    Pilot,
     PlanProduct,
     Prescription,
     Product,
@@ -24,6 +25,8 @@ from decko_modules.agro.schemas import (
     ClientIn,
     ClientOut,
     ConsolidationOut,
+    PilotIn,
+    PilotOut,
     PlanIn,
     PlanOut,
     PlanPrescriptionIn,
@@ -232,6 +235,39 @@ async def list_weather(
         .order_by(WeatherReading.data, WeatherReading.periodo, WeatherReading.momento)
     )
     return list(result.scalars().all())
+
+
+@router.get("/pilots", response_model=list[PilotOut])
+async def list_pilots(
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.pilot.read"))],
+) -> list[Pilot]:
+    """Os pilotos da empresa.
+
+    Pedido do Nathan: antes o nome do piloto só existia como texto dentro da assinatura,
+    redigitado a cada documento.
+    """
+    result = await session.execute(select(Pilot).order_by(Pilot.nome))
+    return list(result.scalars().all())
+
+
+@router.post("/pilots", response_model=PilotOut, status_code=status.HTTP_201_CREATED)
+async def create_pilot(
+    payload: PilotIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("agro.pilot.write"))],
+) -> Pilot:
+    pilot = Pilot(tenant_id=principal.tenant_id, **payload.model_dump())
+    session.add(pilot)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Já existe um piloto com este código ANAC.",
+        ) from exc
+    return pilot
 
 
 @router.get("/aircraft", response_model=list[AircraftOut])

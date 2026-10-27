@@ -45,6 +45,29 @@ class AircraftOut(BaseModel):
     is_active: bool
 
 
+class PilotIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=200)
+    # Código ANAC do aeronavegante, impresso ao lado da assinatura do piloto.
+    canac: str | None = Field(default=None, max_length=20)
+    # Preenchido quando o piloto também assina como engenheiro agrônomo — na AgroDrone é
+    # a mesma pessoa.
+    crea: str | None = Field(default=None, max_length=40)
+    cpf: str | None = Field(default=None, max_length=14)
+    telefone: str | None = Field(default=None, max_length=20)
+
+
+class PilotOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nome: str
+    canac: str | None
+    crea: str | None
+    cpf: str | None
+    telefone: str | None
+    is_active: bool
+
+
 class PropertyIn(BaseModel):
     client_id: uuid.UUID
     nome: str = Field(min_length=1, max_length=200)
@@ -70,6 +93,8 @@ class PlanIn(BaseModel):
     client_id: uuid.UUID
     property_id: uuid.UUID
     aircraft_id: uuid.UUID | None = None
+    # Quem voou. Antes o nome do piloto só existia dentro da assinatura.
+    pilot_id: uuid.UUID | None = None
     # O formulário remete as precauções de uso ao receituário. Fica opcional aqui porque
     # o planejamento nasce rascunho, antes de o receituário estar em mãos.
     prescription_id: uuid.UUID | None = None
@@ -98,6 +123,7 @@ class PlanOut(BaseModel):
     client_id: uuid.UUID
     property_id: uuid.UUID
     aircraft_id: uuid.UUID | None
+    pilot_id: uuid.UUID | None
     prescription_id: uuid.UUID | None
     data_aplicacao: date | None
     cultura: Cultura | None

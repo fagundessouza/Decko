@@ -8,17 +8,17 @@ Decisão: ``docs/adr/0004-ativacao-de-modulo-por-empresa.md``.
 """
 
 import uuid
-from collections.abc import Callable, Coroutine, Sequence
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from decko.activation import register_activation_guard
-from decko.db import get_session
+from decko.activation import register_activation_guard, register_permission_reconciler
+from decko.db import SessionFactory, bind_tenant, get_session
 from decko_modules.core.deps import CurrentPrincipal
-from decko_modules.core.models import Role, RolePermission, TenantModule
+from decko_modules.core.models import Role, RolePermission, Tenant, TenantModule
 
 
 async def is_active(session: AsyncSession, tenant_id: uuid.UUID, module_name: str) -> bool:
@@ -142,7 +142,42 @@ def require_active_module(
     return dependency
 
 
+async def reconciliar_permissoes(declaradas: Mapping[str, Sequence[str]]) -> int:
+    """Acerta o papel de administrador de cada empresa com os módulos que ela tem ativos.
+
+    Roda na subida da aplicação. Concede só o que falta, e só de módulo que a empresa já
+    tem ativo — não é aqui que se instala nada. Papéis que o cliente tenha criado não são
+    tocados.
+
+    O caso que isto resolve: o módulo ganha uma permissão numa versão nova, e quem já o
+    usava não a recebe por caminho nenhum, porque conceder na instalação só alcança quem
+    instalar depois.
+    """
+    concedidas = 0
+    async with SessionFactory() as session, session.begin():
+        empresas = list((await session.execute(select(Tenant.id))).scalars().all())
+
+        for tenant_id in empresas:
+            await bind_tenant(session, tenant_id)
+            ativos = await active_modules(session, tenant_id)
+
+            permissoes = [
+                permissao
+                for nome, lista in declaradas.items()
+                # O núcleo entra sempre: ele não aparece em tenant_module porque é
+                # obrigatório, e a ausência de linha ali significa "inativo".
+                if nome in ativos or nome == "core"
+                for permissao in lista
+            ]
+            concedidas += len(
+                await grant_module_permissions(session, tenant_id=tenant_id, permissions=permissoes)
+            )
+
+    return concedidas
+
+
 # Registrado na importação do módulo. O núcleo é carregado antes de qualquer outro módulo
 # (é dependência obrigatória de todos), então a verificação existe quando o host monta os
 # demais routers.
 register_activation_guard(require_active_module)
+register_permission_reconciler(reconciliar_permissoes)

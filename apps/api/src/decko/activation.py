@@ -14,7 +14,7 @@ do tenant autenticado: montá-la exige a cadeia de autenticação, que pertence 
 Decisão e alternativas descartadas: ``docs/adr/0004-ativacao-de-modulo-por-empresa.md``.
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 # Recebe o nome do módulo e devolve uma dependência do FastAPI que recusa a requisição
@@ -47,3 +47,35 @@ def activation_guard_for(module_name: str) -> Any:
             "ativação foi registrada. O módulo núcleo foi carregado antes dele?"
         )
     return _factory(module_name)
+
+
+# ---------------------------------------------------------------- permissões
+
+# Recebe {nome do módulo: permissões que ele declara} e acerta os papéis das empresas que
+# têm aquele módulo ativo. Devolve quantas permissões concedeu.
+PermissionReconciler = Callable[[Mapping[str, Sequence[str]]], Awaitable[int]]
+
+_reconciler: PermissionReconciler | None = None
+
+
+def register_permission_reconciler(reconciler: PermissionReconciler) -> None:
+    """Registra quem sabe acertar permissão. Chamada pelo ``core`` ao ser importado."""
+    global _reconciler
+    _reconciler = reconciler
+
+
+async def reconcile_permissions(declared: Mapping[str, Sequence[str]]) -> int:
+    """Acerta as permissões dos módulos já instalados, na subida.
+
+    Existe porque módulo **evolui**: a versão nova declara uma permissão que a anterior
+    não tinha, e o papel de administrador das empresas que já usavam aquele módulo não a
+    recebe por caminho nenhum — conceder na instalação só alcança quem instala depois.
+    O sintoma é uma tela nova que abre em "permissão necessária", e foi assim que isto
+    apareceu, com ``agro.pilot.read``.
+
+    Silencioso quando nada foi registrado: o host sobe sem o ``core`` em teste de unidade,
+    e ali não há empresa para acertar.
+    """
+    if _reconciler is None:
+        return 0
+    return await _reconciler(declared)

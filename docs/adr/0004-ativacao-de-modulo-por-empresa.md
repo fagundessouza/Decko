@@ -76,3 +76,24 @@ nenhum módulo consegue contornar por omissão.
 
 **Registry por banco, como o Odoo** — descartado em ADR 0002. Resolveria isto de graça, ao
 custo de um banco por cliente.
+
+
+## Atualização de 27/10/2026 — permissão de módulo que evolui
+
+Faltava um caso. O papel de administrador recebe as permissões dos módulos instalados, e
+isso era garantido em dois momentos: no cadastro da empresa e na instalação do módulo.
+Nenhum dos dois alcança o **terceiro**: o módulo ganha uma permissão numa versão nova, e
+a empresa que já o usava não a recebe por caminho nenhum.
+
+O sintoma é uma tela nova que abre em "permissão necessária". Apareceu com
+`agro.pilot.read`, no cadastro de pilotos.
+
+A correção segue a mesma inversão deste ADR: o host declara a porta
+(`decko.activation.reconcile_permissions`), o `core` registra a implementação, e a
+reconciliação roda na subida da aplicação. Para cada empresa, concede ao papel de
+administrador o que falta **dos módulos que ela tem ativos** — não instala nada, não toca
+em papel que o cliente tenha criado, e não concede permissão de módulo não contratado.
+
+Roda na subida porque é quando a versão nova do módulo chega. Fazer no login espalharia
+escrita por um caminho de leitura; deixar para um comando manual faria a atualização
+depender de alguém lembrar.

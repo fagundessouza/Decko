@@ -24,6 +24,8 @@ provides = [
   "agro.property.write",
   "agro.aircraft.read",
   "agro.aircraft.write",
+  "agro.pilot.read",
+  "agro.pilot.write",
   "agro.product.read",
   "agro.product.write",
   "agro.prescription.read",

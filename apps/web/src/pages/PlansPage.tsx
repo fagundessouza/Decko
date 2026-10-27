@@ -13,6 +13,7 @@ interface Props {
   onOpen: (plan: Plan) => void;
   onCreate: () => void;
   onConsolidate: () => void;
+  onPilotos: () => void;
 }
 
 const STATUS_TONE: Record<string, "neutral" | "info" | "success"> = {
@@ -22,7 +23,7 @@ const STATUS_TONE: Record<string, "neutral" | "info" | "success"> = {
   enviado: "success",
 };
 
-export function PlansPage({ onOpen, onCreate, onConsolidate }: Props) {
+export function PlansPage({ onOpen, onCreate, onConsolidate, onPilotos }: Props) {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +44,10 @@ export function PlansPage({ onOpen, onCreate, onConsolidate }: Props) {
         description="Um por aplicação, como no talão."
         action={
           <div className="flex gap-2">
-            {/* Ação de escritório, não de campo: fica depois da que se usa na lavoura. */}
+            {/* Ações de escritório, não de campo: ficam depois da que se usa na lavoura. */}
+            <Button inline variant="secondary" onClick={onPilotos}>
+              Pilotos
+            </Button>
             <Button inline variant="secondary" onClick={onConsolidate}>
               Fechamento do mês
             </Button>

@@ -111,7 +111,29 @@ export interface WeatherCapture {
   alertas: string[];
 }
 
+export interface Piloto {
+  id: string;
+  nome: string;
+  /** Código ANAC do aeronavegante, impresso ao lado da assinatura. */
+  canac: string | null;
+  /** Preenchido quando o piloto também assina como agrônomo — costuma ser a mesma pessoa. */
+  crea: string | null;
+  cpf: string | null;
+  telefone: string | null;
+  is_active: boolean;
+}
+
 export const agro = {
+  listPilots: (): Promise<Piloto[]> => authedJson("/agro/pilots"),
+
+  createPilot: (body: {
+    nome: string;
+    canac?: string | null;
+    crea?: string | null;
+    cpf?: string | null;
+    telefone?: string | null;
+  }): Promise<Piloto> => authedJson("/agro/pilots", { method: "POST", body }),
+
   listClients: (): Promise<AgroClient[]> => authedJson("/agro/clients"),
 
   createClient: (body: {

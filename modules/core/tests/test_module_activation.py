@@ -15,6 +15,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 
+from decko.activation import reconcile_permissions
 from decko.db import SessionFactory, bind_tenant
 from decko.main import create_app
 from decko_modules.core import activation
@@ -267,3 +268,57 @@ async def test_installing_later_grants_the_module_permissions(client: AsyncClien
     assert activated.status_code == 200, activated.text
 
     assert "comercial.produto.read" in await permissoes()
+
+
+async def test_permissao_nova_de_modulo_ja_instalado_chega_na_subida(
+    client: AsyncClient,
+) -> None:
+    """Módulo evolui: a versão nova declara permissão que a anterior não tinha.
+
+    Conceder na instalação só alcança quem instala depois. Sem acertar na subida, a
+    empresa que já usava o módulo abre a tela nova em "permissão necessária" — foi assim
+    que isto apareceu, com `agro.pilot.read`.
+    """
+    company = await _company(client, modules=["comercial"])
+
+    # Simula a versão anterior do módulo: o papel não conhece esta permissão.
+    async with SessionFactory() as session, session.begin():
+        await bind_tenant(session, company.tenant_id)
+        await session.execute(
+            delete(RolePermission).where(RolePermission.permission == "comercial.produto.read")
+        )
+
+    await reconcile_permissions({"comercial": ("comercial.produto.read",)})
+
+    login = await client.post(
+        f"{CORE}/auth/login",
+        json={"tenant_slug": company.slug, "email": company.email, "password": PASSWORD},
+    )
+    me = await client.get(
+        f"{CORE}/auth/me", headers={"Authorization": f"Bearer {login.json()['access_token']}"}
+    )
+    assert "comercial.produto.read" in me.json()["permissions"]
+
+
+async def test_nao_concede_permissao_de_modulo_que_a_empresa_nao_tem(
+    client: AsyncClient,
+) -> None:
+    """Acertar permissão não é instalar módulo: quem não contratou continua sem."""
+    company = await _company(client, modules=[])
+
+    async with SessionFactory() as session, session.begin():
+        await bind_tenant(session, company.tenant_id)
+        await session.execute(
+            delete(RolePermission).where(RolePermission.permission.like("agro.%"))
+        )
+
+    await reconcile_permissions({"agro": ("agro.pilot.read",)})
+
+    login = await client.post(
+        f"{CORE}/auth/login",
+        json={"tenant_slug": company.slug, "email": company.email, "password": PASSWORD},
+    )
+    me = await client.get(
+        f"{CORE}/auth/me", headers={"Authorization": f"Bearer {login.json()['access_token']}"}
+    )
+    assert "agro.pilot.read" not in me.json()["permissions"]
