@@ -31,7 +31,37 @@ export interface Produto {
   preco_venda: string | null;
   controla_lote: boolean;
   controla_validade: boolean;
+  /** Abaixo disto o produto entra na lista do que está acabando. Nulo é "não avise". */
+  estoque_minimo: string | null;
   ativo: boolean;
+}
+
+export interface ProdutoAcabando {
+  produto_id: string;
+  codigo: string;
+  nome: string;
+  saldo: string;
+  estoque_minimo: string;
+  /** Zerou de vez, em vez de só estar perto do mínimo. */
+  acabou: boolean;
+}
+
+export interface LoteVencendo {
+  produto_id: string;
+  produto_nome: string;
+  lote_id: string;
+  lote_codigo: string;
+  validade: string;
+  saldo: string;
+  vencido: boolean;
+}
+
+export interface Alertas {
+  acabando: ProdutoAcabando[];
+  vencendo: LoteVencendo[];
+  total: number;
+  /** Quantos dias à frente a lista de validade olhou. */
+  dias: number;
 }
 
 export interface Lote {
@@ -111,6 +141,10 @@ export const comercial = {
 
   saldo: (produtoId: string): Promise<Saldo> =>
     authedJson(`/comercial/produtos/${produtoId}/saldo`),
+
+  /** O que está acabando e o que está vencendo, no estoque inteiro. */
+  alertas: (dias?: number): Promise<Alertas> =>
+    authedJson(dias ? `/comercial/alertas?dias=${dias}` : "/comercial/alertas"),
 
   movimentos: (produtoId: string): Promise<Movimento[]> =>
     authedJson(`/comercial/produtos/${produtoId}/movimentos`),

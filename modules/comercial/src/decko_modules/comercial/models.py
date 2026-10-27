@@ -128,6 +128,9 @@ class Produto(TenantMixin, TimestampMixin, Base):
         CheckConstraint("cest IS NULL OR cest ~ '^[0-9]{7}$'", name="cest_sete_digitos"),
         CheckConstraint("preco_venda IS NULL OR preco_venda >= 0", name="preco_venda_nao_negativo"),
         CheckConstraint("preco_custo IS NULL OR preco_custo >= 0", name="preco_custo_nao_negativo"),
+        CheckConstraint(
+            "estoque_minimo IS NULL OR estoque_minimo >= 0", name="estoque_minimo_nao_negativo"
+        ),
     )
 
     id: Mapped[uuid.UUID] = primary_key()
@@ -158,6 +161,10 @@ class Produto(TenantMixin, TimestampMixin, Base):
 
     preco_custo: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
     preco_venda: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+
+    # Abaixo disto o produto entra na lista do que está acabando. Nulo é "não avise":
+    # nem todo item merece alerta, e avisar sobre tudo é o mesmo que não avisar.
+    estoque_minimo: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
 
     # Supermercado precisa, ferragista não. Quem exige é o produto.
     controla_lote: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

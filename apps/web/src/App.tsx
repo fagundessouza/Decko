@@ -2,16 +2,20 @@ import { useEffect, useState } from "react";
 
 import { AppShell, Page, PageHeader } from "./components/AppShell";
 import type { NavItem } from "./components/AppShell";
+import { Alert } from "./components/Alert";
 import { Card } from "./components/Card";
 import { ModuleIcon } from "./components/ModuleIcon";
 import { ModuleTile } from "./components/ModuleTile";
 import { logout, renewSession, restoreSession } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
-import type { Produto } from "./lib/comercial";
+import { comercial } from "./lib/comercial";
+import type { Alertas, Produto } from "./lib/comercial";
 import { AplicativosPage } from "./pages/AplicativosPage";
 import { ChooseProfilePage } from "./pages/ChooseProfilePage";
+import { ClientesPage } from "./pages/ClientesPage";
 import { CompanyPage } from "./pages/CompanyPage";
+import { ConferenciaPage } from "./pages/ConferenciaPage";
 import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NewPlanWizard } from "./pages/NewPlanWizard";
@@ -37,9 +41,11 @@ type View =
   | { name: "newPlan" }
   | { name: "plan"; plan: Plan }
   | { name: "pdv" }
+  | { name: "clientes" }
   | { name: "notas" }
   | { name: "nota"; notaId: string }
   | { name: "produtos" }
+  | { name: "conferencia" }
   | { name: "novoProduto" }
   | { name: "produto"; produto: Produto }
   | { name: "unidades" };
@@ -54,9 +60,11 @@ const SECTION: Record<View["name"], string> = {
   plan: "agro",
   consolidation: "agro",
   pdv: "pdv",
+  clientes: "clientes",
   notas: "compras",
   nota: "compras",
   produtos: "comercial",
+  conferencia: "comercial",
   novoProduto: "comercial",
   produto: "comercial",
   unidades: "comercial",
@@ -96,6 +104,7 @@ export default function App() {
   const hasComercial = info.active_modules.includes("comercial");
   const hasPdv = info.active_modules.includes("pdv");
   const hasCompras = info.active_modules.includes("compras");
+  const hasClientes = info.active_modules.includes("clientes");
   const canEditCompany = info.permissions.includes("core.tenant.update");
   const canInstall = info.permissions.includes("core.module.activate");
 
@@ -140,6 +149,14 @@ export default function App() {
       label: "Ponto de venda",
       icon: <ModuleIcon name="register" size={22} />,
       onSelect: () => setView({ name: "pdv" }),
+    });
+  }
+  if (hasClientes) {
+    items.push({
+      key: "clientes",
+      label: "Clientes",
+      icon: <ModuleIcon name="people" size={22} />,
+      onSelect: () => setView({ name: "clientes" }),
     });
   }
   if (hasCompras) {
@@ -204,6 +221,10 @@ export default function App() {
             description="Escolha por onde começar."
           />
 
+          {hasComercial && (
+            <AvisoDeEstoque onAbrir={() => setView({ name: "conferencia" })} />
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             {hasPdv && (
               <ModuleTile
@@ -212,6 +233,15 @@ export default function App() {
                 icon={<ModuleIcon name="register" />}
                 accent="teal"
                 onClick={() => setView({ name: "pdv" })}
+              />
+            )}
+            {hasClientes && (
+              <ModuleTile
+                title="Clientes"
+                description="Quem compra de você: pessoa ou empresa, com documento, contato e endereço."
+                icon={<ModuleIcon name="people" />}
+                accent="slate"
+                onClick={() => setView({ name: "clientes" })}
               />
             )}
             {hasCompras && (
@@ -261,7 +291,7 @@ export default function App() {
             )}
           </div>
 
-          {!hasAgro && !hasComercial && !hasPdv && !hasCompras && (
+          {!hasAgro && !hasComercial && !hasPdv && !hasCompras && !hasClientes && (
             <Card muted>
               <p className="px-6 py-8 text-base text-ink-muted">
                 Nenhum aplicativo de negócio instalado ainda nesta empresa.
@@ -273,7 +303,15 @@ export default function App() {
 
       {view.name === "aplicativos" && <AplicativosPage onChanged={reloadSession} />}
 
+      {view.name === "conferencia" && (
+        <ConferenciaPage onBack={() => setView({ name: "home" })} />
+      )}
+
       {view.name === "pdv" && <PdvPage onBack={() => setView({ name: "home" })} />}
+
+      {view.name === "clientes" && (
+        <ClientesPage onBack={() => setView({ name: "home" })} />
+      )}
 
       {view.name === "notas" && (
         <NotasPage
@@ -321,6 +359,7 @@ export default function App() {
           onOpen={(produto) => setView({ name: "produto", produto })}
           onNew={() => setView({ name: "novoProduto" })}
           onUnidades={() => setView({ name: "unidades" })}
+          onConferencia={() => setView({ name: "conferencia" })}
         />
       )}
 
@@ -342,5 +381,48 @@ export default function App() {
         <UnidadesPage onBack={() => setView({ name: "produtos" })} />
       )}
     </AppShell>
+  );
+}
+
+
+/* O aviso de estoque na tela inicial.
+ *
+ * Não é um popup de propósito. Quem abre o Decko de manhã está abrindo o caixa, e um
+ * modal na frente obriga a fechar algo antes de trabalhar — em uma semana a pessoa
+ * aprende a clicar em "fechar" sem ler, e o aviso deixa de existir. Aqui ele fica no
+ * caminho dos olhos, com o número à vista, e some sozinho quando não há o que avisar. */
+function AvisoDeEstoque({ onAbrir }: { onAbrir: () => void }) {
+  const [alertas, setAlertas] = useState<Alertas | null>(null);
+
+  useEffect(() => {
+    // Falha em silêncio: o aviso é um extra na tela inicial, e derrubá-la por causa dele
+    // seria pior do que não avisar.
+    comercial.alertas().then(setAlertas).catch(() => undefined);
+  }, []);
+
+  if (!alertas || alertas.total === 0) return null;
+
+  const acabando = alertas.acabando.length;
+  const vencendo = alertas.vencendo.length;
+  const partes = [
+    acabando > 0 && `${acabando} ${acabando === 1 ? "produto acabando" : "produtos acabando"}`,
+    vencendo > 0 && `${vencendo} ${vencendo === 1 ? "lote vencendo" : "lotes vencendo"}`,
+  ].filter(Boolean);
+
+  return (
+    <div className="mb-6">
+      <Alert tone="warn">
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>{partes.join(" e ")}.</span>
+          <button
+            type="button"
+            onClick={onAbrir}
+            className="font-semibold text-brand-link underline-offset-2 hover:underline"
+          >
+            Conferir
+          </button>
+        </span>
+      </Alert>
+    </div>
   );
 }

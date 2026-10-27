@@ -32,6 +32,7 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
   const [categoriaId, setCategoriaId] = useState("");
   const [precoCusto, setPrecoCusto] = useState("");
   const [precoVenda, setPrecoVenda] = useState("");
+  const [estoqueMinimo, setEstoqueMinimo] = useState("");
   const [controlaLote, setControlaLote] = useState(false);
   const [controlaValidade, setControlaValidade] = useState(false);
 
@@ -74,6 +75,7 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
           categoria_id: categoriaId || null,
           preco_custo: precoCusto ? Number(precoCusto) : null,
           preco_venda: precoVenda ? Number(precoVenda) : null,
+          estoque_minimo: estoqueMinimo ? Number(estoqueMinimo) : null,
           controla_lote: controlaLote,
           // Controlar validade sem controlar lote não se sustenta: a validade pertence
           // ao lote, não ao produto.
@@ -187,6 +189,15 @@ export function NovoProdutoWizard({ onCancel, onCreated }: Props) {
               inputMode="decimal"
               value={precoCusto}
               onChange={(e) => setPrecoCusto(e.target.value)}
+            />
+
+            <TextField
+              label="Avisar quando o estoque chegar em"
+              hint="Opcional. Em branco, este produto não entra na conferência."
+              type="number"
+              inputMode="decimal"
+              value={estoqueMinimo}
+              onChange={(e) => setEstoqueMinimo(e.target.value)}
             />
 
             <Toggle

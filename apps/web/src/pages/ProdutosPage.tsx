@@ -13,9 +13,10 @@ interface Props {
   onOpen: (produto: Produto) => void;
   onNew: () => void;
   onUnidades: () => void;
+  onConferencia: () => void;
 }
 
-export function ProdutosPage({ onBack, onOpen, onNew, onUnidades }: Props) {
+export function ProdutosPage({ onBack, onOpen, onNew, onUnidades, onConferencia }: Props) {
   const [produtos, setProdutos] = useState<Produto[] | null>(null);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [busca, setBusca] = useState("");
@@ -55,16 +56,23 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades }: Props) {
         description="O catálogo da loja e o saldo de cada item."
         onBack={onBack}
         action={
-          !semUnidades && (
-            <div className="flex gap-2">
-              <Button inline variant="secondary" onClick={onUnidades}>
-                Unidades
-              </Button>
-              <Button inline onClick={onNew}>
-                Novo produto
-              </Button>
-            </div>
-          )
+          <div className="flex gap-2">
+            {/* Fora do bloqueio de unidades de propósito: a conferência responde "nada
+                para conferir" e isso é melhor que um caminho que não existe. */}
+            <Button inline variant="secondary" onClick={onConferencia}>
+              Conferência
+            </Button>
+            {!semUnidades && (
+              <>
+                <Button inline variant="secondary" onClick={onUnidades}>
+                  Unidades
+                </Button>
+                <Button inline onClick={onNew}>
+                  Novo produto
+                </Button>
+              </>
+            )}
+          </div>
         }
       />
 

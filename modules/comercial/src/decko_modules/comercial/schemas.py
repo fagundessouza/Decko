@@ -63,6 +63,8 @@ class ProdutoIn(BaseModel):
     preco_venda: Decimal | None = Field(default=None, ge=0)
     controla_lote: bool = False
     controla_validade: bool = False
+    # Abaixo disto o produto entra na lista do que está acabando. Nulo é "não avise".
+    estoque_minimo: Decimal | None = Field(default=None, ge=0)
 
 
 class ProdutoOut(BaseModel):
@@ -81,6 +83,7 @@ class ProdutoOut(BaseModel):
     preco_venda: Decimal | None
     controla_lote: bool
     controla_validade: bool
+    estoque_minimo: Decimal | None
     ativo: bool
 
 
@@ -141,3 +144,33 @@ class SaldoLoteOut(BaseModel):
     codigo: str | None
     validade: date | None
     quantidade: Decimal
+
+
+class ProdutoAcabandoOut(BaseModel):
+    produto_id: uuid.UUID
+    codigo: str
+    nome: str
+    saldo: Decimal
+    estoque_minimo: Decimal
+    # Zerou de vez, em vez de só estar perto do mínimo. A tela trata diferente.
+    acabou: bool
+
+
+class LoteVencendoOut(BaseModel):
+    produto_id: uuid.UUID
+    produto_nome: str
+    lote_id: uuid.UUID
+    lote_codigo: str
+    validade: date
+    saldo: Decimal
+    vencido: bool
+
+
+class AlertasOut(BaseModel):
+    """O que o dono precisa ver antes de o problema acontecer."""
+
+    acabando: list[ProdutoAcabandoOut]
+    vencendo: list[LoteVencendoOut]
+    total: int
+    # Quantos dias à frente a lista de validade olhou. A tela conta isso a quem lê.
+    dias: int

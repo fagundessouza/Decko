@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -9,15 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
 from decko.fiscal import NCM_LENGTH, strip_mask
+from decko_modules.comercial import alertas as alertas_service
 from decko_modules.comercial import service
 from decko_modules.comercial.models import Categoria, Lote, Movimento, Produto, Unidade
 from decko_modules.comercial.schemas import (
+    AlertasOut,
     CategoriaIn,
     CategoriaOut,
     LoteIn,
     LoteOut,
+    LoteVencendoOut,
     MovimentoIn,
     MovimentoOut,
+    ProdutoAcabandoOut,
     ProdutoIn,
     ProdutoOut,
     SaldoLoteOut,
@@ -264,4 +269,50 @@ async def saldo(
             )
             for item in por_lote
         ],
+    )
+
+
+# ---------------------------------------------------------------- alertas
+
+
+@router.get("/alertas", response_model=AlertasOut)
+async def listar_alertas(
+    session: SessionDep,
+    _: Annotated[object, Depends(require("comercial.estoque.read"))],
+    dias: Annotated[int, Query(ge=1, le=365)] = alertas_service.DIAS_PARA_VENCER,
+) -> AlertasOut:
+    """O que está acabando e o que está vencendo, no estoque inteiro.
+
+    A data de hoje é a do servidor. Quando houver fuso por empresa ela passa a vir de
+    lá — por ora o alvo é uma loja, num fuso só.
+    """
+    hoje = datetime.now(UTC).date()
+    levantamento = await alertas_service.levantar(session, hoje=hoje, dias=dias)
+
+    return AlertasOut(
+        acabando=[
+            ProdutoAcabandoOut(
+                produto_id=item.produto_id,
+                codigo=item.codigo,
+                nome=item.nome,
+                saldo=item.saldo,
+                estoque_minimo=item.estoque_minimo,
+                acabou=item.acabou,
+            )
+            for item in levantamento.acabando
+        ],
+        vencendo=[
+            LoteVencendoOut(
+                produto_id=item.produto_id,
+                produto_nome=item.produto_nome,
+                lote_id=item.lote_id,
+                lote_codigo=item.lote_codigo,
+                validade=item.validade,
+                saldo=item.saldo,
+                vencido=item.vencido_em(hoje),
+            )
+            for item in levantamento.vencendo
+        ],
+        total=levantamento.total,
+        dias=dias,
     )

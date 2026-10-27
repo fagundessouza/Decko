@@ -142,6 +142,18 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       e por código do fornecedor, sugere por semelhança sem decidir sozinho, e dá entrada
       no estoque só depois de conferido — ver
       `docs/adr/0009-identidade-de-produto-e-entrada-por-nota.md`
+- [x] Conferência de estoque: estoque mínimo por produto, lista do que está acabando e
+      dos lotes vencendo com saldo, e aviso na tela inicial. A validade já existia, por
+      lote; o que faltava era a visão do estoque inteiro de uma vez
+- [x] Módulo `clientes`: pessoa ou empresa, CPF/CNPJ conferido pelo dígito, contato e
+      endereço, busca por nome e por documento. Cadastro não é apagado, só desativado —
+      venda e nota continuam apontando para alguém. A trilha registra o que mudou sem
+      copiar o dado pessoal para dentro dela
+- [ ] Módulo de assinatura de documento: desenho na tela com o dedo, preso ao documento
+      por hash, com quem, quando e de onde. A assinatura gov.br entra junto, mas depende
+      de credenciamento da aplicação — ver `docs/discovery/assinaturas-dois-modulos.md`
+- [ ] Módulo de plano recorrente: depende de `clientes`, que já existe, e de uma decisão
+      sobre meio de pagamento. Sem gateway, dá para gerar a cobrança e marcar como paga
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6

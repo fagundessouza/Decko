@@ -2,6 +2,7 @@ import apps from "../assets/icons/apps.png";
 import boxes from "../assets/icons/boxes.png";
 import drone from "../assets/icons/drone.png";
 import home from "../assets/icons/home.png";
+import people from "../assets/icons/people.png";
 import register from "../assets/icons/register.png";
 import settings from "../assets/icons/settings.png";
 import store from "../assets/icons/store.png";
@@ -18,6 +19,7 @@ const ARTE: Record<string, string> = {
   boxes,
   drone,
   home,
+  people,
   register,
   settings,
   store,

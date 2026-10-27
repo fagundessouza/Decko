@@ -1,0 +1,30 @@
+# Cadastro de clientes da empresa.
+#
+# Guarda dado pessoal: CPF, CNPJ, telefone, e-mail e endereço. Por isso nasce com trilha
+# de auditoria em toda leitura de lista e toda alteração — regra 2 do CLAUDE.md.
+
+[module]
+name = "clientes"
+label = "Clientes"
+version = "0.1.0"
+package = "decko_modules.clientes"
+depends = ["core"]
+required = false
+category = "Operação"
+icon = "people"
+accent = "slate"
+summary = "Quem compra de você: pessoa ou empresa, com CPF ou CNPJ, contato e endereço."
+
+[migrations]
+branch_label = "clientes"
+
+[permissions]
+provides = [
+  "clientes.cliente.read",
+  "clientes.cliente.write",
+  "clientes.cliente.deactivate",
+]
+
+[menu]
+label = "Clientes"
+order = 70
