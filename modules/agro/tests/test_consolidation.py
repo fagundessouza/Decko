@@ -296,3 +296,100 @@ async def test_the_export_requires_authentication(scenario: Scenario) -> None:
     response = await scenario.client.get(f"{BASE}/consolidation/{ANO}/{MES}/csv")
 
     assert response.status_code == 401
+
+
+# ------------------------------------------------------------ relatório mensal do MAPA
+
+
+async def _relatorio(scenario: Scenario, ano: int = ANO, mes: int = MES) -> dict:
+    response = await scenario.client.get(
+        f"{BASE}/monthly-report/{ano}/{mes}", headers=scenario.auth
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def test_o_relatorio_traz_o_que_a_portaria_298_pede(scenario: Scenario) -> None:
+    """Município/UF, aeronave, tipo de atividade, área e horas — art. 11, incisos I a V."""
+    body = await _relatorio(scenario)
+
+    assert len(body["linhas"]) == 1
+    linha = body["linhas"][0]
+    assert linha["municipio"] == "Jatai"
+    assert linha["uf"] == "GO"
+    assert linha["aeronave"] == "PP-DRN"
+    # Só o planejamento assinado: o outro do mês está em rascunho.
+    assert Decimal(linha["area_ha"]) == Decimal("120.50")
+
+
+async def test_rascunho_fica_de_fora_mas_e_contado(scenario: Scenario) -> None:
+    """O relatório presta contas do que foi feito; rascunho é intenção, não atividade.
+
+    E não pode sumir calado: quem fecha o mês precisa saber que deixou um por assinar.
+    """
+    body = await _relatorio(scenario)
+
+    assert body["rascunhos_no_mes"] == 1
+    assert Decimal(body["area_total_ha"]) == Decimal("120.50")
+
+
+async def test_o_mes_seguinte_nao_entra(scenario: Scenario) -> None:
+    body = await _relatorio(scenario)
+
+    assert all(Decimal(linha["area_ha"]) != Decimal("999.00") for linha in body["linhas"])
+
+
+async def test_os_produtos_saem_com_volume_e_dosagem(scenario: Scenario) -> None:
+    """Inciso V: marca comercial, volume e dosagem aplicada."""
+    body = await _relatorio(scenario)
+
+    produtos = body["linhas"][0]["produtos"]
+    assert produtos, "o relatório precisa listar os produtos aplicados"
+    assert any("Glifosato Tecnico" in produto for produto in produtos)
+    assert any("dose" in produto for produto in produtos)
+
+
+async def test_o_prazo_e_o_dia_quinze_do_mes_seguinte(scenario: Scenario) -> None:
+    """Portaria 298/2021, art. 11, parágrafo único."""
+    body = await _relatorio(scenario)
+
+    assert body["prazo"] == f"{ANO}-{MES + 1:02d}-15"
+
+
+async def test_prazo_de_dezembro_vira_janeiro_do_ano_seguinte(scenario: Scenario) -> None:
+    body = await _relatorio(scenario, ano=ANO, mes=12)
+
+    assert body["prazo"] == f"{ANO + 1}-01-15"
+
+
+async def test_o_csv_sai_na_ordem_dos_incisos(scenario: Scenario) -> None:
+    """A ordem das colunas é a dos incisos, porque é a ordem da tela do SIPEAGRO."""
+    response = await scenario.client.get(
+        f"{BASE}/monthly-report/{ANO}/{MES}/csv", headers=scenario.auth
+    )
+
+    assert response.status_code == 200, response.text
+    linhas = response.content.decode(CSV_ENCODING).splitlines()
+    assert linhas[0].split(";") == [
+        "Município",
+        "UF",
+        "Aeronave (ARP)",
+        "Tipo de atividade",
+        "Área aplicada (ha)",
+        "Horas de execução",
+        "Produtos (marca, volume e dosagem)",
+    ]
+    assert "Jatai;GO;PP-DRN" in linhas[1]
+
+
+async def test_a_conferencia_continua_sendo_outra_coisa(scenario: Scenario) -> None:
+    """Os dois relatórios convivem: um é da empresa, o outro é do MAPA.
+
+    A conferência conta os dois planejamentos do mês, com rascunho à mostra; o relatório
+    conta só o realizado. Confundir os dois é mandar rascunho para o órgão.
+    """
+    conferencia = await _month(scenario)
+    relatorio = await _relatorio(scenario)
+
+    assert conferencia["quantidade"] == 2
+    assert len(relatorio["linhas"]) == 1

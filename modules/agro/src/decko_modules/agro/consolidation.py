@@ -4,11 +4,17 @@ Fecha a dor nº 6 do discovery: hoje o mês inteiro é retranscrito do talão pa
 Excel à mão. Aqui o mês é montado a partir do que já foi registrado, e sai em CSV que o
 Excel abre direto.
 
-**O que isto não é.** Não é o arquivo que sobe para o MAPA. A questão Q1 do discovery —
-qual sistema recebe o envio mensal e em que formato — continua sem resposta, e produzir um
-layout "do MAPA" por dedução seria inventar regra num domínio regulado. O que sai daqui é
-a consolidação do que a própria empresa emitiu, para conferência e para alimentar a
-planilha que ela já usa.
+**São dois relatórios diferentes, e vale não confundi-los.**
+
+``monthly`` é a conferência da empresa: uma linha por planejamento, com contratante,
+documento, leituras e violações. Serve para o dono olhar o mês antes de prestar contas.
+
+``monthly_report`` é o **relatório mensal do operador de ARP**, com o conteúdo que o art.
+11 da Portaria MAPA 298/2021 exige: agregado por município/UF, aeronave e tipo de
+atividade, com área aplicada, horas de execução e os produtos com volume e dosagem. É
+entregue pelo SIPEAGRO até o dia 15 do mês seguinte. Nenhuma das colunas da conferência é
+pedida ali, e nenhuma das do relatório estava na conferência — ver
+``docs/discovery/agro-normas-mapa.md``.
 
 Nada é descartado em silêncio: planejamento sem data de aplicação não pertence a mês
 nenhum, então é contado à parte em vez de sumir da contagem, e rascunho entra na lista com
@@ -263,6 +269,217 @@ def to_csv(consolidation: MonthlyConsolidation) -> bytes:
                 " | ".join(row.produtos),
                 row.leituras,
                 row.violacoes,
+            ]
+        )
+
+    return buffer.getvalue().encode(CSV_ENCODING)
+
+
+# ------------------------------------------------------------------ relatório mensal
+
+
+# As colunas são as do art. 11 da Portaria MAPA 298/2021, na ordem dos incisos. Não são
+# escolha de layout: são o conteúdo exigido do relatório mensal do operador de ARP.
+REPORT_COLUMNS = (
+    "Município",
+    "UF",
+    "Aeronave (ARP)",
+    "Tipo de atividade",
+    "Área aplicada (ha)",
+    "Horas de execução",
+    "Produtos (marca, volume e dosagem)",
+)
+
+# O relatório presta contas do que foi feito. Rascunho é intenção, não atividade.
+STATUS_REALIZADOS = ("concluido", "assinado", "enviado")
+
+
+@dataclass
+class ProductApplied:
+    """Um produto dentro de um grupo do relatório."""
+
+    marca_comercial: str
+    # Soma de ``total_produto`` das aplicações do grupo.
+    volume: Decimal
+    # As dosagens por hectare usadas. Mais de uma quando o grupo reúne aplicações com
+    # dose diferente — somar dose não faz sentido, e escolher uma esconderia a outra.
+    dosagens: list[Decimal]
+
+    def __str__(self) -> str:
+        doses = ", ".join(f"{dose:.4f}".rstrip("0").rstrip(".") for dose in self.dosagens)
+        return f"{self.marca_comercial} ({_number(self.volume)}; dose {doses or '—'}/ha)"
+
+
+@dataclass
+class MonthlyReportRow:
+    """Uma linha do relatório mensal: município, aeronave e tipo de atividade."""
+
+    municipio: str
+    uf: str
+    aeronave: str
+    tipo_atividade: str
+    area_ha: Decimal
+    horas: Decimal
+    produtos: list[ProductApplied]
+
+
+@dataclass
+class MonthlyReport:
+    """O relatório mensal do operador de ARP, como o art. 11 da Portaria 298/2021 pede.
+
+    Entregue ao MAPA pelo SIPEAGRO até o décimo quinto dia do mês seguinte — ver
+    ``docs/discovery/agro-normas-mapa.md``.
+    """
+
+    ano: int
+    mes: int
+    linhas: list[MonthlyReportRow]
+    area_total_ha: Decimal
+    horas_totais: Decimal
+    # Planejamentos do mês que ficaram em rascunho. Não entram no relatório, porque não
+    # são atividade realizada — e aparecem aqui para não sumirem em silêncio.
+    rascunhos_no_mes: int
+
+    @property
+    def prazo(self) -> date:
+        """O dia 15 do mês seguinte, que é quando a entrega vence."""
+        ano, mes = (self.ano + 1, 1) if self.mes == 12 else (self.ano, self.mes + 1)
+        return date(ano, mes, 15)
+
+
+async def monthly_report(session: AsyncSession, *, ano: int, mes: int) -> MonthlyReport:
+    """Agrega o mês por município/UF, aeronave e tipo de atividade.
+
+    A área é a **aplicada**: ``ha_aplicado`` quando preenchido, e a planejada como reserva.
+    A norma pede o total aplicado, e confundir os dois num relatório de prestação de contas
+    é o erro que ninguém percebe.
+    """
+    rows = (
+        await session.execute(
+            select(OperationalPlan, Property, Aircraft)
+            .join(Property, Property.id == OperationalPlan.property_id)
+            .outerjoin(Aircraft, Aircraft.id == OperationalPlan.aircraft_id)
+            .where(
+                extract("year", OperationalPlan.data_aplicacao) == ano,
+                extract("month", OperationalPlan.data_aplicacao) == mes,
+            )
+            .order_by(Property.uf, Property.municipio, OperationalPlan.numero)
+        )
+    ).all()
+
+    realizados = [
+        (plan, prop, aircraft)
+        for plan, prop, aircraft in rows
+        if plan.status.value in STATUS_REALIZADOS
+    ]
+    detalhes = await _product_details(session, [plan.id for plan, _p, _a in realizados])
+
+    grupos: dict[tuple[str, str, str, str], MonthlyReportRow] = {}
+    for plan, prop, aircraft in realizados:
+        chave = (prop.municipio, prop.uf, aircraft.prefixo if aircraft else "", _atividade(plan))
+        linha = grupos.get(chave)
+        if linha is None:
+            linha = MonthlyReportRow(
+                municipio=prop.municipio,
+                uf=prop.uf,
+                aeronave=chave[2],
+                tipo_atividade=chave[3],
+                area_ha=Decimal(0),
+                horas=Decimal(0),
+                produtos=[],
+            )
+            grupos[chave] = linha
+
+        linha.area_ha += plan.ha_aplicado or plan.area_ha or Decimal(0)
+        linha.horas += plan.tempo_servico or Decimal(0)
+        _merge_products(linha, detalhes.get(plan.id, []))
+
+    linhas = [grupos[chave] for chave in sorted(grupos)]
+    return MonthlyReport(
+        ano=ano,
+        mes=mes,
+        linhas=linhas,
+        area_total_ha=sum((linha.area_ha for linha in linhas), Decimal(0)),
+        horas_totais=sum((linha.horas for linha in linhas), Decimal(0)),
+        rascunhos_no_mes=len(rows) - len(realizados),
+    )
+
+
+def _atividade(plan: OperationalPlan) -> str:
+    """O tipo de atividade do inciso IV.
+
+    O formulário permite marcar mais de um tipo na mesma aplicação. Quando isso acontece
+    os tipos viram um rótulo só, e não linhas separadas: repartir a área entre eles exigiria
+    uma proporção que ninguém informou, e repeti-la em cada linha somaria a mesma área duas
+    vezes no total do mês.
+    """
+    if not plan.tipos_aplicacao:
+        return ""
+    return " + ".join(sorted(tipo.value for tipo in plan.tipos_aplicacao))
+
+
+def _merge_products(
+    linha: MonthlyReportRow, aplicados: list[tuple[str, Decimal, Decimal | None]]
+) -> None:
+    for marca, total, dosagem in aplicados:
+        existente = next((p for p in linha.produtos if p.marca_comercial == marca), None)
+        if existente is None:
+            existente = ProductApplied(marca_comercial=marca, volume=Decimal(0), dosagens=[])
+            linha.produtos.append(existente)
+        existente.volume += total
+        if dosagem is not None and dosagem not in existente.dosagens:
+            existente.dosagens.append(dosagem)
+            existente.dosagens.sort()
+
+
+async def _product_details(
+    session: AsyncSession, plan_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[tuple[str, Decimal, Decimal | None]]]:
+    """Marca comercial, volume e dosagem de cada item — o inciso V, inteiro."""
+    if not plan_ids:
+        return {}
+
+    rows = (
+        await session.execute(
+            select(
+                PlanProduct.plan_id,
+                Product.nome_comercial,
+                PlanProduct.total_produto,
+                PlanProduct.dosagem_ha,
+            )
+            .join(Product, Product.id == PlanProduct.product_id)
+            .where(PlanProduct.plan_id.in_(plan_ids))
+            .order_by(Product.nome_comercial)
+        )
+    ).all()
+
+    por_plano: dict[uuid.UUID, list[tuple[str, Decimal, Decimal | None]]] = {}
+    for plan_id, marca, total, dosagem in rows:
+        por_plano.setdefault(plan_id, []).append((marca, total or Decimal(0), dosagem))
+    return por_plano
+
+
+def report_to_csv(report: MonthlyReport) -> bytes:
+    """Serializa o relatório mensal para conferência antes de lançar no SIPEAGRO.
+
+    O SIPEAGRO é um sistema web, com digitação; não há upload de arquivo documentado. Este
+    CSV existe para a pessoa ter à mão exatamente os campos que a tela vai pedir, na ordem
+    dos incisos — e não para ser importado em lugar nenhum.
+    """
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, delimiter=CSV_DELIMITER, lineterminator="\r\n")
+    writer.writerow(REPORT_COLUMNS)
+
+    for linha in report.linhas:
+        writer.writerow(
+            [
+                linha.municipio,
+                linha.uf,
+                linha.aeronave,
+                linha.tipo_atividade,
+                _number(linha.area_ha),
+                _number(linha.horas),
+                " | ".join(str(produto) for produto in linha.produtos),
             ]
         )
 

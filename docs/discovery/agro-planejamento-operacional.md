@@ -298,17 +298,33 @@ adianta automatizar um campo que ninguém usa. Ele vai confirmar se pode sair do
 A empresa cadastra seus pilotos e o planejamento aponta para quem voou. Hoje o nome do piloto
 só existe como texto dentro da assinatura, redigitado a cada documento.
 
-### 6.3 Ainda em aberto
+### 6.3 Respondido pela norma, não pelo Nathan
 
-- **Q1.** Este formulário é o que sobe para o MAPA, e por qual sistema? Continua sendo a maior
-  incógnita, e decide se o PDF substitui mesmo o talão.
-- **Q11.** A planilha do fechamento. Ele disse duas vezes que vai mandar — *"vou te mandar a
-  planilha do Excel no padrão que temos que enviar"* — e sem ela as colunas do CSV continuam
-  sendo palpite educado.
-- **Q4 (resto).** Que arquivo o aplicativo da DJI exporta? Sem um exemplo, não dá para ler.
-- **Q8 (resto).** Os limites de vento, temperatura e umidade vêm do rótulo do produto ou o
-  agrônomo define caso a caso? Ele respondeu de onde vem a **leitura**, não de onde vem o
-  **limite**.
+Em 27/10/2026 metade do que estava "esperando o Nathan" foi achado no texto das normas —
+ver `agro-normas-mapa.md`, com as fontes. Resumo do que saiu de pergunta:
+
+- **Q1 e Q11.** O relatório mensal vai para o **SIPEAGRO**, por sistema eletrônico, até o
+  dia 15 do mês seguinte, com cinco informações agregadas por município/UF: aeronave, área
+  total e horas de execução, tipo de atividade, e marca comercial com volume e dosagem.
+  A planilha do Nathan é transcrição intermediária dele, não o formato de destino.
+- **Q2.** O talão **é** o anexo da IN 2/2008. O conhecido dele imprimiu o modelo da norma.
+- **Q7.** Dois anos é o mínimo legal, nas duas normas. O costume dele é a lei.
+- **Q8.** Nenhuma norma fixa número: os limites são declarados no planejamento pelo
+  responsável técnico, e a bula do produto é a origem recomendada. **Confirma o modelo
+  atual** e tira o risco de retrabalho que esta pergunta carregava.
+- **Q4 (resto).** A DJI não publica API; o caminho é exportar **KML** pelo Agras Management
+  Platform. O arquivo de exemplo continua útil, agora só para conferir o conteúdo.
+
+E apareceu uma exigência que ninguém tinha visto: a norma de drone pede **direção do
+vento**, que o sistema ainda não guarda.
+
+### 6.4 Ainda em aberto
+
+- **Registro no SIPEAGRO.** Ele está registrado como operador de ARP? A norma exige, e sem
+  isso o relatório mensal não tem para onde ir.
+- **Volume por mês.** Dimensiona o ganho, e nenhuma norma responde.
+- **CAAR e aplicador aeroagrícola remoto.** A Portaria 298 cria essas figuras; saber se
+  existem na operação dele diz se entram no cadastro.
 - **Pilotos e login.** "Cada um fazia seu relatório": cada piloto terá usuário próprio no
   sistema, e deve ver só os planejamentos dele? Ou o cadastro serve só para não redigitar o
   nome? Enquanto não houver resposta, o cadastro é só cadastro.

@@ -155,6 +155,14 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [x] Permissão de módulo que evolui: versão nova que declara permissão nova agora alcança
       as empresas que já usavam o módulo, na subida da aplicação — ver a atualização no
       `docs/adr/0004-ativacao-de-modulo-por-empresa.md`
+- [ ] Corrigir o fechamento mensal para o formato que a Portaria MAPA 298/2021 exige:
+      agregado por município/UF, com horas de execução, e entrega pelo SIPEAGRO até o dia
+      15. O CSV de hoje tem colunas aproximadas do formulário, nenhuma delas pedida — ver
+      `docs/discovery/agro-normas-mapa.md`
+- [ ] Guardar a direção do vento na leitura meteorológica: a norma de drone exige, o
+      provedor já devolve, e o campo não existe
+- [ ] Importar KML do DJI Agras Management Platform para o croqui. Não há API pública; o
+      caminho é o arquivo que o piloto exporta
 - [ ] Módulo de assinatura de documento: desenho na tela com o dedo, preso ao documento
       por hash, com quem, quando e de onde. A assinatura gov.br entra junto, mas depende
       de credenciamento da aplicação — ver `docs/discovery/assinaturas-dois-modulos.md`

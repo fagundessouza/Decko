@@ -274,3 +274,30 @@ class ConsolidationOut(BaseModel):
     planos_sem_data: int
     totais_por_produto: list[ProductTotalOut]
     planos: list[ConsolidationPlanOut]
+
+
+class MonthlyReportRowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    municipio: str
+    uf: str
+    aeronave: str
+    tipo_atividade: str
+    area_ha: Decimal
+    horas: Decimal
+    # "marca comercial, volume e dosagem aplicada", do inciso V, já montado para leitura.
+    produtos: list[str]
+
+
+class MonthlyReportOut(BaseModel):
+    """O relatório mensal do operador de ARP — Portaria MAPA 298/2021, art. 11."""
+
+    ano: int
+    mes: int
+    linhas: list[MonthlyReportRowOut]
+    area_total_ha: Decimal
+    horas_totais: Decimal
+    # Rascunho não é atividade realizada e fica de fora. Contado para não sumir calado.
+    rascunhos_no_mes: int
+    # Dia 15 do mês seguinte, que é quando a entrega vence.
+    prazo: date

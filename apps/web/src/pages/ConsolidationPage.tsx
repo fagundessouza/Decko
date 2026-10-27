@@ -206,22 +206,40 @@ export function ConsolidationPage({ onBack }: Props) {
             )}
           </section>
 
-          <div className="mt-6 flex flex-col gap-2">
-            <Button
-              variant="ghost"
-              disabled={dados.quantidade === 0}
-              onClick={() => {
-                void agro.downloadConsolidation(ano, mes);
-              }}
-            >
-              Baixar planilha do mês
-            </Button>
-            {/* Dito na tela, e não só na documentação: supor que isto é o envio oficial
-                seria o tipo de engano que só aparece na fiscalização. */}
-            <p className="text-base text-ink-muted">
-              Planilha para conferência e arquivo. O envio ao MAPA continua sendo feito
-              pelo portal, como hoje.
-            </p>
+          {/* Dois relatórios, e a tela diz qual é qual. Confundir os dois é mandar
+              rascunho para o órgão, ou achar que a conferência já prestou contas. */}
+          <div className="mt-6 flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <Button
+                disabled={dados.quantidade === 0}
+                onClick={() => {
+                  void agro.downloadMonthlyReport(ano, mes);
+                }}
+              >
+                Baixar relatório do MAPA
+              </Button>
+              <p className="text-base text-ink-muted">
+                Só o que foi realizado, agregado por município, aeronave e tipo de
+                atividade — o conteúdo que a Portaria 298/2021 exige. A entrega é pelo
+                SIPEAGRO, até o dia 15 do mês seguinte.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="ghost"
+                disabled={dados.quantidade === 0}
+                onClick={() => {
+                  void agro.downloadConsolidation(ano, mes);
+                }}
+              >
+                Baixar planilha de conferência
+              </Button>
+              <p className="text-base text-ink-muted">
+                Uma linha por planejamento, com contratante, leituras e o que saiu do
+                parâmetro. É para a empresa olhar o mês, não para o órgão.
+              </p>
+            </div>
           </div>
         </>
       )}

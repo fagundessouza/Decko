@@ -123,6 +123,30 @@ export interface Piloto {
   is_active: boolean;
 }
 
+export interface MonthlyReportRow {
+  municipio: string;
+  uf: string;
+  aeronave: string;
+  tipo_atividade: string;
+  area_ha: string;
+  horas: string;
+  /** "marca comercial, volume e dosagem aplicada", já montado para leitura. */
+  produtos: string[];
+}
+
+/** O relatório mensal do operador de ARP — Portaria MAPA 298/2021, art. 11. */
+export interface MonthlyReport {
+  ano: number;
+  mes: number;
+  linhas: MonthlyReportRow[];
+  area_total_ha: string;
+  horas_totais: string;
+  /** Rascunho não é atividade realizada; fica de fora, mas não some da conta. */
+  rascunhos_no_mes: number;
+  /** Dia 15 do mês seguinte, quando a entrega vence. */
+  prazo: string;
+}
+
 export const agro = {
   listPilots: (): Promise<Piloto[]> => authedJson("/agro/pilots"),
 
@@ -207,6 +231,20 @@ export const agro = {
     const link = document.createElement("a");
     link.href = url;
     link.download = `consolidacao-${ano}-${String(mes).padStart(2, "0")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+
+  /** O relatório mensal do operador de ARP — Portaria MAPA 298/2021, art. 11. */
+  monthlyReport: (ano: number, mes: number): Promise<MonthlyReport> =>
+    authedJson(`/agro/monthly-report/${ano}/${mes}`),
+
+  downloadMonthlyReport: async (ano: number, mes: number): Promise<void> => {
+    const response = await authedRequest(`/agro/monthly-report/${ano}/${mes}/csv`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relatorio-mensal-mapa-${ano}-${String(mes).padStart(2, "0")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   },

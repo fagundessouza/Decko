@@ -25,6 +25,8 @@ from decko_modules.agro.schemas import (
     ClientIn,
     ClientOut,
     ConsolidationOut,
+    MonthlyReportOut,
+    MonthlyReportRowOut,
     PilotIn,
     PilotOut,
     PlanIn,
@@ -464,10 +466,10 @@ async def export_consolidation(
     session: SessionDep,
     _: Annotated[object, Depends(require("agro.plan.export"))],
 ) -> Response:
-    """O mês em CSV, para a planilha que hoje é preenchida à mão.
+    """O mês em CSV, para conferência da própria empresa.
 
-    Não é o arquivo do portal do MAPA: qual sistema recebe o envio e em que formato é a
-    questão Q1 do discovery, ainda sem resposta.
+    Não é o relatório do MAPA: esse é o ``/monthly-report``, com o conteúdo que a Portaria
+    298/2021 exige.
     """
     _check_month(ano, mes)
     month = await consolidation.monthly(session, ano=ano, mes=mes)
@@ -475,6 +477,64 @@ async def export_consolidation(
         content=consolidation.to_csv(month),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="consolidacao-{ano}-{mes:02d}.csv"'},
+    )
+
+
+@router.get("/monthly-report/{ano}/{mes}", response_model=MonthlyReportOut)
+async def read_monthly_report(
+    ano: int,
+    mes: int,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.read"))],
+) -> MonthlyReportOut:
+    """O relatório mensal do operador de ARP, como a Portaria MAPA 298/2021 pede.
+
+    Agregado por município/UF, aeronave e tipo de atividade, com área aplicada, horas de
+    execução e os produtos com volume e dosagem. Entregue pelo SIPEAGRO até o dia 15 do
+    mês seguinte — ver docs/discovery/agro-normas-mapa.md.
+    """
+    _check_month(ano, mes)
+    report = await consolidation.monthly_report(session, ano=ano, mes=mes)
+    return MonthlyReportOut(
+        ano=report.ano,
+        mes=report.mes,
+        linhas=[
+            MonthlyReportRowOut(
+                municipio=linha.municipio,
+                uf=linha.uf,
+                aeronave=linha.aeronave,
+                tipo_atividade=linha.tipo_atividade,
+                area_ha=linha.area_ha,
+                horas=linha.horas,
+                produtos=[str(produto) for produto in linha.produtos],
+            )
+            for linha in report.linhas
+        ],
+        area_total_ha=report.area_total_ha,
+        horas_totais=report.horas_totais,
+        rascunhos_no_mes=report.rascunhos_no_mes,
+        prazo=report.prazo,
+    )
+
+
+@router.get("/monthly-report/{ano}/{mes}/csv", response_class=Response)
+async def export_monthly_report(
+    ano: int,
+    mes: int,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.export"))],
+) -> Response:
+    """O relatório mensal em CSV, na ordem dos incisos, para digitar no SIPEAGRO."""
+    _check_month(ano, mes)
+    report = await consolidation.monthly_report(session, ano=ano, mes=mes)
+    return Response(
+        content=consolidation.report_to_csv(report),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="relatorio-mensal-mapa-{ano}-{mes:02d}.csv"'
+            )
+        },
     )
 
 
