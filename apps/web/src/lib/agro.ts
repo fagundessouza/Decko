@@ -102,6 +102,8 @@ export interface WeatherReading {
   temperatura_c: string | null;
   umidade_relativa_pct: string | null;
   velocidade_vento_kmh: string | null;
+  /** Graus, de onde o vento vem. Exigida pela Portaria MAPA 298/2021, art. 10, VIII. */
+  direcao_vento_graus: string | null;
   provider: string | null;
   violou_parametro: boolean;
 }

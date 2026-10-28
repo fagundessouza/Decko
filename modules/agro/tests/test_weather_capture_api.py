@@ -36,6 +36,7 @@ FIXTURE = json.loads(
 RECORDED_DAY = FIXTURE["hourly"]["time"][12][:10]
 RECORDED_TEMPERATURE = Decimal(str(FIXTURE["hourly"]["temperature_2m"][12]))
 RECORDED_HUMIDITY = Decimal(str(FIXTURE["hourly"]["relative_humidity_2m"][12]))
+RECORDED_WIND_DIRECTION = Decimal("135")
 RECORDED_WIND = Decimal(str(FIXTURE["hourly"]["wind_speed_10m"][12]))
 
 
@@ -53,6 +54,7 @@ class RecordedProvider:
             temperatura_c=RECORDED_TEMPERATURE,
             umidade_relativa_pct=RECORDED_HUMIDITY,
             velocidade_vento_kmh=RECORDED_WIND,
+            direcao_vento_graus=RECORDED_WIND_DIRECTION,
             observed_at=datetime.now(UTC),
             provider="open-meteo/archive",
             payload={"observation": {"time": f"{RECORDED_DAY}T12:00"}},
@@ -231,3 +233,14 @@ async def test_unknown_plan_is_not_found(scenario: Scenario) -> None:
     )
 
     assert response.status_code == 404
+
+
+async def test_a_captura_guarda_a_direcao_do_vento(scenario: Scenario) -> None:
+    """Exigida pelo art. 10, VIII da Portaria MAPA 298/2021: "direção e velocidade".
+
+    O formulário da IN 2/2008 pede só a velocidade, e por isso ela passou despercebida
+    até a leitura da norma de drone — ver docs/discovery/agro-normas-mapa.md.
+    """
+    captured = await _capture(scenario)
+
+    assert Decimal(captured["leitura"]["direcao_vento_graus"]) == RECORDED_WIND_DIRECTION

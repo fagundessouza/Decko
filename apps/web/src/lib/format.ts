@@ -51,6 +51,23 @@ export function cestMask(value: string): string {
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
 }
 
+const ROSA = ["N", "NE", "L", "SE", "S", "SO", "O", "NO"];
+
+/** Direção do vento em graus, como quem está no campo lê: "135° (SE)".
+ *
+ * Grau sozinho não se lê de relance, e quem confere o documento pensa em rumo, não em
+ * número. Os dois juntos: o grau é o dado, a letra é a leitura.
+ */
+export function ventoBr(graus: string | number | null | undefined): string {
+  // Ausência é testada antes da conversão: `Number(null)` é 0, e zero grau é norte —
+  // uma leitura sem direção sairia como "0° (N)", que é um dado inventado.
+  if (graus === null || graus === undefined || graus === "") return "—";
+  const valor = Number(graus);
+  if (Number.isNaN(valor)) return "—";
+  const rumo = ROSA[Math.round(((valor % 360) + 360) % 360 / 45) % 8];
+  return `${Math.round(valor)}° (${rumo})`;
+}
+
 /** Valor em reais, sempre com dois decimais: dinheiro não esconde centavo. */
 export function brl(value: string | number | null | undefined): string {
   const parsed = typeof value === "number" ? value : Number(value ?? NaN);

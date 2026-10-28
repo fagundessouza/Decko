@@ -159,8 +159,8 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       agregado por município/UF, com horas de execução, e entrega pelo SIPEAGRO até o dia
       15. O CSV de hoje tem colunas aproximadas do formulário, nenhuma delas pedida — ver
       `docs/discovery/agro-normas-mapa.md`
-- [ ] Guardar a direção do vento na leitura meteorológica: a norma de drone exige, o
-      provedor já devolve, e o campo não existe
+- [x] Direção do vento na leitura meteorológica, exigida pelo art. 10 da Portaria 298/2021.
+      O provedor já devolvia; faltava guardar e mostrar
 - [ ] Importar KML do DJI Agras Management Platform para o croqui. Não há API pública; o
       caminho é o arquivo que o piloto exporta
 - [ ] Módulo de assinatura de documento: desenho na tela com o dedo, preso ao documento

@@ -360,6 +360,11 @@ class WeatherReading(TenantMixin, Base):
     temperatura_c: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     umidade_relativa_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     velocidade_vento_kmh: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    # Graus, 0 a 360, de onde o vento vem — convenção meteorológica: 90 é vento de leste.
+    # Exigida pelo art. 10 da Portaria MAPA 298/2021, que pede "direção e velocidade do
+    # vento". O formulário da IN 2/2008 pede só a velocidade; a norma de drone pede as
+    # duas, e é a dela que vale aqui.
+    direcao_vento_graus: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
 
     source: Mapped[WeatherSource] = mapped_column(
         _enum(WeatherSource, "agro_weather_source"), nullable=False

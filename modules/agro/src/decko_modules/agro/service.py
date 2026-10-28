@@ -225,6 +225,7 @@ def _observation_of(reading: WeatherReading) -> Observation:
         temperatura_c=reading.temperatura_c,
         umidade_relativa_pct=reading.umidade_relativa_pct,
         velocidade_vento_kmh=reading.velocidade_vento_kmh,
+        direcao_vento_graus=reading.direcao_vento_graus,
         observed_at=reading.captured_at or datetime.now(UTC),
         provider=reading.provider or "",
         payload={},
@@ -371,6 +372,7 @@ async def capture_weather(
     reading.temperatura_c = observation.temperatura_c
     reading.umidade_relativa_pct = observation.umidade_relativa_pct
     reading.velocidade_vento_kmh = observation.velocidade_vento_kmh
+    reading.direcao_vento_graus = observation.direcao_vento_graus
     reading.source = WeatherSource.API
     reading.provider = observation.provider
     reading.payload_bruto = observation.payload

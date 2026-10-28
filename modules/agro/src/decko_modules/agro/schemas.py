@@ -156,6 +156,7 @@ class WeatherReadingOut(BaseModel):
     temperatura_c: Decimal | None
     umidade_relativa_pct: Decimal | None
     velocidade_vento_kmh: Decimal | None
+    direcao_vento_graus: Decimal | None
     source: str
     provider: str | None
     captured_at: datetime | None

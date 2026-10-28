@@ -81,12 +81,17 @@ async def test_refuses_when_the_provider_returns_no_series() -> None:
 
 
 def _observation(
-    *, temperatura: str | None = None, umidade: str | None = None, vento: str | None = None
+    *,
+    temperatura: str | None = None,
+    umidade: str | None = None,
+    vento: str | None = None,
+    direcao: str | None = None,
 ) -> Observation:
     return Observation(
         temperatura_c=Decimal(temperatura) if temperatura else None,
         umidade_relativa_pct=Decimal(umidade) if umidade else None,
         velocidade_vento_kmh=Decimal(vento) if vento else None,
+        direcao_vento_graus=Decimal(direcao) if direcao else None,
         observed_at=datetime(2026, 10, 9, 15, 0),
         provider="open-meteo/archive",
         payload={},

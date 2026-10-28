@@ -37,6 +37,8 @@ class Observation:
     temperatura_c: Decimal | None
     umidade_relativa_pct: Decimal | None
     velocidade_vento_kmh: Decimal | None
+    # Graus, de onde o vento vem. A norma de drone exige direção, não só velocidade.
+    direcao_vento_graus: Decimal | None
     observed_at: datetime
     provider: str
     payload: dict[str, Any]
@@ -148,6 +150,7 @@ def _extract(payload: dict[str, Any], moment: datetime, dataset: str) -> Observa
         temperatura_c=_to_decimal(_at(hourly, "temperature_2m", best_index)),
         umidade_relativa_pct=_to_decimal(_at(hourly, "relative_humidity_2m", best_index)),
         velocidade_vento_kmh=_to_decimal(_at(hourly, "wind_speed_10m", best_index)),
+        direcao_vento_graus=_to_decimal(_at(hourly, "wind_direction_10m", best_index)),
         observed_at=observed.replace(tzinfo=UTC) - offset,
         provider=dataset,
         payload={

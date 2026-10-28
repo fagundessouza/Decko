@@ -6,7 +6,7 @@ import { PlanProducts } from "../components/PlanProducts";
 import { TextField } from "../components/TextField";
 import { agro, currentPosition } from "../lib/agro";
 import type { Plan, WeatherReading } from "../lib/agro";
-import { dateBr, nowLocalTime, num, periodoOfNow, todayLocal } from "../lib/format";
+import { dateBr, nowLocalTime, num, periodoOfNow, todayLocal, ventoBr } from "../lib/format";
 
 const PERIODOS = [
   { value: "matutino", label: "Manhã" },
@@ -194,6 +194,8 @@ export function PlanDetailPage({ plan, onBack }: Props) {
                   <p className="text-base text-ink-muted">
                     {num(reading.temperatura_c)} °C · {num(reading.umidade_relativa_pct, 0)}%
                     · {num(reading.velocidade_vento_kmh)} km/h
+                    {reading.direcao_vento_graus !== null &&
+                      ` · vento de ${ventoBr(reading.direcao_vento_graus)}`}
                   </p>
                 </div>
                 {reading.violou_parametro && (
