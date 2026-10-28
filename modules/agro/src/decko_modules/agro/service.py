@@ -1,7 +1,9 @@
 """Regra de negócio do módulo agro. Não conhece HTTP."""
 
+import hashlib
+import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
@@ -195,6 +197,10 @@ async def build_document(session: AsyncSession, plan: OperationalPlan) -> PlanDo
                 rotulo=SIGNATURE_LABELS[signature.papel],
                 nome=signature.nome,
                 registro=signature.registro or "",
+                traco=[
+                    [(float(x), float(y)) for x, y in linha]
+                    for linha in (signature.traco or {}).get("linhas", [])
+                ],
             )
             for signature in signatures
         ],
@@ -446,3 +452,126 @@ async def importar_croqui(
         latitude=Decimal(str(round(centro[1], 6))) if centro else None,
         longitude=Decimal(str(round(centro[0], 6))) if centro else None,
     )
+
+
+# ------------------------------------------------------------------ assinatura
+
+
+class AssinaturaError(Exception):
+    """Erro de regra da assinatura. Vira 422 na borda."""
+
+
+# Quantos pontos uma assinatura pode ter. Um traço de dedo numa tela de celular fica na
+# casa das centenas; o limite existe para um envio malformado não virar linha gigante no
+# banco, não para apertar o desenho.
+MAX_PONTOS = 4_000
+
+
+def hash_do_documento(doc: PlanDocument) -> str:
+    """A impressão digital do que foi assinado.
+
+    Calculada sobre os dados do documento **sem as assinaturas** — senão cada assinatura
+    mudaria o que a seguinte assina, e nenhuma delas poderia ser conferida depois.
+
+    Serve a uma pergunta só, e é a que importa numa fiscalização: *este documento é o
+    mesmo que a pessoa assinou?* Se alguém editar a área, o produto ou o clima depois da
+    assinatura, o hash deixa de bater e o sistema diz isso.
+    """
+    conteudo = asdict(doc)
+    conteudo.pop("assinaturas", None)
+    canonico = json.dumps(conteudo, sort_keys=True, default=str, ensure_ascii=False)
+    return hashlib.sha256(canonico.encode("utf-8")).hexdigest()
+
+
+def _validar_traco(traco: list[list[list[float]]]) -> dict[str, object]:
+    """Confere o desenho e o guarda numa caixa de 0 a 1.
+
+    Normalizado para a tela que assinou não entrar no documento: o mesmo traço feito num
+    celular estreito e num tablet grande tem de imprimir igual.
+    """
+    if not traco or not any(linha for linha in traco):
+        raise AssinaturaError("A assinatura está em branco.")
+
+    pontos = sum(len(linha) for linha in traco)
+    if pontos > MAX_PONTOS:
+        raise AssinaturaError("A assinatura tem pontos demais; desenhe de novo.")
+
+    limpo: list[list[list[float]]] = []
+    for linha in traco:
+        pontos_linha = [
+            [round(min(max(float(x), 0.0), 1.0), 4), round(min(max(float(y), 0.0), 1.0), 4)]
+            for ponto in linha
+            if len(ponto) >= 2
+            for x, y in [ponto[:2]]
+        ]
+        if len(pontos_linha) >= 2:
+            limpo.append(pontos_linha)
+
+    if not limpo:
+        raise AssinaturaError("A assinatura está em branco.")
+    return {"linhas": limpo}
+
+
+async def assinar(
+    session: AsyncSession,
+    *,
+    plan: OperationalPlan,
+    papel: SignatureRole,
+    nome: str,
+    traco: list[list[list[float]]],
+    registro: str | None = None,
+    assinado_por: uuid.UUID | None = None,
+    ip: str | None = None,
+    user_agent: str | None = None,
+) -> Signature:
+    """Registra a assinatura de um papel do formulário.
+
+    Assinar de novo o mesmo papel é recusado. Trocar uma assinatura em silêncio é o tipo
+    de coisa que, num documento com efeito legal, ninguém descobre a tempo.
+    """
+    existente = await session.scalar(
+        select(Signature).where(Signature.plan_id == plan.id, Signature.papel == papel)
+    )
+    if existente is not None and existente.assinado_em is not None:
+        raise AssinaturaError(
+            f"{SIGNATURE_TITLES[papel]} já assinou este planejamento em "
+            f"{existente.assinado_em.strftime('%d/%m/%Y')}."
+        )
+
+    desenho = _validar_traco(traco)
+    documento = await build_document(session, plan)
+
+    assinatura = existente or Signature(tenant_id=plan.tenant_id, plan_id=plan.id, papel=papel)
+    assinatura.nome = nome.strip()
+    assinatura.registro = registro.strip() if registro else None
+    assinatura.traco = desenho
+    assinatura.documento_hash = hash_do_documento(documento)
+    assinatura.assinado_em = datetime.now(UTC)
+    assinatura.assinado_por = assinado_por
+    assinatura.assinado_ip = ip
+    assinatura.assinado_user_agent = (user_agent or "")[:300] or None
+
+    session.add(assinatura)
+    await session.flush()
+    return assinatura
+
+
+async def conferir_assinaturas(session: AsyncSession, plan: OperationalPlan) -> list[SignatureRole]:
+    """Os papéis cuja assinatura não corresponde mais ao documento.
+
+    Lista vazia é o caso bom. Nome na lista significa que o planejamento mudou depois de
+    assinado — e quem for conferir precisa saber disso antes do fiscal.
+    """
+    atual = hash_do_documento(await build_document(session, plan))
+    assinaturas = (
+        (await session.execute(select(Signature).where(Signature.plan_id == plan.id)))
+        .scalars()
+        .all()
+    )
+    return [
+        assinatura.papel
+        for assinatura in assinaturas
+        if assinatura.assinado_em is not None
+        and assinatura.documento_hash is not None
+        and assinatura.documento_hash != atual
+    ]

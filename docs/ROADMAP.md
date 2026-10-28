@@ -164,9 +164,12 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [x] Croqui a partir do arquivo do voo: lê KML e KMZ, guarda a geometria e desenha o
       croqui no PDF, com contorno da área, faixas de aplicação, norte e seta do vento. A
       área calculada é sugestão — quem declara é quem assina
-- [ ] Módulo de assinatura de documento: desenho na tela com o dedo, preso ao documento
-      por hash, com quem, quando e de onde. A assinatura gov.br entra junto, mas depende
-      de credenciamento da aplicação — ver `docs/discovery/assinaturas-dois-modulos.md`
+- [x] Assinatura desenhada na tela, no Planejamento Operacional: traço em vetor, preso ao
+      documento por hash, com quem, quando e de onde. Editar o planejamento depois de
+      assinado passa a ser acusado. Ficou **dentro do agro**, e não em módulo próprio,
+      porque há um consumidor só — ver `docs/discovery/assinaturas-dois-modulos.md`
+- [ ] Assinatura gov.br: depende de credenciamento da aplicação na plataforma, que é
+      providência do dono do projeto, não código
 - [ ] Módulo de plano recorrente: depende de `clientes`, que já existe, e de uma decisão
       sobre meio de pagamento. Sem gateway, dá para gerar a cobrança e marcar como paga
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação

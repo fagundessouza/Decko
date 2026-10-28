@@ -76,6 +76,9 @@ class SignatureLine:
     rotulo: str
     nome: str = ""
     registro: str = ""
+    # O traço desenhado, em linhas de pontos numa caixa de 0 a 1. Vazio imprime a linha
+    # em branco, para assinar à caneta — que continua valendo.
+    traco: list[list[tuple[float, float]]] = field(default_factory=list)
 
 
 @dataclass
@@ -426,7 +429,9 @@ def _closing(doc: PlanDocument) -> list:
     assinaturas = Table(
         [
             [Paragraph(linha.titulo, SECTION) for linha in linhas],
-            [_p(f"{linha.nome}<br/>{linha.registro}".strip("<br/>")) for linha in linhas],
+            # O desenho ocupa a célula onde antes só cabia o nome; sem traço, o nome
+            # continua impresso e a linha fica livre para a caneta.
+            [_celula_de_assinatura(linha) for linha in linhas],
             [Paragraph(linha.rotulo, LABEL) for linha in linhas],
         ],
         colWidths=[PAGE_WIDTH / 4] * 4,
@@ -620,3 +625,33 @@ def _seta_do_vento(desenho: Drawing, largura: float, altura: float, graus: float
     desenho.add(
         String(centro_x - 8 * mm, centro_y - 9 * mm, "Vento", fontName="Helvetica", fontSize=6)
     )
+
+
+ASSINATURA_ALTURA = 34
+"""Altura da célula do traço, em pontos. A linha da tabela tem 36."""
+
+
+def _celula_de_assinatura(linha: SignatureLine):  # type: ignore[no-untyped-def]
+    """O conteúdo da célula de assinatura: o desenho, ou o nome como antes."""
+    if not linha.traco:
+        return _p(f"{linha.nome}<br/>{linha.registro}".strip("<br/>"))
+
+    largura = PAGE_WIDTH / 4 - 6
+    desenho = Drawing(largura, ASSINATURA_ALTURA)
+
+    for curva in linha.traco:
+        if len(curva) < 2:
+            continue
+        coordenadas: list[float] = []
+        for x, y in curva:
+            # O y do desenho vem de cima para baixo, como na tela; o do PDF vem de baixo.
+            coordenadas.extend((x * largura, (1 - y) * ASSINATURA_ALTURA))
+        desenho.add(
+            PolyLine(coordenadas, strokeColor=colors.black, strokeWidth=0.7, strokeLineCap=1)
+        )
+
+    # O nome vai junto, pequeno: um rabisco sem nome ao lado não identifica ninguém.
+    desenho.add(
+        String(0, 0, f"{linha.nome} {linha.registro}".strip(), fontName="Helvetica", fontSize=5)
+    )
+    return desenho

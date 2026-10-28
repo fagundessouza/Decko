@@ -3,7 +3,7 @@ from base64 import b64decode
 from binascii import Error as BinasciiError
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,13 +19,17 @@ from decko_modules.agro.models import (
     Prescription,
     Product,
     Property,
+    Signature,
     WeatherReading,
 )
 from decko_modules.agro.schemas import (
     AircraftIn,
     AircraftOut,
+    AssinaturaIn,
+    AssinaturaOut,
     ClientIn,
     ClientOut,
+    ConferenciaAssinaturasOut,
     ConsolidationOut,
     CroquiIn,
     CroquiOut,
@@ -411,6 +415,52 @@ async def import_croqui(
         latitude=lido.latitude,
         longitude=lido.longitude,
     )
+
+
+@router.post("/plans/{plan_id}/signatures", response_model=AssinaturaOut)
+async def sign_plan(
+    plan_id: uuid.UUID,
+    payload: AssinaturaIn,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("agro.plan.sign"))],
+) -> Signature:
+    """Registra a assinatura desenhada na tela, com o que a prende ao documento.
+
+    O produtor assina no celular do agrônomo, em campo — é como o Nathan descreve. Por
+    isso a procedência guardada é a de quem operou o aparelho: o traço sozinho não prova
+    nada, e o que torna a assinatura eletrônica simples defensável é saber o que foi
+    assinado, por quem, quando e de onde.
+    """
+    plan = await _plan_or_404(session, plan_id)
+    try:
+        return await service.assinar(
+            session,
+            plan=plan,
+            papel=payload.papel,
+            nome=payload.nome,
+            registro=payload.registro,
+            traco=payload.traco,
+            assinado_por=principal.user_id,
+            ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except service.AssinaturaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+
+@router.get("/plans/{plan_id}/signatures/check", response_model=ConferenciaAssinaturasOut)
+async def check_signatures(
+    plan_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.read"))],
+) -> ConferenciaAssinaturasOut:
+    """Diz se o planejamento mudou depois de assinado."""
+    plan = await _plan_or_404(session, plan_id)
+    return ConferenciaAssinaturasOut(divergentes=await service.conferir_assinaturas(session, plan))
 
 
 @router.get("/plans/{plan_id}/products", response_model=list[PlanProductOut])

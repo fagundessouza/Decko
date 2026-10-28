@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
+import { Alert } from "../components/Alert";
 import { Page, PageHeader } from "../components/AppShell";
 import { Button } from "../components/Button";
 import { PlanProducts } from "../components/PlanProducts";
+import { Select } from "../components/Select";
+import { SignaturePad } from "../components/SignaturePad";
 import { TextField } from "../components/TextField";
-import { agro, currentPosition } from "../lib/agro";
-import type { CroquiLido, Plan, WeatherReading } from "../lib/agro";
+import { PAPEIS, agro, currentPosition } from "../lib/agro";
+import type { CroquiLido, PapelAssinatura, Plan, WeatherReading } from "../lib/agro";
 import { dateBr, nowLocalTime, num, periodoOfNow, todayLocal, ventoBr } from "../lib/format";
 
 const PERIODOS = [
@@ -83,6 +86,8 @@ export function PlanDetailPage({ plan, onBack }: Props) {
       />
 
       <CroquiImport planId={plan.id} />
+
+      <Assinaturas planId={plan.id} />
 
       <section className="mt-8 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle p-5">
         <h2 className="text-lg font-semibold text-ink">Registrar condição do tempo</h2>
@@ -349,6 +354,113 @@ function CroquiImport({ planId }: { planId: string }) {
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+
+/* As assinaturas do formulário, desenhadas na tela.
+ *
+ * O produtor assina no celular do agrônomo, em campo — é como o Nathan descreve. O que
+ * torna isso defensável não é o rabisco: é o vínculo com o documento, que o servidor
+ * grava junto. Se o planejamento mudar depois, a tela avisa.
+ * Ver docs/discovery/assinaturas-dois-modulos.md. */
+function Assinaturas({ planId }: { planId: string }) {
+  const [papel, setPapel] = useState<PapelAssinatura>("proprietario_preposto");
+  const [nome, setNome] = useState("");
+  const [registro, setRegistro] = useState("");
+  const [traco, setTraco] = useState<number[][][]>([]);
+  const [feito, setFeito] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [divergentes, setDivergentes] = useState<PapelAssinatura[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    // Falha em silêncio: a conferência é um aviso a mais, e derrubar a tela por causa
+    // dela seria pior do que não avisar.
+    agro
+      .conferirAssinaturas(planId)
+      .then((r) => setDivergentes(r.divergentes))
+      .catch(() => undefined);
+  }, [planId, feito]);
+
+  async function assinar() {
+    setBusy(true);
+    setErro(null);
+    try {
+      await agro.assinar(planId, {
+        papel,
+        nome: nome.trim(),
+        registro: registro.trim() || null,
+        traco,
+      });
+      setFeito(`${PAPEIS.find((p) => p.valor === papel)?.label} assinou.`);
+      setNome("");
+      setRegistro("");
+      setTraco([]);
+    } catch (cause) {
+      setErro(
+        cause instanceof Error && cause.message ? cause.message : "Não foi possível assinar.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="mt-8 rounded-lg bg-surface p-5 shadow-sm ring-1 ring-inset ring-line-subtle">
+      <h2 className="text-lg font-semibold text-ink">Assinaturas</h2>
+      <p className="mt-1 text-base text-ink-muted">
+        O formulário tem quatro. Dá para assinar aqui com o dedo ou a caneta, ou imprimir
+        e assinar no papel — as duas valem.
+      </p>
+
+      {divergentes.length > 0 && (
+        <div className="mt-4">
+          <Alert tone="warn">
+            O planejamento mudou depois de assinado por{" "}
+            {divergentes.map((d) => PAPEIS.find((p) => p.valor === d)?.label).join(", ")}.
+            Vale colher a assinatura de novo.
+          </Alert>
+        </div>
+      )}
+
+      {feito && (
+        <div className="mt-4">
+          <Alert tone="success">{feito}</Alert>
+        </div>
+      )}
+      {erro && (
+        <div className="mt-4">
+          <Alert tone="danger">{erro}</Alert>
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-col gap-4">
+        <Select
+          label="Quem está assinando"
+          value={papel}
+          onChange={(valor) => setPapel(valor as PapelAssinatura)}
+          options={PAPEIS.map((p) => ({ value: p.valor, label: p.label }))}
+        />
+        <TextField label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
+        <TextField
+          label="Registro profissional"
+          hint="CREA, CANAC ou CPF, conforme o papel. Opcional."
+          value={registro}
+          onChange={(e) => setRegistro(e.target.value)}
+        />
+
+        <SignaturePad onChange={setTraco} disabled={busy} />
+
+        <Button
+          loading={busy}
+          disabled={!nome.trim() || traco.length === 0}
+          onClick={() => void assinar()}
+        >
+          Registrar assinatura
+        </Button>
+      </div>
     </section>
   );
 }

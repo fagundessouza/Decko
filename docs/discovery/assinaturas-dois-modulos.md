@@ -55,6 +55,32 @@ documento** — foi feito para imprimir o PDF, não para valer como prova.
 
 Um módulo de assinatura de documento generaliza isso, e o agro passa a usá-lo.
 
+### O que foi implementado em 27/10/2026 — e onde
+
+**Dentro do módulo agro, não como módulo próprio.** Esta seção propunha um módulo de
+assinatura que o agro passaria a usar. Ele não foi feito, e por uma razão escrita no
+`CLAUDE.md`: *"Não crie abstração para caso hipotético. A complexidade precisa ser
+ganha."* Hoje há **um** consumidor, e ele já tinha a tabela — `agro_signature`, com os
+quatro papéis do formulário, criada na primeira migração. Generalizar antes do segundo
+consumidor seria inventar uma fronteira para atravessá-la sozinho.
+
+Quando a segunda coisa precisar de assinatura (um cupom de venda, um contrato), o módulo
+nasce e o agro migra. Isso está escrito aqui para ser uma decisão, e não um esquecimento.
+
+O que a assinatura guarda, além do traço:
+
+| Guardado | Por quê |
+|---|---|
+| O desenho, em linhas de pontos de 0 a 1 | Vetor, não imagem: imprime nítido e não leva pixel de celular para dentro do documento |
+| `documento_hash` | SHA-256 dos dados do documento **sem as assinaturas** — senão cada uma mudaria o que a seguinte assina |
+| Quem operou, quando, de qual IP e aparelho | É o que a Lei 14.063/2020 pede da assinatura eletrônica simples: identificar o signatário e anexar dados ao documento |
+
+**O que isso compra, e é o ponto:** editar o planejamento depois de assinado deixa o hash
+de bater, e a tela avisa quem for conferir — antes do fiscal.
+
+Assinar o mesmo papel duas vezes é recusado: trocar assinatura em silêncio, num documento
+com efeito legal, é o que ninguém descobre a tempo.
+
 ### O que bloqueia
 
 - **gov.br exige credenciamento.** A API de Assinatura Eletrônica do gov.br não é aberta:

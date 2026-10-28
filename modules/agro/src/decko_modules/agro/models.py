@@ -25,7 +25,7 @@ from sqlalchemy import (
     Time,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -408,6 +408,22 @@ class Signature(TenantMixin, Base):
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     registro: Mapped[str | None] = mapped_column(String(60), nullable=True)
     assinado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # O traço desenhado na tela, como linhas de pontos numa caixa de 0 a 1. Vetor, e não
+    # imagem: ocupa pouco, imprime nítido em qualquer tamanho e não guarda pixel de tela
+    # de celular dentro de um documento legal.
+    traco: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+
+    # O que prende o rabisco ao documento. Um desenho solto não prova nada; o que torna a
+    # assinatura eletrônica simples defensável é saber **o que** foi assinado, por quem,
+    # quando e de onde — Lei 14.063/2020, e ver
+    # docs/discovery/assinaturas-dois-modulos.md.
+    documento_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    assinado_por: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
+    )
+    assinado_ip: Mapped[str | None] = mapped_column(INET, nullable=True)
+    assinado_user_agent: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     plan: Mapped["OperationalPlan"] = relationship(back_populates="signatures")
 

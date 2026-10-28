@@ -159,6 +159,28 @@ export interface CroquiLido {
   longitude: string | null;
 }
 
+export type PapelAssinatura =
+  | "eng_agronomo"
+  | "piloto_agricola"
+  | "tec_agricola_executor"
+  | "proprietario_preposto";
+
+export const PAPEIS: { valor: PapelAssinatura; label: string }[] = [
+  { valor: "eng_agronomo", label: "Eng. Agrônomo" },
+  { valor: "piloto_agricola", label: "Piloto Agrícola" },
+  { valor: "tec_agricola_executor", label: "Téc. Agrícola Executor" },
+  { valor: "proprietario_preposto", label: "Proprietário ou Preposto" },
+];
+
+export interface Assinatura {
+  papel: PapelAssinatura;
+  nome: string;
+  registro: string | null;
+  assinado_em: string | null;
+  /** Impressão digital do documento no momento da assinatura. */
+  documento_hash: string | null;
+}
+
 export const agro = {
   listPilots: (): Promise<Piloto[]> => authedJson("/agro/pilots"),
 
@@ -267,6 +289,17 @@ export const agro = {
     body: { kml: string; base64?: boolean; origem?: string | null },
   ): Promise<CroquiLido> =>
     authedJson(`/agro/plans/${planId}/croqui`, { method: "POST", body }),
+
+  /** Registra a assinatura desenhada na tela, com o que a prende ao documento. */
+  assinar: (
+    planId: string,
+    body: { papel: PapelAssinatura; nome: string; registro?: string | null; traco: number[][][] },
+  ): Promise<Assinatura> =>
+    authedJson(`/agro/plans/${planId}/signatures`, { method: "POST", body }),
+
+  /** Quais assinaturas não correspondem mais ao documento. Vazio é o caso bom. */
+  conferirAssinaturas: (planId: string): Promise<{ divergentes: PapelAssinatura[] }> =>
+    authedJson(`/agro/plans/${planId}/signatures/check`),
 
   listPlans: (): Promise<Plan[]> => authedJson("/agro/plans"),
 

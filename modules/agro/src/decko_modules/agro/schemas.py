@@ -6,7 +6,14 @@ from typing import Annotated
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from decko.documents import pydantic_cpf_cnpj
-from decko_modules.agro.enums import Cultura, Momento, Periodo, PlanStatus, TipoAplicacao
+from decko_modules.agro.enums import (
+    Cultura,
+    Momento,
+    Periodo,
+    PlanStatus,
+    SignatureRole,
+    TipoAplicacao,
+)
 
 
 class ClientIn(BaseModel):
@@ -329,3 +336,39 @@ class CroquiOut(BaseModel):
     direcao_tiros_graus: Decimal | None
     latitude: Decimal | None
     longitude: Decimal | None
+
+
+class AssinaturaIn(BaseModel):
+    """A assinatura desenhada na tela.
+
+    ``traco`` são as linhas do desenho: uma lista de linhas, cada uma uma lista de pontos
+    ``[x, y]`` numa caixa de 0 a 1. Normalizado porque o mesmo traço feito num celular
+    estreito e num tablet grande tem de imprimir igual.
+    """
+
+    papel: SignatureRole
+    nome: str = Field(min_length=1, max_length=200)
+    registro: str | None = Field(default=None, max_length=60)
+    traco: list[list[list[float]]]
+
+
+class AssinaturaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    papel: SignatureRole
+    nome: str
+    registro: str | None
+    assinado_em: datetime | None
+    # Impressão digital do documento no momento da assinatura. Muda se o planejamento for
+    # editado depois, e é assim que se descobre.
+    documento_hash: str | None
+
+
+class ConferenciaAssinaturasOut(BaseModel):
+    """Quais assinaturas não correspondem mais ao documento.
+
+    Vazio é o caso bom. Nome na lista significa que o planejamento mudou depois de
+    assinado, e quem confere precisa saber disso antes do fiscal.
+    """
+
+    divergentes: list[SignatureRole]
