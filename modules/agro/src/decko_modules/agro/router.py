@@ -1,4 +1,6 @@
 import uuid
+from base64 import b64decode
+from binascii import Error as BinasciiError
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -7,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
-from decko_modules.agro import consolidation, pdf, service
+from decko_modules.agro import consolidation, croqui, pdf, service
 from decko_modules.agro.models import (
     Aircraft,
     Client,
@@ -25,6 +27,8 @@ from decko_modules.agro.schemas import (
     ClientIn,
     ClientOut,
     ConsolidationOut,
+    CroquiIn,
+    CroquiOut,
     MonthlyReportOut,
     MonthlyReportRowOut,
     PilotIn,
@@ -364,6 +368,49 @@ async def _plan_or_404(session: AsyncSession, plan_id: uuid.UUID) -> Operational
             status_code=status.HTTP_404_NOT_FOUND, detail="Planejamento não encontrado."
         )
     return plan
+
+
+@router.post("/plans/{plan_id}/croqui", response_model=CroquiOut)
+async def import_croqui(
+    plan_id: uuid.UUID,
+    payload: CroquiIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.write"))],
+) -> CroquiOut:
+    """Lê o KML exportado pelo aplicativo do drone e guarda a geometria do croqui.
+
+    Não altera a área nem a coordenada do planejamento: devolve o que deduziu para a tela
+    mostrar ao lado do que está declarado — ver docs/discovery/agro-normas-mapa.md.
+    """
+    plan = await _plan_or_404(session, plan_id)
+
+    conteudo: str | bytes = payload.kml
+    if payload.base64:
+        try:
+            conteudo = b64decode(payload.kml, validate=True)
+        except BinasciiError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="O arquivo chegou corrompido. Tente enviar de novo.",
+            ) from exc
+
+    try:
+        lido = await service.importar_croqui(
+            session, plan=plan, conteudo=conteudo, origem=payload.origem
+        )
+    except croqui.CroquiInvalidoError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+    return CroquiOut(
+        faixas=lido.faixas,
+        tem_limite=lido.tem_limite,
+        area_sugerida_ha=lido.area_sugerida_ha,
+        direcao_tiros_graus=lido.direcao_tiros_graus,
+        latitude=lido.latitude,
+        longitude=lido.longitude,
+    )
 
 
 @router.get("/plans/{plan_id}/products", response_model=list[PlanProductOut])

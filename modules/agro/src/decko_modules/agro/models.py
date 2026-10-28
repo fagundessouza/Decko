@@ -249,6 +249,10 @@ class OperationalPlan(TenantMixin, TimestampMixin, Base):
 
     # O formulário exige o croqui com direção dos tiros e sentido do vento em anexo.
     croqui_file_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # A geometria lida do KML que o piloto exporta: contorno da área e faixas de voo, em
+    # graus decimais. Guardada como veio, para o desenho poder ser refeito sem o arquivo
+    # original — ver decko_modules.agro.croqui.
+    croqui_geometria: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     products: Mapped[list["PlanProduct"]] = relationship(

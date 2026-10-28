@@ -1,6 +1,7 @@
 """Regra de negócio do módulo agro. Não conhece HTTP."""
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
@@ -8,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.documents import format_cpf_cnpj
+from decko_modules.agro import croqui
 from decko_modules.agro.enums import (
     Cultura,
     MaintenanceMoment,
@@ -121,7 +123,17 @@ async def build_document(session: AsyncSession, plan: OperationalPlan) -> PlanDo
 
     maintenance = {log.momento: log for log in logs}
 
+    geometria = plan.croqui_geometria or {}
+    # A seta do vento usa a primeira leitura que tenha direção: o croqui é um desenho da
+    # aplicação, não de cada instante dela.
+    vento = next(
+        (r.direcao_vento_graus for r in readings if r.direcao_vento_graus is not None), None
+    )
+
     return PlanDocument(
+        croqui_limite=[tuple(ponto) for ponto in geometria.get("limite", [])],
+        croqui_faixas=[[tuple(ponto) for ponto in faixa] for faixa in geometria.get("faixas", [])],
+        croqui_vento_graus=vento,
         numero=plan.numero,
         empresa_nome=tenant.name if tenant else "",
         # O cabeçalho do formulário identifica a empresa aplicadora: registro no MAPA,
@@ -386,3 +398,51 @@ async def capture_weather(
     await session.flush()
 
     return reading, problems
+
+
+# ------------------------------------------------------------------ croqui
+
+
+@dataclass(frozen=True)
+class CroquiImportado:
+    """O que foi lido do arquivo, com o que dele se deduz.
+
+    ``area_sugerida_ha`` é sugestão: a área do documento é a declarada pelo agrônomo
+    responsável, e um desenho não muda campo de documento legal — ver
+    ``decko_modules.agro.croqui``.
+    """
+
+    faixas: int
+    tem_limite: bool
+    area_sugerida_ha: Decimal | None
+    direcao_tiros_graus: Decimal | None
+    latitude: Decimal | None
+    longitude: Decimal | None
+
+
+async def importar_croqui(
+    session: AsyncSession, *, plan: OperationalPlan, conteudo: str | bytes, origem: str | None
+) -> CroquiImportado:
+    """Lê o KML do voo e guarda a geometria no planejamento.
+
+    Não escreve área nem coordenada do planejamento: devolve o que deduziu para a tela
+    mostrar ao lado do que está declarado, e quem decide é quem assina.
+    """
+    desenho = croqui.ler(conteudo, origem=origem)
+    centro = desenho.centro()
+
+    plan.croqui_geometria = {
+        "limite": [list(ponto) for ponto in desenho.limite],
+        "faixas": [[list(ponto) for ponto in faixa] for faixa in desenho.faixas],
+        "origem": desenho.origem,
+    }
+    await session.flush()
+
+    return CroquiImportado(
+        faixas=len(desenho.faixas),
+        tem_limite=bool(desenho.limite),
+        area_sugerida_ha=desenho.area_ha(),
+        direcao_tiros_graus=desenho.direcao_dos_tiros(),
+        latitude=Decimal(str(round(centro[1], 6))) if centro else None,
+        longitude=Decimal(str(round(centro[0], 6))) if centro else None,
+    )

@@ -530,6 +530,7 @@ source = { editable = "modules/agro" }
 dependencies = [
     { name = "decko-api" },
     { name = "decko-module-core" },
+    { name = "defusedxml" },
     { name = "httpx" },
     { name = "reportlab" },
 ]
@@ -538,6 +539,7 @@ dependencies = [
 requires-dist = [
     { name = "decko-api", editable = "apps/api" },
     { name = "decko-module-core", editable = "modules/core" },
+    { name = "defusedxml", specifier = ">=0.7" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "reportlab", specifier = ">=4.4" },
 ]

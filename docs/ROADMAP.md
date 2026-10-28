@@ -161,8 +161,9 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       `docs/discovery/agro-normas-mapa.md`
 - [x] Direção do vento na leitura meteorológica, exigida pelo art. 10 da Portaria 298/2021.
       O provedor já devolvia; faltava guardar e mostrar
-- [ ] Importar KML do DJI Agras Management Platform para o croqui. Não há API pública; o
-      caminho é o arquivo que o piloto exporta
+- [x] Croqui a partir do arquivo do voo: lê KML e KMZ, guarda a geometria e desenha o
+      croqui no PDF, com contorno da área, faixas de aplicação, norte e seta do vento. A
+      área calculada é sugestão — quem declara é quem assina
 - [ ] Módulo de assinatura de documento: desenho na tela com o dedo, preso ao documento
       por hash, com quem, quando e de onde. A assinatura gov.br entra junto, mas depende
       de credenciamento da aplicação — ver `docs/discovery/assinaturas-dois-modulos.md`

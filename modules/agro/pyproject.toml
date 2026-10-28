@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Decko agro module: agricultural spraying operations and MAPA reporting"
 requires-python = ">=3.13"
 dependencies = [
+    # O KML do croqui vem de fora. O parser padrão aceita entidade externa.
+    "defusedxml>=0.7",
     "decko-api",
     "decko-module-core",
     "httpx>=0.28",

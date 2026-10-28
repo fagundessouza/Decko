@@ -203,6 +203,15 @@ async def _pdf_text(scenario: Scenario) -> str:
     return "\n".join(page.extract_text() for page in reader.pages)
 
 
+async def _pdf_bytes(scenario: Scenario) -> bytes:
+    response = await scenario.client.get(
+        f"/api/v1/agro/plans/{scenario.plan_id}/pdf",
+        headers={"Authorization": f"Bearer {scenario.token}"},
+    )
+    assert response.status_code == 200, response.text
+    return response.content
+
+
 async def test_document_identifies_the_operation(scenario: Scenario) -> None:
     text = await _pdf_text(scenario)
 
@@ -288,3 +297,57 @@ async def test_export_requires_authentication(scenario: Scenario) -> None:
     response = await scenario.client.get(f"/api/v1/agro/plans/{scenario.plan_id}/pdf")
 
     assert response.status_code == 401
+
+
+QUADRADO_KML = """<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+  <Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>
+    -51.7200,-17.8800 -51.7200,-17.8890 -51.7106,-17.8890 -51.7106,-17.8800
+  </coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>
+  <Placemark><LineString><coordinates>
+    -51.7190,-17.8800 -51.7190,-17.8890
+  </coordinates></LineString></Placemark>
+</Document></kml>
+"""
+
+
+async def test_o_quadro_do_croqui_existe_mesmo_sem_geometria(scenario: Scenario) -> None:
+    """Sem KML, sai o quadro em branco — como no talão, para desenhar à mão."""
+    text = await _pdf_text(scenario)
+
+    assert "Croqui da Área" in text
+
+
+async def test_o_croqui_importado_sai_desenhado(scenario: Scenario) -> None:
+    """A dor nº 4 do discovery: o croqui deixa de ser desenhado à mão.
+
+    O PDF é vetor, então o desenho não aparece no texto extraído. O que dá para provar
+    aqui é que o documento cresce com a geometria dentro — e que a importação devolveu a
+    área e a direção dos tiros que ela deduziu.
+    """
+    antes = await _pdf_bytes(scenario)
+
+    lido = await scenario.client.post(
+        f"/api/v1/agro/plans/{scenario.plan_id}/croqui",
+        headers={"Authorization": f"Bearer {scenario.token}"},
+        json={"kml": QUADRADO_KML, "origem": "voo-do-teste.kml"},
+    )
+    assert lido.status_code == 200, lido.text
+    assert lido.json()["tem_limite"] is True
+    assert lido.json()["faixas"] == 1
+    # Sugestão, não o número do documento: a área declarada continua sendo a do agrônomo.
+    assert Decimal("90") < Decimal(lido.json()["area_sugerida_ha"]) < Decimal("110")
+
+    depois = await _pdf_bytes(scenario)
+    assert len(depois) > len(antes), "a geometria precisa entrar no documento"
+
+
+async def test_kml_invalido_nao_derruba_o_planejamento(scenario: Scenario) -> None:
+    recusado = await scenario.client.post(
+        f"/api/v1/agro/plans/{scenario.plan_id}/croqui",
+        headers={"Authorization": f"Bearer {scenario.token}"},
+        json={"kml": "isto não é um KML"},
+    )
+
+    assert recusado.status_code == 422
+    assert "KML" in recusado.json()["detail"]

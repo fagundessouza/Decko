@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Page, PageHeader } from "../components/AppShell";
 import { Button } from "../components/Button";
 import { PlanProducts } from "../components/PlanProducts";
 import { TextField } from "../components/TextField";
 import { agro, currentPosition } from "../lib/agro";
-import type { Plan, WeatherReading } from "../lib/agro";
+import type { CroquiLido, Plan, WeatherReading } from "../lib/agro";
 import { dateBr, nowLocalTime, num, periodoOfNow, todayLocal, ventoBr } from "../lib/format";
 
 const PERIODOS = [
@@ -81,6 +81,8 @@ export function PlanDetailPage({ plan, onBack }: Props) {
         description={`Limites: vento ${num(plan.param_velocidade_vento_max_kmh)} km/h, temperatura ${num(plan.param_temperatura_maxima_c)} °C, umidade mínima ${num(plan.param_umidade_relativa_min_pct, 0)}%`}
         onBack={onBack}
       />
+
+      <CroquiImport planId={plan.id} />
 
       <section className="mt-8 rounded-lg bg-surface shadow-sm ring-1 ring-inset ring-line-subtle p-5">
         <h2 className="text-lg font-semibold text-ink">Registrar condição do tempo</h2>
@@ -256,5 +258,97 @@ function Choice({ label, value, onChange, options }: ChoiceProps) {
         ))}
       </div>
     </div>
+  );
+}
+
+
+/* Importação do croqui a partir do arquivo do voo.
+ *
+ * A área e a direção que saem daqui são **sugestão**: o documento leva o que o agrônomo
+ * declarou, e um desenho não muda campo de documento legal. Por isso elas aparecem como
+ * texto ao lado, e não preenchem nada sozinhas. */
+function CroquiImport({ planId }: { planId: string }) {
+  const arquivo = useRef<HTMLInputElement>(null);
+  const [lido, setLido] = useState<CroquiLido | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function importar(file: File) {
+    setBusy(true);
+    setErro(null);
+    try {
+      // KMZ é zip: vai em base64, com o campo dizendo isso. KML vai como texto.
+      const kmz = file.name.toLowerCase().endsWith(".kmz");
+      const conteudo = kmz
+        ? btoa(String.fromCharCode(...new Uint8Array(await file.arrayBuffer())))
+        : await file.text();
+
+      setLido(
+        await agro.importarCroqui(planId, { kml: conteudo, base64: kmz, origem: file.name }),
+      );
+    } catch (cause) {
+      setErro(
+        cause instanceof Error && cause.message
+          ? cause.message
+          : "Não foi possível ler o arquivo.",
+      );
+    } finally {
+      setBusy(false);
+      if (arquivo.current) arquivo.current.value = "";
+    }
+  }
+
+  return (
+    <section className="mt-8 rounded-lg bg-surface p-5 shadow-sm ring-1 ring-inset ring-line-subtle">
+      <h2 className="text-lg font-semibold text-ink">Croqui da área</h2>
+      <p className="mt-1 text-base text-ink-muted">
+        Envie a rota do voo exportada pelo aplicativo do drone, em KML ou KMZ. Ela vira o
+        desenho do croqui no documento, com a direção dos tiros e a seta do vento.
+      </p>
+
+      <input
+        ref={arquivo}
+        type="file"
+        accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"
+        className="hidden"
+        onChange={(event) => {
+          const escolhido = event.target.files?.[0];
+          if (escolhido) void importar(escolhido);
+        }}
+      />
+
+      <div className="mt-5 sm:max-w-xs">
+        <Button variant="secondary" loading={busy} onClick={() => arquivo.current?.click()}>
+          Escolher arquivo do voo
+        </Button>
+      </div>
+
+      {erro && (
+        <p className="mt-4 text-base text-danger">
+          <span aria-hidden="true">⚠ </span>
+          {erro}
+        </p>
+      )}
+
+      {lido && (
+        <div className="mt-4 text-base text-ink-muted">
+          <p className="font-medium text-ink">Croqui importado.</p>
+          <p>
+            {lido.tem_limite ? "Contorno da área" : "Sem contorno"} ·{" "}
+            {lido.faixas === 1 ? "1 faixa de voo" : `${lido.faixas} faixas de voo`}
+          </p>
+          {/* Sugestão, e dito como tal: quem declara a área é quem assina. */}
+          {lido.area_sugerida_ha && (
+            <p className="mt-2">
+              Pelo desenho, a área dá {num(lido.area_sugerida_ha)} ha — confira com a que
+              você declarou.
+            </p>
+          )}
+          {lido.direcao_tiros_graus && (
+            <p>Direção dos tiros: {ventoBr(lido.direcao_tiros_graus)}.</p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

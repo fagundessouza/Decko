@@ -302,3 +302,30 @@ class MonthlyReportOut(BaseModel):
     rascunhos_no_mes: int
     # Dia 15 do mês seguinte, que é quando a entrega vence.
     prazo: date
+
+
+class CroquiIn(BaseModel):
+    """O arquivo exportado pelo aplicativo do drone.
+
+    KML vai como texto. KMZ é zip, e por isso vai em base64, com ``base64=true`` — um
+    campo explícito em vez de adivinhação, porque adivinhar erraria no arquivo que tiver
+    o conteúdo parecido com o outro formato.
+    """
+
+    kml: str = Field(min_length=1)
+    base64: bool = False
+    origem: str | None = Field(default=None, max_length=200)
+
+
+class CroquiOut(BaseModel):
+    """O que foi lido do arquivo, e o que dele se deduz.
+
+    A área e a direção são **sugestão**: o documento leva o que o agrônomo declarou.
+    """
+
+    faixas: int
+    tem_limite: bool
+    area_sugerida_ha: Decimal | None
+    direcao_tiros_graus: Decimal | None
+    latitude: Decimal | None
+    longitude: Decimal | None

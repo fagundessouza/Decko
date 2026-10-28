@@ -149,6 +149,16 @@ export interface MonthlyReport {
   prazo: string;
 }
 
+/** O que foi lido do arquivo do voo. Área e direção são sugestão, não o documento. */
+export interface CroquiLido {
+  faixas: number;
+  tem_limite: boolean;
+  area_sugerida_ha: string | null;
+  direcao_tiros_graus: string | null;
+  latitude: string | null;
+  longitude: string | null;
+}
+
 export const agro = {
   listPilots: (): Promise<Piloto[]> => authedJson("/agro/pilots"),
 
@@ -250,6 +260,13 @@ export const agro = {
     link.click();
     URL.revokeObjectURL(url);
   },
+
+  /** Lê o KML ou KMZ exportado pelo aplicativo do drone e guarda a geometria. */
+  importarCroqui: (
+    planId: string,
+    body: { kml: string; base64?: boolean; origem?: string | null },
+  ): Promise<CroquiLido> =>
+    authedJson(`/agro/plans/${planId}/croqui`, { method: "POST", body }),
 
   listPlans: (): Promise<Plan[]> => authedJson("/agro/plans"),
 

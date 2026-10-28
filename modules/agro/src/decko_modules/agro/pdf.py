@@ -8,11 +8,13 @@ captura meteorológica entram em "Observações", que já existe no talão, em v
 coluna que o documento legal não prevê.
 """
 
+import math
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
 
+from reportlab.graphics.shapes import Drawing, Line, Polygon, PolyLine, String
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -93,6 +95,12 @@ class PlanDocument:
     inscricao_estadual: str = ""
     inscricao_municipal: str = ""
     rodape: str = ""
+
+    # Croqui lido do KML do voo. Vazio imprime o quadro em branco, como no talão.
+    croqui_limite: list[tuple[float, float]] = field(default_factory=list)
+    croqui_faixas: list[list[tuple[float, float]]] = field(default_factory=list)
+    # De onde o vento vinha, em graus. Desenha a seta que o formulário pede.
+    croqui_vento_graus: Decimal | None = None
 
     contratante: str = ""
     contratante_documento: str = ""
@@ -460,9 +468,155 @@ def render(doc: PlanDocument) -> bytes:
     story += _application(doc)
     story.append(_section("Equipamento, Parâmetros e Aeronave"))
     story += _equipment(doc)
+    story += _croqui(doc)
     story += _weather(doc)
     story.append(Spacer(1, 3))
     story += _closing(doc)
 
     template.build(story)
     return buffer.getvalue()
+
+
+# ---------------------------------------------------------------- croqui
+
+CROQUI_ALTURA = 70 * mm
+# Respiro entre o desenho e a borda do quadro, para a área não encostar na moldura.
+CROQUI_MARGEM = 6 * mm
+
+
+def _croqui(doc: PlanDocument) -> list:
+    """O quadro do croqui: limites da área, direção dos tiros e sentido do vento.
+
+    É o inciso XI do art. 9º da IN 2/2008, que hoje é desenhado à mão. Sem geometria o
+    quadro sai em branco, como no talão impresso — melhor um espaço para desenhar do que
+    um desenho inventado.
+    """
+    elementos: list = [_section("Croqui da Área — direção dos tiros e sentido do vento")]
+
+    if not doc.croqui_limite and not doc.croqui_faixas:
+        vazio = Table([[""]], colWidths=[PAGE_WIDTH], rowHeights=[CROQUI_ALTURA])
+        vazio.setStyle(GRID)
+        elementos.append(vazio)
+        return elementos
+
+    desenho = _desenhar_croqui(doc)
+    quadro = Table([[desenho]], colWidths=[PAGE_WIDTH], rowHeights=[CROQUI_ALTURA])
+    quadro.setStyle(GRID)
+    elementos.append(quadro)
+    return elementos
+
+
+def _desenhar_croqui(doc: PlanDocument) -> Drawing:
+    largura = PAGE_WIDTH - 2
+    altura = CROQUI_ALTURA - 2
+    desenho = Drawing(largura, altura)
+
+    pontos = [p for faixa in doc.croqui_faixas for p in faixa] + doc.croqui_limite
+    projetar = _projecao(pontos, largura, altura)
+
+    # As faixas primeiro, para o contorno ficar por cima e continuar legível.
+    for faixa in doc.croqui_faixas:
+        if len(faixa) < 2:
+            continue
+        coordenadas: list[float] = []
+        for ponto in faixa:
+            coordenadas.extend(projetar(ponto))
+        desenho.add(PolyLine(coordenadas, strokeColor=colors.HexColor("#8A8F98"), strokeWidth=0.4))
+
+    if len(doc.croqui_limite) >= 3:
+        contorno: list[float] = []
+        for ponto in doc.croqui_limite:
+            contorno.extend(projetar(ponto))
+        desenho.add(
+            Polygon(
+                contorno,
+                strokeColor=colors.black,
+                strokeWidth=1,
+                fillColor=None,
+            )
+        )
+
+    _rosa_dos_ventos(desenho, largura, altura)
+    if doc.croqui_vento_graus is not None:
+        _seta_do_vento(desenho, largura, altura, float(doc.croqui_vento_graus))
+    return desenho
+
+
+def _projecao(pontos: list[tuple[float, float]], largura: float, altura: float):
+    """Converte grau em ponto do papel, mantendo a proporção da área.
+
+    Equirretangular, centrada no próprio talhão: para alguns quilômetros o erro não
+    aparece no desenho, e evita trazer biblioteca de geodésia para imprimir um croqui.
+    """
+    lons = [lon for lon, _lat in pontos]
+    lats = [lat for _lon, lat in pontos]
+    lat_media = sum(lats) / len(lats)
+    escala_lon = math.cos(math.radians(lat_media))
+
+    x = [lon * escala_lon for lon in lons]
+    largura_grau = max(max(x) - min(x), 1e-9)
+    altura_grau = max(max(lats) - min(lats), 1e-9)
+
+    util_x = largura - 2 * CROQUI_MARGEM
+    util_y = altura - 2 * CROQUI_MARGEM
+    escala = min(util_x / largura_grau, util_y / altura_grau)
+
+    # Centraliza o que sobrar, para a área não ficar colada num canto.
+    folga_x = (util_x - largura_grau * escala) / 2
+    folga_y = (util_y - altura_grau * escala) / 2
+
+    def converter(ponto: tuple[float, float]) -> tuple[float, float]:
+        lon, lat = ponto
+        return (
+            CROQUI_MARGEM + folga_x + (lon * escala_lon - min(x)) * escala,
+            CROQUI_MARGEM + folga_y + (lat - min(lats)) * escala,
+        )
+
+    return converter
+
+
+def _rosa_dos_ventos(desenho: Drawing, largura: float, altura: float) -> None:
+    """O norte magnético, que o inciso XI exige no croqui."""
+    x = largura - 10 * mm
+    base, topo = altura - 16 * mm, altura - 6 * mm
+    desenho.add(Line(x, base, x, topo, strokeColor=colors.black, strokeWidth=1))
+    desenho.add(
+        Polygon(
+            [x, topo + 2, x - 2, topo - 2, x + 2, topo - 2],
+            fillColor=colors.black,
+            strokeColor=colors.black,
+        )
+    )
+    desenho.add(String(x - 2, base - 8, "N", fontName="Helvetica-Bold", fontSize=7))
+
+
+def _seta_do_vento(desenho: Drawing, largura: float, altura: float, graus: float) -> None:
+    """A seta do vento, apontando para onde ele sopra.
+
+    O dado meteorológico diz de **onde** o vento vem; a seta do croqui mostra para onde
+    ele vai, que é o lado da deriva. Daí os 180 graus de diferença.
+    """
+    centro_x, centro_y = 14 * mm, altura - 11 * mm
+    raio = 5 * mm
+    rumo = math.radians((graus + 180) % 360)
+    ponta = (centro_x + raio * math.sin(rumo), centro_y + raio * math.cos(rumo))
+    cauda = (centro_x - raio * math.sin(rumo), centro_y - raio * math.cos(rumo))
+
+    desenho.add(
+        Line(cauda[0], cauda[1], ponta[0], ponta[1], strokeColor=colors.black, strokeWidth=1)
+    )
+    lado = math.radians(150)
+    for giro in (rumo + lado, rumo - lado):
+        desenho.add(
+            Line(
+                ponta[0],
+                ponta[1],
+                ponta[0] + 2.5 * mm * math.sin(giro),
+                ponta[1] + 2.5 * mm * math.cos(giro),
+                strokeColor=colors.black,
+                strokeWidth=1,
+            )
+        )
+    desenho.add(
+        String(centro_x - 8 * mm, centro_y - 9 * mm, "Vento", fontName="Helvetica", fontSize=6)
+    )
