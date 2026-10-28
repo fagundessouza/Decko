@@ -20,6 +20,17 @@ export function SignaturePad({ onChange, disabled = false }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const desenhando = useRef(false);
+  /* A referência é a fonte de verdade do traço; o estado existe só para redesenhar.
+   *
+   * Dois eventos de ponteiro podem chegar antes de o React comprometer o primeiro, e aí
+   * o valor que vem do closure está atrasado e o ponto se perde. A referência atualiza na
+   * hora. */
+  const atual = useRef<Linha[]>([]);
+
+  function aplicar(proximas: Linha[]) {
+    atual.current = proximas;
+    setLinhas(proximas);
+  }
 
   // Redesenha sempre que o traço muda — inclusive ao limpar.
   useEffect(() => {
@@ -52,6 +63,11 @@ export function SignaturePad({ onChange, disabled = false }: Props) {
     }
   }, [linhas]);
 
+  /* O ponto é calculado **antes** de chamar o setState, e nunca dentro do atualizador.
+   *
+   * O React reaproveita o objeto do evento: quando o atualizador roda — e ele roda de
+   * novo a cada re-render, e duas vezes no modo estrito — `currentTarget` já é nulo, e a
+   * tela quebra no meio do traço. Foi assim que este defeito apareceu. */
   function posicao(evento: React.PointerEvent<HTMLCanvasElement>): [number, number] {
     const caixa = evento.currentTarget.getBoundingClientRect();
     return [
@@ -65,29 +81,27 @@ export function SignaturePad({ onChange, disabled = false }: Props) {
     // Captura o ponteiro: sem isto, arrastar para fora do quadro corta o traço no meio.
     evento.currentTarget.setPointerCapture(evento.pointerId);
     desenhando.current = true;
-    setLinhas((atual) => [...atual, [posicao(evento)]]);
+
+    aplicar([...atual.current, [posicao(evento)]]);
   }
 
   function seguir(evento: React.PointerEvent<HTMLCanvasElement>) {
     if (!desenhando.current) return;
-    setLinhas((atual) => {
-      const copia = [...atual];
-      copia[copia.length - 1] = [...copia[copia.length - 1], posicao(evento)];
-      return copia;
-    });
+
+    if (atual.current.length === 0) return;
+    const copia = [...atual.current];
+    copia[copia.length - 1] = [...copia[copia.length - 1], posicao(evento)];
+    aplicar(copia);
   }
 
   function terminar() {
     if (!desenhando.current) return;
     desenhando.current = false;
-    setLinhas((atual) => {
-      onChange(atual);
-      return atual;
-    });
+    onChange(atual.current);
   }
 
   function limpar() {
-    setLinhas([]);
+    aplicar([]);
     onChange([]);
   }
 

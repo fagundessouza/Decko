@@ -479,8 +479,25 @@ def hash_do_documento(doc: PlanDocument) -> str:
     """
     conteudo = asdict(doc)
     conteudo.pop("assinaturas", None)
-    canonico = json.dumps(conteudo, sort_keys=True, default=str, ensure_ascii=False)
+    canonico = json.dumps(_canonico(conteudo), sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(canonico.encode("utf-8")).hexdigest()
+
+
+def _canonico(valor: object) -> object:
+    """Deixa a estrutura serializável, com chave sempre em texto.
+
+    O bloco meteorológico é indexado por ``(periodo, momento)``, e ``json.dumps`` não
+    aceita tupla como chave — ``default=str`` resolve o valor, nunca a chave. Converter
+    aqui, e de forma recursiva, é o que faz o hash funcionar para qualquer documento, e
+    não só para os que não têm leitura.
+    """
+    if isinstance(valor, dict):
+        return {str(chave): _canonico(item) for chave, item in valor.items()}
+    if isinstance(valor, list | tuple):
+        return [_canonico(item) for item in valor]
+    if isinstance(valor, str | int | float | bool) or valor is None:
+        return valor
+    return str(valor)
 
 
 def _validar_traco(traco: list[list[list[float]]]) -> dict[str, object]:

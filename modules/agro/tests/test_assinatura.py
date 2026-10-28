@@ -11,6 +11,7 @@ Decisões e limites: ``docs/discovery/assinaturas-dois-modulos.md``.
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import date, time
 from decimal import Decimal
 
 import pytest_asyncio
@@ -19,7 +20,8 @@ from sqlalchemy import delete
 
 from decko.db import SessionFactory
 from decko.main import create_app
-from decko_modules.agro.models import Client, OperationalPlan, Property
+from decko_modules.agro.enums import Momento, Periodo, WeatherSource
+from decko_modules.agro.models import Client, OperationalPlan, Property, WeatherReading
 from decko_modules.core.cli import _bootstrap
 from decko_modules.core.models import Tenant
 
@@ -89,6 +91,25 @@ async def cenario() -> AsyncIterator[Cenario]:
         session.add(plano)
         await session.flush()
         plan_id = plano.id
+
+        # Com leitura de clima de propósito: o bloco meteorológico é indexado por tupla,
+        # e foi isso que quebrou o hash na primeira vez que o documento tinha uma.
+        session.add(
+            WeatherReading(
+                tenant_id=tenant_id,
+                plan_id=plano.id,
+                data=date(2026, 10, 20),
+                periodo=Periodo.MATUTINO,
+                momento=Momento.INICIO,
+                hora=time(7, 30),
+                temperatura_c=Decimal("24.30"),
+                umidade_relativa_pct=Decimal("71.00"),
+                velocidade_vento_kmh=Decimal("8.20"),
+                direcao_vento_graus=Decimal("135"),
+                source=WeatherSource.API,
+                provider="open-meteo/archive",
+            )
+        )
 
     async with AsyncClient(
         transport=ASGITransport(app=create_app()), base_url="http://test"

@@ -370,6 +370,12 @@ function Assinaturas({ planId }: { planId: string }) {
   const [nome, setNome] = useState("");
   const [registro, setRegistro] = useState("");
   const [traco, setTraco] = useState<number[][][]>([]);
+  /* Troca a chave do quadro a cada assinatura, para ele voltar vazio.
+   *
+   * Zerar só o estado daqui não apaga o desenho: o traço vive dentro do quadro. Remontar
+   * é o jeito do React de dizer "comece de novo", e é mais honesto que um `ref` para
+   * mandar o filho se limpar. */
+  const [rodada, setRodada] = useState(0);
   const [feito, setFeito] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [divergentes, setDivergentes] = useState<PapelAssinatura[]>([]);
@@ -398,6 +404,7 @@ function Assinaturas({ planId }: { planId: string }) {
       setNome("");
       setRegistro("");
       setTraco([]);
+      setRodada((n) => n + 1);
     } catch (cause) {
       setErro(
         cause instanceof Error && cause.message ? cause.message : "Não foi possível assinar.",
@@ -451,7 +458,7 @@ function Assinaturas({ planId }: { planId: string }) {
           onChange={(e) => setRegistro(e.target.value)}
         />
 
-        <SignaturePad onChange={setTraco} disabled={busy} />
+        <SignaturePad key={rodada} onChange={setTraco} disabled={busy} />
 
         <Button
           loading={busy}
