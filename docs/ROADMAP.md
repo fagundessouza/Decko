@@ -15,6 +15,9 @@ Ao concluir uma etapa, marque aqui na mesma alteração que entrega o código.
 - [x] Discovery do módulo Agro a partir do formulário real (`docs/discovery/`)
 - [x] Estrutura do monorepo e regras para a IA (`CLAUDE.md`)
 - [ ] Repositório no GitHub com Git Flow, Projects e Issues por milestone
+- [x] Integração contínua: `pytest` contra PostgreSQL real, com os dois papéis do ambiente
+      local e a conferência de que a aplicação não ignora RLS, mais lint, formatação,
+      tipos e build do web — `.github/workflows/ci.yml`
 
 ## Fase 1 — Fundação
 

@@ -60,6 +60,22 @@ Uma issue descreve o problema e o critério de aceite — não a solução. A so
 - Segredo nunca entra no repositório.
 - Migração de banco só via Alembic.
 
+### Integração contínua
+
+`.github/workflows/ci.yml` roda em todo pull request e em push para `main`, `staging` e
+`develop`. São dois trabalhos:
+
+- **Backend** — sobe um PostgreSQL 18 de verdade, cria os **mesmos dois papéis** do ambiente
+  local (`decko_owner` e `decko_app`), aplica as migrações, confere que `decko_app` **não**
+  ignora RLS, e então roda `ruff check`, `ruff format --check` e `pytest`.
+- **Frontend** — `oxlint`, `tsc -b` e build.
+
+A conferência do `rolbypassrls` existe porque um papel que ignorasse RLS faria todo teste de
+isolamento passar por engano: ausência de falha é a pior maneira de descobrir isso.
+
+A suíte não toca a rede. A conferência de senha vazada fica desligada por `conftest.py` na
+raiz, e é exercitada com um cliente HTTP que o próprio teste responde.
+
 ## Ambiente
 
 Pré-requisitos: Python 3.13+, Node 20+, PostgreSQL 18, [uv](https://docs.astral.sh/uv/).
