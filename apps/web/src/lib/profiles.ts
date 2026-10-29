@@ -33,6 +33,25 @@ export interface SeedResult {
   created: string[];
 }
 
+/** Uma linha da trilha de auditoria. `action` vem como o servidor a gravou. */
+export interface AuditEntry {
+  id: string;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  data: Record<string, unknown> | null;
+  ip_address: string | null;
+  created_at: string;
+  user_id: string | null;
+  /** Nulo quando a ação não teve autor, ou quando o usuário foi removido depois. */
+  author: string | null;
+}
+
+export interface AuditPage {
+  total: number;
+  entries: AuditEntry[];
+}
+
 export const platform = {
   listProfiles: (): Promise<Profile[]> => authedJson("/core/profiles"),
 
@@ -52,4 +71,13 @@ export const platform = {
   /** Traz os itens iniciais do módulo. Repetir não duplica nem recria o que foi apagado. */
   seedModule: (name: string): Promise<SeedResult> =>
     authedJson(`/core/modules/${name}/seed`, { method: "POST" }),
+
+  /** A trilha de auditoria da empresa, da mais recente para a mais antiga. */
+  readAudit: (params: { prefixo?: string; limit?: number; offset?: number } = {}) => {
+    const busca = new URLSearchParams();
+    if (params.prefixo) busca.set("action_prefix", params.prefixo);
+    busca.set("limit", String(params.limit ?? 50));
+    busca.set("offset", String(params.offset ?? 0));
+    return authedJson(`/core/audit?${busca.toString()}`) as Promise<AuditPage>;
+  },
 };

@@ -46,10 +46,11 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       transação própria, porque a requisição recusada desfaz a dela. Tentativa contra
       empresa inexistente continua sem registro: `audit_log.tenant_id` é obrigatório e
       não há empresa a que prender a linha
-- [ ] **Ler** a trilha. A permissão `core.audit.read` existe no manifesto desde o começo e
-      não tem consumidor: hoje a trilha só se lê por SQL. Escrever sem poder consultar
-      atende a LGPD pela metade — o titular tem direito de saber o que foi feito com o
-      dado dele
+- [x] Tela de consulta da trilha: `GET /core/audit` com filtro por grupo, página e total,
+      e a tela que traduz a ação para o português. A permissão `core.audit.read` existia no
+      manifesto desde o começo sem consumidor nenhum — escrever a trilha sem poder
+      consultar atende a LGPD pela metade. A tradução mora na interface: ação que ela ainda
+      não conhece aparece com o nome técnico, que é feio e honesto
 - [ ] Troca de empresa para quem opera em mais de uma
 - [x] Perfil de segmento: `profiles/*.toml`, tela de escolha do ramo e contratação em um
       clique — ver `docs/adr/0005-perfil-de-segmento.md`

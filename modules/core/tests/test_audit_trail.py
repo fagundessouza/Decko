@@ -255,3 +255,113 @@ async def test_a_trilha_nunca_guarda_a_senha(conta: Conta) -> None:
     assert PASSWORD not in tudo
     assert "outra-senha-999" not in tudo
     assert conta.refresh not in tudo
+
+
+# ---------------------------------------------------------------- consulta
+
+
+async def _consultar(conta: Conta, **params: object) -> dict[str, object]:
+    resposta = await conta.client.get(f"{CORE}/audit", headers=conta.auth, params=params)
+    assert resposta.status_code == 200, resposta.text
+    return dict(resposta.json())
+
+
+async def test_consultar_traz_a_trilha_com_o_nome_de_quem_agiu(conta: Conta) -> None:
+    pagina = await _consultar(conta)
+
+    acoes = [entrada["action"] for entrada in pagina["entries"]]
+    assert "auth.login" in acoes
+    entrada = next(item for item in pagina["entries"] if item["action"] == "auth.login")
+    assert entrada["author"] == "Administrador"
+
+
+async def test_a_mais_recente_vem_primeiro(conta: Conta) -> None:
+    """Quem abre a tela quer saber o que acabou de acontecer, não o cadastro da empresa."""
+    await conta.client.post(f"{CORE}/modules/comercial/activate", headers=conta.auth)
+
+    pagina = await _consultar(conta)
+
+    assert pagina["entries"][0]["action"] == "module.activate"
+    assert pagina["entries"][-1]["action"] == "tenant.bootstrap"
+
+
+async def test_filtrar_por_grupo(conta: Conta) -> None:
+    await conta.client.post(f"{CORE}/modules/comercial/activate", headers=conta.auth)
+
+    autenticacao = await _consultar(conta, action_prefix="auth.")
+    aplicativos = await _consultar(conta, action_prefix="module.")
+
+    assert {entrada["action"] for entrada in autenticacao["entries"]} == {"auth.login"}
+    assert {entrada["action"] for entrada in aplicativos["entries"]} == {"module.activate"}
+
+
+async def test_curinga_no_filtro_nao_vira_varredura(conta: Conta) -> None:
+    """``%`` é curinga no LIKE. Sem escapar, este filtro devolveria tudo."""
+    pagina = await _consultar(conta, action_prefix="%")
+
+    assert pagina["entries"] == []
+    assert pagina["total"] == 0
+
+
+async def test_total_acompanha_a_pagina(conta: Conta) -> None:
+    """A tela diz "1 a 50 de 3.412", e o total não pode ser o tamanho da página."""
+    await conta.client.post(f"{CORE}/modules/comercial/activate", headers=conta.auth)
+
+    pagina = await _consultar(conta, limit=1)
+
+    assert len(pagina["entries"]) == 1
+    assert pagina["total"] >= 3
+
+
+async def test_pagina_seguinte_nao_repete(conta: Conta) -> None:
+    await conta.client.post(f"{CORE}/modules/comercial/activate", headers=conta.auth)
+
+    primeira = await _consultar(conta, limit=1, offset=0)
+    segunda = await _consultar(conta, limit=1, offset=1)
+
+    assert primeira["entries"][0]["id"] != segunda["entries"][0]["id"]
+
+
+async def test_autor_fica_nulo_quando_nao_houve_conta(conta: Conta) -> None:
+    await conta.client.post(
+        f"{CORE}/auth/login",
+        json={
+            "tenant_slug": conta.slug,
+            "email": "nao-existe@exemplo.com.br",
+            "password": "qualquer-coisa-123",
+        },
+    )
+
+    pagina = await _consultar(conta, action_prefix="auth.login.failed")
+
+    assert pagina["entries"][0]["author"] is None
+
+
+async def test_consultar_exige_autenticacao(conta: Conta) -> None:
+    sem_token = await conta.client.get(f"{CORE}/audit")
+
+    assert sem_token.status_code == 401
+
+
+async def test_uma_empresa_nao_le_a_trilha_da_outra(conta: Conta) -> None:
+    """A trilha tem RLS, e a consulta não filtra por empresa no código — o banco filtra."""
+    async with SessionFactory() as session, session.begin():
+        outra, _user, _granted = await _bootstrap(
+            session,
+            tenant_name="Empresa Alheia",
+            tenant_slug=f"alheia-{uuid.uuid4().hex[:8]}",
+            admin_email=f"outro-{uuid.uuid4().hex[:8]}@teste-decko.com.br",
+            admin_name="Outro",
+            password=PASSWORD,
+            modules=[],
+        )
+        outra_id = outra.id
+
+    try:
+        pagina = await _consultar(conta)
+        assert all(entrada["author"] != "Outro" for entrada in pagina["entries"])
+        # A empresa alheia tem a própria linha de cadastro, e ela não entra nesta contagem.
+        assert pagina["total"] == len(await _trilha(conta.tenant_id))
+    finally:
+        async with SessionFactory() as session, session.begin():
+            await session.execute(delete(Tenant).where(Tenant.id == outra_id))

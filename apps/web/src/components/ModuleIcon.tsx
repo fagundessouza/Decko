@@ -5,6 +5,7 @@ import home from "../assets/icons/home.png";
 import people from "../assets/icons/people.png";
 import register from "../assets/icons/register.png";
 import settings from "../assets/icons/settings.png";
+import shield from "../assets/icons/shield.png";
 import store from "../assets/icons/store.png";
 import truck from "../assets/icons/truck.png";
 
@@ -22,6 +23,7 @@ const ARTE: Record<string, string> = {
   people,
   register,
   settings,
+  shield,
   store,
   truck,
 };

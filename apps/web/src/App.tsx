@@ -28,6 +28,7 @@ import { PlanDetailPage } from "./pages/PlanDetailPage";
 import { PlansPage } from "./pages/PlansPage";
 import { ProdutoDetailPage } from "./pages/ProdutoDetailPage";
 import { ProdutosPage } from "./pages/ProdutosPage";
+import { TrilhaPage } from "./pages/TrilhaPage";
 import { UnidadesPage } from "./pages/UnidadesPage";
 
 /* Navegação por estado, sem biblioteca de rotas: o peso do pacote é requisito, não
@@ -38,6 +39,7 @@ type View =
   | { name: "aplicativos" }
   | { name: "plans" }
   | { name: "company" }
+  | { name: "trilha" }
   | { name: "consolidation" }
   | { name: "pilotos" }
   | { name: "newPlan" }
@@ -72,6 +74,7 @@ const SECTION: Record<View["name"], string> = {
   produto: "comercial",
   unidades: "comercial",
   company: "company",
+  trilha: "trilha",
 };
 
 export default function App() {
@@ -110,6 +113,7 @@ export default function App() {
   const hasClientes = info.active_modules.includes("clientes");
   const canEditCompany = info.permissions.includes("core.tenant.update");
   const canInstall = info.permissions.includes("core.module.activate");
+  const canReadAudit = info.permissions.includes("core.audit.read");
 
   // A sessão é relida porque o menu depende dos módulos ativos, que acabaram de mudar no
   // servidor. Com token novo, porque instalar um aplicativo também concede permissões —
@@ -200,6 +204,14 @@ export default function App() {
       label: "Dados da empresa",
       icon: <ModuleIcon name="store" size={22} />,
       onSelect: () => setView({ name: "company" }),
+    });
+  }
+  if (canReadAudit) {
+    items.push({
+      key: "trilha",
+      label: "Trilha de auditoria",
+      icon: <ModuleIcon name="shield" size={22} />,
+      onSelect: () => setView({ name: "trilha" }),
     });
   }
 
@@ -350,6 +362,8 @@ export default function App() {
       {view.name === "pilotos" && <PilotosPage onBack={() => setView({ name: "plans" })} />}
 
       {view.name === "company" && <CompanyPage onBack={() => setView({ name: "home" })} />}
+
+      {view.name === "trilha" && <TrilhaPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "consolidation" && (
         <ConsolidationPage onBack={() => setView({ name: "plans" })} />

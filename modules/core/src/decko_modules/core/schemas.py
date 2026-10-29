@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field
 
@@ -110,6 +110,35 @@ class SeedResultOut(BaseModel):
 
     module: str
     created: list[str]
+
+
+class AuditEntryOut(BaseModel):
+    """Uma linha da trilha, como a tela de consulta a mostra.
+
+    ``action`` sai como está — ``auth.login.failed`` — e quem traduz para o português é a
+    interface. Texto de tela no servidor obrigaria a soltar versão do servidor para
+    corrigir uma palavra, e a interface precisa mesmo de um padrão para ação que ela ainda
+    não conhece.
+    """
+
+    id: uuid.UUID
+    action: str
+    entity: str
+    entity_id: str | None
+    data: dict[str, Any] | None
+    ip_address: str | None
+    created_at: datetime
+    user_id: uuid.UUID | None
+    # Nulo quando a ação não teve autor, ou quando o usuário foi removido depois: a chave
+    # estrangeira é SET NULL, e a trilha sobrevive a quem a gerou.
+    author: str | None
+
+
+class AuditPageOut(BaseModel):
+    """Uma página da trilha, com o total para a tela saber o tamanho do histórico."""
+
+    total: int
+    entries: list[AuditEntryOut]
 
 
 class ProfileOut(BaseModel):

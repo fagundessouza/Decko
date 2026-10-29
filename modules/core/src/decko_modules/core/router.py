@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
@@ -11,6 +11,8 @@ from decko_modules.core import activation, audit, service
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.core.models import Tenant, User
 from decko_modules.core.schemas import (
+    AuditEntryOut,
+    AuditPageOut,
     LoginRequest,
     ModuleOut,
     ProfileOut,
@@ -136,6 +138,44 @@ async def me(principal: CurrentPrincipal, session: SessionDep) -> SessionOut:
         # ativou. A interface monta o menu a partir desta lista, não do prefixo das
         # permissões — ver docs/adr/0004-ativacao-de-modulo-por-empresa.md.
         active_modules=await activation.active_modules(session, principal.tenant_id),
+    )
+
+
+@router.get("/audit", response_model=AuditPageOut)
+async def read_audit(
+    session: SessionDep,
+    _: Annotated[object, Depends(require("core.audit.read"))],
+    action_prefix: Annotated[str | None, Query(max_length=80)] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> AuditPageOut:
+    """A trilha desta empresa, do mais recente para o mais antigo.
+
+    Escrever a trilha sem poder consultá-la atende a LGPD pela metade: o titular tem
+    direito de saber o que foi feito com o dado dele, e isso exige alguém conseguindo
+    olhar. A permissão ``core.audit.read`` existe desde a primeira versão e era esta rota
+    que faltava.
+
+    Somente leitura, como a tabela: a trilha não tem rota de escrita nem de exclusão, e
+    quem registra é o fluxo que agiu.
+    """
+    pagina = await audit.consultar(session, action_prefix=action_prefix, limit=limit, offset=offset)
+    return AuditPageOut(
+        total=pagina.total,
+        entries=[
+            AuditEntryOut(
+                id=entrada.log.id,
+                action=entrada.log.action,
+                entity=entrada.log.entity,
+                entity_id=entrada.log.entity_id,
+                data=entrada.log.data,
+                ip_address=str(entrada.log.ip_address) if entrada.log.ip_address else None,
+                created_at=entrada.log.created_at,
+                user_id=entrada.log.user_id,
+                author=entrada.autor,
+            )
+            for entrada in pagina.entradas
+        ],
     )
 
 
