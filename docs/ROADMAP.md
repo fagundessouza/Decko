@@ -36,8 +36,12 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
 - [x] Ativação de módulo por empresa: `tenant_module`, verificação aplicada pelo host na
       montagem do router, catálogo e contratação pela API, menu alimentado pelos módulos
       ativos — ver `docs/adr/0004-ativacao-de-modulo-por-empresa.md`
-- [ ] Recusar senha conhecidamente vazada no cadastro e na troca. Vale mais que exigir
-      comprimento alto, que é o que o mínimo de caracteres tenta aproximar e não entrega
+- [x] Recusar senha conhecidamente vazada: Pwned Passwords por k-anonimato, só o prefixo
+      de cinco caracteres do SHA-1 sai daqui. Falha **aberta** — serviço fora do ar não
+      pode impedir alguém de trabalhar — e desligável para instalação sem internet. Entra
+      onde a senha é definida, que hoje é só o cadastro da empresa: troca de senha não
+      existe para ser ligada, e inventar a rota agora seria fazer o item errado — ver
+      `docs/adr/0011-senha-conhecidamente-vazada.md`
 - [x] Escrita na trilha de auditoria na autenticação e na contratação: entrada, saída,
       tentativa recusada, token revogado reapresentado, e módulo contratado, desligado ou
       semeado. Duas decisões ficaram registradas em `modules/core/.../audit.py`: o e-mail
@@ -51,7 +55,13 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       manifesto desde o começo sem consumidor nenhum — escrever a trilha sem poder
       consultar atende a LGPD pela metade. A tradução mora na interface: ação que ela ainda
       não conhece aparece com o nome técnico, que é feio e honesto
-- [ ] Troca de empresa para quem opera em mais de uma
+- [x] Troca de empresa para quem opera em mais de uma: seletor na lateral, com as
+      empresas que já entraram **neste aparelho**. Não há rota que liste "as minhas
+      empresas", e isso é a decisão central: a consulta exigiria atravessar o RLS com
+      privilégio e devolveria um oráculo de enumeração. Trocar pede a senha, porque as
+      contas são independentes — ver `docs/adr/0012-troca-de-empresa.md`. A tela de
+      escolha de ramo ganhou saída e troca junto: sem elas, entrar numa empresa sem módulo
+      prendia a pessoa ali
 - [x] Perfil de segmento: `profiles/*.toml`, tela de escolha do ramo e contratação em um
       clique — ver `docs/adr/0005-perfil-de-segmento.md`
 - [x] Vitrine de aplicativos: catálogo agrupado por categoria, com instalar e desinstalar
@@ -72,6 +82,9 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       acrescentar" em vez de duplicar
 
 **Demonstrável:** login, troca de empresa, e a prova de que um tenant não enxerga dados do outro.
+
+**Fase concluída em 29/10/2026.** As duas pendências abaixo seguem valendo — elas são
+limitações conhecidas, não itens de escopo, e por isso nunca foram caixas a marcar.
 
 Estado atual: o ciclo completo funciona e foi verificado no navegador — login, permissões
 vindas dos manifestos dos módulos, alternância de tema, sessão sobrevivendo ao recarregar

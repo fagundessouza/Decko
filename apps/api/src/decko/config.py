@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     migration_database_url: str
 
     secret_key: str
+    # Conferir a senha escolhida contra vazamentos conhecidos. Desligar é para instalação
+    # sem internet, onde a consulta é latência garantida sem resposta possível — ver
+    # docs/adr/0011-senha-conhecidamente-vazada.md.
+    breach_check_enabled: bool = True
     access_token_ttl_seconds: int = 900
     refresh_token_ttl_seconds: int = 60 * 60 * 24 * 14
 

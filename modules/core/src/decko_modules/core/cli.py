@@ -32,6 +32,7 @@ from decko.db import SessionFactory, bind_tenant, engine
 from decko.modules import discover, import_packages
 from decko_modules.core.activation import ADMIN_ROLE_NAME
 from decko_modules.core.activation import activate as activate_module
+from decko_modules.core.breach import SenhaVazadaError, recusar_se_vazada
 from decko_modules.core.models import (
     AuditLog,
     Role,
@@ -147,6 +148,11 @@ async def _bootstrap(
     for permission in permissions:
         session.add(RolePermission(tenant_id=tenant.id, role_id=role.id, permission=permission))
 
+    # Antes de guardar: senha que já vazou é adivinhada em segundos, e a do administrador
+    # é a que abre tudo. Falha aberta quando a conferência não pode ser feita — ver
+    # docs/adr/0011-senha-conhecidamente-vazada.md.
+    await recusar_se_vazada(password, habilitada=get_settings().breach_check_enabled)
+
     user = User(
         tenant_id=tenant.id,
         email=admin_email.strip().lower(),
@@ -240,7 +246,9 @@ async def _run_bootstrap(args: argparse.Namespace) -> int:
                 modules=args.modules,
             )
             summary = (tenant.name, tenant.slug, user.email, granted)
-    except BootstrapError as exc:
+    except (BootstrapError, SenhaVazadaError) as exc:
+        # A senha vazada chega aqui como as demais recusas: a mensagem dela já é para quem
+        # está cadastrando, e um rastro de pilha na tela não ajudaria a escolher outra.
         print(f"erro: {exc}", file=sys.stderr)
         return 1
     finally:

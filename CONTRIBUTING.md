@@ -106,6 +106,11 @@ O identificador é normalizado: `AgroDrone` e `Agro Drone` viram `agrodrone` e `
 e o comando informa o valor gravado. Em execução automatizada, sem terminal para responder
 ao pedido de senha, defina `DECKO_ADMIN_PASSWORD` — sem isso o comando fica esperando.
 
+A senha escolhida é conferida contra vazamentos conhecidos, e recusada se aparecer em um.
+Só os cinco primeiros caracteres do SHA-1 saem da máquina, nunca a senha; o serviço fora do
+ar deixa a senha passar, com aviso no log. Em instalação sem internet, desligue com
+`DECKO_BREACH_CHECK_ENABLED=false` — ver `docs/adr/0011-senha-conhecidamente-vazada.md`.
+
 ### Frontend
 
 ```powershell

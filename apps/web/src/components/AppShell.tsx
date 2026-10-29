@@ -18,6 +18,8 @@ interface Props {
   activeKey: string;
   onHome: () => void;
   onSignOut: () => void;
+  /** Abre a troca de empresa. Ausente quando a sessão não pode trocar. */
+  onSwitchCompany?: () => void;
   children: ReactNode;
 }
 
@@ -33,6 +35,7 @@ export function AppShell({
   activeKey,
   onHome,
   onSignOut,
+  onSwitchCompany,
   children,
 }: Props) {
   const [drawer, setDrawer] = useState(false);
@@ -93,6 +96,15 @@ export function AppShell({
       </div>
       <div className="mt-1 flex flex-col gap-1">
         <ThemeToggle onDark />
+        {onSwitchCompany && (
+          <button
+            type="button"
+            onClick={onSwitchCompany}
+            className="min-h-touch rounded-dk px-3 text-left text-base text-white/70 hover:bg-white/5 hover:text-white"
+          >
+            Trocar de empresa
+          </button>
+        )}
         <button
           type="button"
           onClick={onSignOut}

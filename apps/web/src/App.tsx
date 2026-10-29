@@ -11,6 +11,7 @@ import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
 import { comercial } from "./lib/comercial";
 import type { Alertas, Produto } from "./lib/comercial";
+import { TrocarEmpresa } from "./components/TrocarEmpresa";
 import { AplicativosPage } from "./pages/AplicativosPage";
 import { ChooseProfilePage } from "./pages/ChooseProfilePage";
 import { ClientesPage } from "./pages/ClientesPage";
@@ -84,6 +85,7 @@ export default function App() {
   /* Empresa nova: a primeira tela é a escolha do ramo, mas quem prefere montar aplicativo
    * por aplicativo troca para a vitrine aqui mesmo, antes de existir menu. */
   const [montandoNaMao, setMontandoNaMao] = useState(false);
+  const [trocando, setTrocando] = useState(false);
 
   useEffect(() => {
     restoreSession()
@@ -125,9 +127,35 @@ export default function App() {
   if (info.active_modules.length === 0 && canInstall) {
     return (
       <div className="min-h-dvh bg-bg">
-        <header className="bg-brand-deep px-5 py-4 sm:px-8">
-          <p className="text-lg font-bold tracking-tight text-white">Decko</p>
-          <p className="text-sm text-white/60">{info.tenant.name}</p>
+        {/* Esta tela não tem o menu lateral, e por isso precisa das duas saídas aqui: sem
+            elas, quem entra numa empresa sem módulo nenhum fica preso na escolha do ramo —
+            sem como sair e sem como voltar para a empresa de onde veio. */}
+        <header className="flex flex-wrap items-center justify-between gap-3 bg-brand-deep px-5 py-4 sm:px-8">
+          <div className="min-w-0">
+            <p className="text-lg font-bold tracking-tight text-white">Decko</p>
+            <p className="truncate text-sm text-white/60">{info.tenant.name}</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setTrocando(true)}
+              className="min-h-touch rounded-dk px-3 text-base text-white/70 hover:bg-white/5 hover:text-white"
+            >
+              Trocar de empresa
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void logout().then(() => {
+                  setInfo(null);
+                  setView({ name: "home" });
+                });
+              }}
+              className="min-h-touch rounded-dk px-3 text-base text-white/70 hover:bg-white/5 hover:text-white"
+            >
+              Sair
+            </button>
+          </div>
         </header>
         {montandoNaMao ? (
           <AplicativosPage onChanged={reloadSession} />
@@ -137,6 +165,19 @@ export default function App() {
             onBrowseApps={() => setMontandoNaMao(true)}
           />
         )}
+
+        <TrocarEmpresa
+          open={trocando}
+          slugAtual={info.tenant.slug}
+          emailAtual={info.user.email}
+          onClose={() => setTrocando(false)}
+          onTrocado={(nova) => {
+            setTrocando(false);
+            setInfo(nova);
+            setMontandoNaMao(false);
+            setView({ name: "home" });
+          }}
+        />
       </div>
     );
   }
@@ -222,6 +263,7 @@ export default function App() {
       items={items}
       activeKey={SECTION[view.name]}
       onHome={() => setView({ name: "home" })}
+      onSwitchCompany={() => setTrocando(true)}
       onSignOut={() => {
         void logout().then(() => {
           setInfo(null);
@@ -400,6 +442,20 @@ export default function App() {
       {view.name === "unidades" && (
         <UnidadesPage onBack={() => setView({ name: "produtos" })} />
       )}
+
+      <TrocarEmpresa
+        open={trocando}
+        slugAtual={info.tenant.slug}
+        emailAtual={info.user.email}
+        onClose={() => setTrocando(false)}
+        onTrocado={(nova) => {
+          setTrocando(false);
+          setInfo(nova);
+          // A empresa nova tem outros módulos e outras permissões: ficar na tela anterior
+          // levaria a um 404 do servidor ou a um menu que não combina com o que se vê.
+          setView({ name: "home" });
+        }}
+      />
     </AppShell>
   );
 }

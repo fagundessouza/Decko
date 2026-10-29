@@ -97,8 +97,27 @@ export async function login(credentials: Credentials): Promise<SessionInfo> {
   }
 
   storeTokens(await response.json());
-  session.setTenantSlug(credentials.tenantSlug.trim().toLowerCase());
-  return fetchSession();
+  const slug = credentials.tenantSlug.trim().toLowerCase();
+  session.setTenantSlug(slug);
+
+  const info = await fetchSession();
+  // O seletor de empresa lembra o que já entrou neste aparelho; o servidor não guarda
+  // nem responde essa lista — ver docs/adr/0012-troca-de-empresa.md.
+  session.rememberCompany({ slug, name: info.tenant.name });
+  return info;
+}
+
+/** Entra em outra empresa, encerrando antes a sessão da atual.
+ *
+ * Trocar de empresa **é entrar**: as contas são independentes e os hashes de senha
+ * também, então aceitar a sessão de uma como prova para outra faria o token de uma valer
+ * na outra. O que a tela poupa é digitar código e e-mail de novo, e perder o contexto.
+ *
+ * A sessão anterior é revogada primeiro: o `localStorage` guarda um token por vez, e sem
+ * isso o da empresa de origem ficaria vivo e sem como ser revogado depois. */
+export async function switchCompany(credentials: Credentials): Promise<SessionInfo> {
+  await logout();
+  return login(credentials);
 }
 
 async function requestNewTokens(): Promise<boolean> {
