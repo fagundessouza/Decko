@@ -53,6 +53,11 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       `noupdate` do Odoo — ver `docs/adr/0010-dado-semente-com-identidade-estavel.md`.
       A semente que embarcou é só `UN`, `KG` e `L`: fator de embalagem e categoria por
       segmento são suposição enquanto não houver discovery (regra 6)
+- [x] "Trazer itens iniciais" na vitrine, para a empresa que instalou o módulo antes de a
+      semente existir. A semente entra na contratação e só nela, de propósito — catálogo
+      de quem já opera não recebe linha numa subida de aplicação que ninguém pediu —, e
+      este é o pedido explícito de quem ficou de fora. Clicar duas vezes diz "nada a
+      acrescentar" em vez de duplicar
 
 **Demonstrável:** login, troca de empresa, e a prova de que um tenant não enxerga dados do outro.
 

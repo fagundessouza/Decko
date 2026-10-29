@@ -31,6 +31,16 @@ def register_seed_loader(module_name: str, loader: SeedLoader) -> None:
     _loaders[module_name] = loader
 
 
+def has_seed(module_name: str) -> bool:
+    """Este módulo traz itens iniciais?
+
+    A vitrine precisa saber: só oferece "trazer itens iniciais" para módulo que tenha o
+    que trazer. Quem responde é o host, pelo que foi registrado — não uma lista escrita à
+    mão na interface, que sairia de sincronia no primeiro módulo novo.
+    """
+    return module_name in _loaders
+
+
 async def apply_seed(session: AsyncSession, *, module_name: str, tenant_id: uuid.UUID) -> list[str]:
     """Aplica a semente daquele módulo naquela empresa.
 

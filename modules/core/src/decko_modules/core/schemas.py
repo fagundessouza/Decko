@@ -95,6 +95,21 @@ class ModuleOut(BaseModel):
     accent: str
     # O que o módulo precisa que já esteja instalado. A vitrine avisa antes de instalar.
     depends: list[str]
+    # Se o módulo traz itens iniciais. A empresa que o instalou antes de a semente existir
+    # não os tem, e a vitrine é onde ela pede — ver ADR 0010, decisão 3.
+    has_seed: bool = False
+
+
+class SeedResultOut(BaseModel):
+    """O que a carga de itens iniciais acrescentou.
+
+    Devolve os identificadores, e não só a contagem, para a conferência saber **o que**
+    entrou. A tela mostra o número, porque ``comercial.unidade.un`` não é frase para quem
+    opera uma loja.
+    """
+
+    module: str
+    created: list[str]
 
 
 class ProfileOut(BaseModel):

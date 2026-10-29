@@ -28,6 +28,7 @@ export function AplicativosPage({ onChanged }: Props) {
   const [busca, setBusca] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recado, setRecado] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<Module | null>(null);
 
   function recarregar() {
@@ -68,6 +69,30 @@ export function AplicativosPage({ onChanged }: Props) {
       onChanged();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível desinstalar.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* Traz os itens iniciais para uma empresa que instalou o módulo antes de a semente
+   * existir. Quem contrata agora já os recebe na instalação — ver ADR 0010, decisão 3. */
+  async function semear(module: Module) {
+    setBusy(module.name);
+    setError(null);
+    setRecado(null);
+    try {
+      const resultado = await platform.seedModule(module.name);
+      setRecado(
+        resultado.created.length === 0
+          ? `${module.label}: nada a acrescentar, os itens iniciais já estão aí.`
+          : `${module.label}: ${resultado.created.length} ${
+              resultado.created.length === 1 ? "item acrescentado" : "itens acrescentados"
+            }.`,
+      );
+      // O menu não muda, mas a tela do módulo passa a ter conteúdo.
+      onChanged();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível trazer os itens.");
     } finally {
       setBusy(null);
     }
@@ -120,6 +145,12 @@ export function AplicativosPage({ onChanged }: Props) {
         </div>
       )}
 
+      {recado && (
+        <div className="mb-6">
+          <Alert tone="success">{recado}</Alert>
+        </div>
+      )}
+
       <div className="mb-8 max-w-md">
         <TextField
           label="Procurar"
@@ -159,6 +190,7 @@ export function AplicativosPage({ onChanged }: Props) {
                     busy={busy === module.name}
                     onInstalar={() => void instalar(module)}
                     onDesinstalar={() => setConfirmar(module)}
+                    onSemear={() => void semear(module)}
                   />
                 </li>
               ))}
@@ -202,6 +234,7 @@ function AppCard({
   busy,
   onInstalar,
   onDesinstalar,
+  onSemear,
 }: {
   module: Module;
   /** As que ainda não estão lá e virão junto. Quem instala precisa saber o que vem. */
@@ -209,6 +242,7 @@ function AppCard({
   busy: boolean;
   onInstalar: () => void;
   onDesinstalar: () => void;
+  onSemear: () => void;
 }) {
   const aviso =
     dependencias.length > 0 && !module.active
@@ -236,9 +270,18 @@ function AppCard({
             Faz parte da plataforma. Não pode ser desinstalado.
           </p>
         ) : module.active ? (
-          <Button variant="secondary" inline loading={busy} onClick={onDesinstalar}>
-            Desinstalar
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" inline loading={busy} onClick={onDesinstalar}>
+              Desinstalar
+            </Button>
+            {/* Só para quem tem o que trazer. Empresa que contratou depois da semente já
+                recebeu tudo, e clicar aqui só vai dizer que nada faltava. */}
+            {module.has_seed && (
+              <Button variant="ghost" inline disabled={busy} onClick={onSemear}>
+                Trazer itens iniciais
+              </Button>
+            )}
+          </div>
         ) : (
           <Button inline loading={busy} onClick={onInstalar}>
             {busy ? "Instalando…" : "Instalar"}

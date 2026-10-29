@@ -22,6 +22,15 @@ export interface Module {
   accent: string;
   /** O que precisa estar instalado junto. Instalar já traz, mas a vitrine avisa antes. */
   depends: string[];
+  /** Se o módulo traz itens iniciais. Quem o instalou antes de a semente existir não os
+   *  tem, e pede aqui. */
+  has_seed: boolean;
+}
+
+/** O que a carga de itens iniciais acrescentou nesta empresa. */
+export interface SeedResult {
+  module: string;
+  created: string[];
 }
 
 export const platform = {
@@ -39,4 +48,8 @@ export const platform = {
 
   deactivateModule: (name: string): Promise<Module> =>
     authedJson(`/core/modules/${name}/activate`, { method: "DELETE" }),
+
+  /** Traz os itens iniciais do módulo. Repetir não duplica nem recria o que foi apagado. */
+  seedModule: (name: string): Promise<SeedResult> =>
+    authedJson(`/core/modules/${name}/seed`, { method: "POST" }),
 };

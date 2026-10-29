@@ -87,6 +87,13 @@ A assimetria é deliberada:
 
 Conjunto de semente novo numa versão nova alcança empresa existente **só quando ela pede**.
 
+E ela pede pela vitrine: `POST /core/modules/{nome}/seed`, com o botão "Trazer itens iniciais"
+no cartão do módulo instalado. O catálogo diz quais módulos têm o que trazer (`has_seed`),
+respondido pelo host a partir do que foi registrado — e não por uma lista escrita à mão na
+interface, que sairia de sincronia no primeiro módulo novo. Exige `core.module.activate`:
+é a mesma permissão de contratar módulo, porque é a mesma classe de ato. Semear módulo não
+contratado é recusado — criaria catálogo para tela que nem abre.
+
 ### 4. Idempotência pelo registro, nunca por busca por nome
 
 Reativar um módulo consulta `seed_record`, não o catálogo:
@@ -160,6 +167,10 @@ correto; o conteúdo cresce quando houver documento real que o sustente.
   carga de semente). O padrão deixou de ser caso isolado e passa a ser a resposta do
   projeto para "o host precisa de conhecimento que é do módulo". Merece parágrafo próprio
   em `docs/ARCHITECTURE.md` §2.
+- A carga pela vitrine **não escreve na trilha de auditoria**, e isso é consistência e não
+  descuido: ativar e desativar módulo também não escrevem. `seed_record` guarda o quê e o
+  quando; falta o quem. Entra junto quando a trilha cobrir os fluxos de ativação, que é
+  pendência própria no `ROADMAP.md`.
 - Cada linha semeada custa uma linha de registro. É barato, e é o preço de poder responder
   "isto veio de semente ou o cliente criou?", que hoje não tem resposta.
 - A suíte prova os casos de **não-escrita**, que são o motivo de o mecanismo existir:

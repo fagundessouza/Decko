@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decko.db import get_session
 from decko.modules import ModuleManifest, dependents, with_dependencies
 from decko.profiles import Profile, modules_to_activate
+from decko.seed import apply_seed, has_seed
 from decko_modules.core import activation, service
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.core.models import Tenant, User
@@ -14,6 +15,7 @@ from decko_modules.core.schemas import (
     ModuleOut,
     ProfileOut,
     RefreshRequest,
+    SeedResultOut,
     SessionOut,
     TenantProfileIn,
     TenantProfileOut,
@@ -106,6 +108,7 @@ def _module_out(manifest: ModuleManifest, *, active: bool) -> ModuleOut:
         icon=manifest.icon,
         accent=manifest.accent,
         depends=list(manifest.depends),
+        has_seed=has_seed(manifest.name),
     )
 
 
@@ -284,6 +287,39 @@ async def deactivate_module(
 
     await activation.deactivate(session, tenant_id=principal.tenant_id, module_name=manifest.name)
     return _module_out(manifest, active=False)
+
+
+@router.post("/modules/{module_name}/seed", response_model=SeedResultOut)
+async def seed_module(
+    module_name: str,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.module.activate"))],
+) -> SeedResultOut:
+    """Traz os itens iniciais do módulo para esta empresa.
+
+    Existe por causa da decisão 3 do ADR 0010: a semente entra na contratação, e não numa
+    subida de aplicação. Isso protege quem já opera de receber linhas no catálogo sem
+    pedir, e deixa de fora a empresa que instalou o módulo antes de a semente existir.
+    Este é o pedido dela — explícito, de quem tem permissão para contratar módulo.
+
+    Repetir não duplica e não ressuscita o que a empresa apagou: o registro de semente
+    responde isso, e ele é o mesmo que a ativação usa.
+    """
+    manifest = _manifest_or_404(request, module_name)
+
+    # Semear módulo não contratado criaria catálogo para tela que nem abre.
+    if not manifest.required and not await activation.is_active(
+        session, principal.tenant_id, manifest.name
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"O módulo '{manifest.name}' não está ativo nesta empresa.",
+        )
+
+    criados = await apply_seed(session, module_name=manifest.name, tenant_id=principal.tenant_id)
+    return SeedResultOut(module=manifest.name, created=criados)
 
 
 async def _current_tenant(session: AsyncSession, principal: CurrentPrincipal) -> Tenant:
