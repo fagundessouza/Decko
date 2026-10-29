@@ -38,7 +38,18 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       ativos — ver `docs/adr/0004-ativacao-de-modulo-por-empresa.md`
 - [ ] Recusar senha conhecidamente vazada no cadastro e na troca. Vale mais que exigir
       comprimento alto, que é o que o mínimo de caracteres tenta aproximar e não entrega
-- [ ] Escrita na trilha de auditoria nos fluxos de autenticação (o bootstrap já registra)
+- [x] Escrita na trilha de auditoria na autenticação e na contratação: entrada, saída,
+      tentativa recusada, token revogado reapresentado, e módulo contratado, desligado ou
+      semeado. Duas decisões ficaram registradas em `modules/core/.../audit.py`: o e-mail
+      digitado **nunca** entra (quando a conta existe, `user_id` diz o alvo com mais
+      precisão; quando não existe, é palpite de quem sonda), e a falha é gravada em
+      transação própria, porque a requisição recusada desfaz a dela. Tentativa contra
+      empresa inexistente continua sem registro: `audit_log.tenant_id` é obrigatório e
+      não há empresa a que prender a linha
+- [ ] **Ler** a trilha. A permissão `core.audit.read` existe no manifesto desde o começo e
+      não tem consumidor: hoje a trilha só se lê por SQL. Escrever sem poder consultar
+      atende a LGPD pela metade — o titular tem direito de saber o que foi feito com o
+      dado dele
 - [ ] Troca de empresa para quem opera em mais de uma
 - [x] Perfil de segmento: `profiles/*.toml`, tela de escolha do ramo e contratação em um
       clique — ver `docs/adr/0005-perfil-de-segmento.md`

@@ -7,7 +7,7 @@ from decko.db import get_session
 from decko.modules import ModuleManifest, dependents, with_dependencies
 from decko.profiles import Profile, modules_to_activate
 from decko.seed import apply_seed, has_seed
-from decko_modules.core import activation, service
+from decko_modules.core import activation, audit, service
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.core.models import Tenant, User
 from decko_modules.core.schemas import (
@@ -34,7 +34,8 @@ _INVALID_CREDENTIALS = HTTPException(
 
 
 @router.post("/auth/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, session: SessionDep) -> TokenResponse:
+async def login(payload: LoginRequest, request: Request, session: SessionDep) -> TokenResponse:
+    ip = audit.ip_de(request)
     try:
         user, tenant, permissions = await service.authenticate(
             session,
@@ -42,11 +43,33 @@ async def login(payload: LoginRequest, session: SessionDep) -> TokenResponse:
             email=payload.email,
             password=payload.password,
         )
-    except service.AuthError:
+    except service.AuthError as falha:
+        # Em transação própria: esta requisição vai levantar, e a linha iria embora com ela.
+        # Tentativa contra empresa inexistente não tem empresa a que se prender — ver
+        # decko_modules.core.audit.
+        if falha.tenant_id is not None:
+            await audit.registrar_a_parte(
+                tenant_id=falha.tenant_id,
+                user_id=falha.user_id,
+                action="auth.login.failed",
+                entity="user_account",
+                entity_id=str(falha.user_id) if falha.user_id else None,
+                data={"motivo": falha.motivo},
+                ip=ip,
+            )
         raise _INVALID_CREDENTIALS from None
 
     access_token, refresh_token, expires_in = await service.issue_tokens(
         session, user=user, tenant=tenant, permissions=permissions
+    )
+    audit.registrar(
+        session,
+        tenant_id=tenant.id,
+        user_id=user.id,
+        action="auth.login",
+        entity="user_account",
+        entity_id=str(user.id),
+        ip=ip,
     )
     return TokenResponse(
         access_token=access_token, refresh_token=refresh_token, expires_in=expires_in
@@ -54,12 +77,22 @@ async def login(payload: LoginRequest, session: SessionDep) -> TokenResponse:
 
 
 @router.post("/auth/refresh", response_model=TokenResponse)
-async def refresh(payload: RefreshRequest, session: SessionDep) -> TokenResponse:
+async def refresh(payload: RefreshRequest, request: Request, session: SessionDep) -> TokenResponse:
     try:
         *_, access_token, refresh_token, expires_in = await service.rotate_refresh_token(
             session, raw_token=payload.refresh_token
         )
-    except service.AuthError:
+    except service.AuthError as falha:
+        # Só a reapresentação de token já revogado é registrada: é cópia em circulação.
+        if falha.tenant_id is not None:
+            await audit.registrar_a_parte(
+                tenant_id=falha.tenant_id,
+                user_id=falha.user_id,
+                action="auth.refresh.reused",
+                entity="refresh_token",
+                data={"motivo": falha.motivo},
+                ip=audit.ip_de(request),
+            )
         raise _INVALID_CREDENTIALS from None
 
     return TokenResponse(
@@ -68,8 +101,23 @@ async def refresh(payload: RefreshRequest, session: SessionDep) -> TokenResponse
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(payload: RefreshRequest, session: SessionDep) -> None:
-    await service.revoke_refresh_token(session, raw_token=payload.refresh_token)
+async def logout(payload: RefreshRequest, request: Request, session: SessionDep) -> None:
+    encerrada = await service.revoke_refresh_token(session, raw_token=payload.refresh_token)
+    if encerrada is None:
+        # Token inválido ou já revogado: nada aconteceu, e a resposta continua 204 para
+        # não dizer a quem chamou se o token valia.
+        return
+
+    tenant_id, user_id = encerrada
+    audit.registrar(
+        session,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action="auth.logout",
+        entity="user_account",
+        entity_id=str(user_id),
+        ip=audit.ip_de(request),
+    )
 
 
 @router.get("/auth/me", response_model=SessionOut)
@@ -202,6 +250,16 @@ async def activate_profile(
             permissions=manifests[module_name].permissions,
         )
 
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="profile.activate",
+        entity="profile",
+        entity_id=profile.name,
+        data={"modulos": list(profile.modules)},
+        ip=audit.ip_de(request),
+    )
     return [_module_out(manifests[name], active=True) for name in profile.modules]
 
 
@@ -253,6 +311,19 @@ async def activate_module(
             session, tenant_id=principal.tenant_id, permissions=dependencia.permissions
         )
         ativados.append(_module_out(dependencia, active=True))
+
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="module.activate",
+        entity="tenant_module",
+        entity_id=manifest.name,
+        # Registra também o que veio junto: quem contrata escolhe um nome e recebe a
+        # árvore, e a trilha precisa dizer o que de fato passou a existir.
+        data={"instalados": [item.name for item in ativados]},
+        ip=audit.ip_de(request),
+    )
     return ativados
 
 
@@ -286,6 +357,15 @@ async def deactivate_module(
         )
 
     await activation.deactivate(session, tenant_id=principal.tenant_id, module_name=manifest.name)
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="module.deactivate",
+        entity="tenant_module",
+        entity_id=manifest.name,
+        ip=audit.ip_de(request),
+    )
     return _module_out(manifest, active=False)
 
 
@@ -319,6 +399,17 @@ async def seed_module(
         )
 
     criados = await apply_seed(session, module_name=manifest.name, tenant_id=principal.tenant_id)
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="module.seed",
+        entity="tenant_module",
+        entity_id=manifest.name,
+        # Os identificadores, e não a contagem: a conferência precisa saber **o que** entrou.
+        data={"criados": criados},
+        ip=audit.ip_de(request),
+    )
     return SeedResultOut(module=manifest.name, created=criados)
 
 
