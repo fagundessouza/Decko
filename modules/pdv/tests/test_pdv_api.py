@@ -77,13 +77,19 @@ def _auth(loja: Loja) -> dict[str, str]:
     return {"Authorization": f"Bearer {loja.token}"}
 
 
+async def _unidade_base(client: AsyncClient, loja: Loja) -> str:
+    """A unidade raiz chega com o módulo: `comercial` a semeia ao ser contratado.
+
+    Antes este teste a criava. Criar agora bate na restrição de nome único, e isso é o
+    comportamento certo — ver docs/adr/0010-dado-semente-com-identidade-estavel.md.
+    """
+    resposta = await client.get(f"{COMERCIAL}/unidades", headers=_auth(loja))
+    assert resposta.status_code == 200, resposta.text
+    return str(next(u["id"] for u in resposta.json() if u["nome"] == "Unidade"))
+
+
 async def _produto(client: AsyncClient, loja: Loja, *, preco: str = "7.50") -> str:
-    unidade = await client.post(
-        f"{COMERCIAL}/unidades",
-        headers=_auth(loja),
-        json={"nome": "Unidade", "simbolo": "un"},
-    )
-    assert unidade.status_code == 201, unidade.text
+    unidade_id = await _unidade_base(client, loja)
 
     produto = await client.post(
         f"{COMERCIAL}/produtos",
@@ -91,7 +97,7 @@ async def _produto(client: AsyncClient, loja: Loja, *, preco: str = "7.50") -> s
         json={
             "codigo": f"COD-{uuid.uuid4().hex[:6]}",
             "nome": "Pão francês",
-            "unidade_id": unidade.json()["id"],
+            "unidade_id": unidade_id,
             "preco_venda": preco,
         },
     )
@@ -104,7 +110,7 @@ async def _produto(client: AsyncClient, loja: Loja, *, preco: str = "7.50") -> s
             "produto_id": produto.json()["id"],
             "tipo": "entrada",
             "quantidade": "50",
-            "unidade_id": unidade.json()["id"],
+            "unidade_id": unidade_id,
             "documento": "Carga do teste",
         },
     )

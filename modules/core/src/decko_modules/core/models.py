@@ -7,10 +7,12 @@ filtrar.
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Enum,
     ForeignKey,
     Index,
     String,
@@ -217,6 +219,67 @@ class TenantModule(TenantMixin, Base):
     )
 
 
+class SeedStatus(StrEnum):
+    ATIVO = "ativo"
+    # O cliente apagou a linha semeada. Fica anotado para a reativação **não** recriá-la:
+    # ressuscitar o que alguém apagou de propósito é a falha pior, porque reaparece sem
+    # explicação e sem como impedir.
+    REMOVIDO = "removido"
+
+
+class SeedRecord(TenantMixin, Base):
+    """De onde veio cada linha que o sistema criou sozinho.
+
+    É a identidade estável que torna a carga de semente repetível: ``ref`` é um nome que o
+    módulo escreve e nunca muda (``comercial.unidade.un``), e ele resolve para uma linha
+    concreta. Sem isso, "ativar o perfil comércio" não teria como ser idempotente —
+    reconhecer a semente pelo nome criaria duplicata no instante em que o cliente
+    renomeasse "Unidade" para "Un".
+
+    É **por empresa**: cada uma recebe a sua cópia da semente, e o registro acompanha.
+
+    ``table_name`` e ``row_id`` não formam chave estrangeira, porque o destino é escolhido
+    em tempo de execução e não há como apontar para uma tabela dinâmica. A consequência é
+    assumida: a linha de registro pode sobreviver ao desaparecimento do destino, e por
+    isso ausência é caso normal para quem lê, não erro.
+
+    Decisão: ``docs/adr/0010-dado-semente-com-identidade-estavel.md``.
+    """
+
+    __tablename__ = "seed_record"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "module_name", "ref", name="uq_seed_record_tenant_id_module_name_ref"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    module_name: Mapped[str] = mapped_column(String(60), nullable=False)
+    ref: Mapped[str] = mapped_column(String(120), nullable=False)
+    table_name: Mapped[str] = mapped_column(String(63), nullable=False)
+    row_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+
+    # SHA-256 dos campos que a semente escreveu. Guarda o hash e não os valores: a regra 2
+    # do CLAUDE.md manda não espalhar dado do cliente por tabela de infraestrutura, e o
+    # hash já responde a única pergunta que importa — "o cliente mexeu nisto?".
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    status: Mapped[SeedStatus] = mapped_column(
+        Enum(
+            SeedStatus,
+            name="seed_status",
+            values_callable=lambda enum_class: [member.value for member in enum_class],
+        ),
+        nullable=False,
+        default=SeedStatus.ATIVO,
+    )
+    seeded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 # Tabelas sujeitas a Row Level Security. A migração lê esta lista, de modo que uma tabela
 # nova com tenant_id não pode ser esquecida sem que o teste de isolamento acuse.
 TENANT_SCOPED_TABLES = (
@@ -227,4 +290,5 @@ TENANT_SCOPED_TABLES = (
     RefreshToken.__tablename__,
     AuditLog.__tablename__,
     TenantModule.__tablename__,
+    SeedRecord.__tablename__,
 )

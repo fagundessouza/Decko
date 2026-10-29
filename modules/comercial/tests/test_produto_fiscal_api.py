@@ -57,15 +57,16 @@ async def loja() -> AsyncIterator[tuple[AsyncClient, Loja]]:
         assert login.status_code == 200, login.text
         token = login.json()["access_token"]
 
-        unidade = await client.post(
-            f"{COMERCIAL}/unidades",
-            headers={"Authorization": f"Bearer {token}"},
-            json={"nome": "Unidade", "simbolo": "un"},
+        # A unidade raiz chega com o módulo: `comercial` a semeia ao ser contratado — ver
+        # docs/adr/0010-dado-semente-com-identidade-estavel.md.
+        unidades = await client.get(
+            f"{COMERCIAL}/unidades", headers={"Authorization": f"Bearer {token}"}
         )
-        assert unidade.status_code == 201, unidade.text
+        assert unidades.status_code == 200, unidades.text
+        unidade_id = next(u["id"] for u in unidades.json() if u["nome"] == "Unidade")
 
         try:
-            yield client, Loja(tenant_id=tenant_id, token=token, unidade_id=unidade.json()["id"])
+            yield client, Loja(tenant_id=tenant_id, token=token, unidade_id=unidade_id)
         finally:
             async with SessionFactory() as session, session.begin():
                 await session.execute(delete(Tenant).where(Tenant.id == tenant_id))

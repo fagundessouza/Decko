@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.config import get_settings
 from decko.db import SessionFactory, bind_tenant, engine
-from decko.modules import discover
+from decko.modules import discover, import_packages
 from decko_modules.core.activation import ADMIN_ROLE_NAME
 from decko_modules.core.activation import activate as activate_module
 from decko_modules.core.models import (
@@ -299,6 +299,13 @@ def main() -> int:
     status.set_defaults(handler=_run_status)
 
     args = parser.parse_args()
+
+    # Importar os pacotes de módulo é o que faz cada um registrar o que o host declara por
+    # porta invertida — aqui interessa a carga de semente, que a ativação dispara. Sem
+    # isto, cadastrar uma empresa com `--module comercial` a deixaria sem as unidades, e
+    # em silêncio. É a mesma coisa que a aplicação faz ao montar as rotas.
+    import_packages(get_settings().modules_dir)
+
     started = datetime.now(UTC)
     exit_code = asyncio.run(args.handler(args))
     if exit_code == 0 and args.command == "bootstrap":

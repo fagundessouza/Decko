@@ -46,9 +46,13 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
       a qualquer momento. Rótulo, categoria, resumo e ícone saem do `module.toml`, então
       acrescentar um módulo ao produto não exige tocar na interface. Instalar traz junto
       o que o módulo depende; desinstalar é recusado enquanto outro módulo ativo o usa
-- [ ] Dado-semente por módulo com identidade estável (lacuna 4.3 do benchmark). É o que
-      falta para o perfil **configurar** o ambiente, e não só ligar os módulos. Bloqueia
-      qualquer vertical que traga catálogo, unidade ou categoria
+- [x] Dado-semente por módulo com identidade estável: `seed_record` no núcleo, por empresa,
+      e a semente escrita pelo módulo dono da tabela por porta invertida. Contratar o
+      módulo passa a **configurar**, e não só ligar. Reativar não duplica, linha apagada
+      pelo cliente não volta, e o `fingerprint` acusa ajuste em vez de adivinhar como o
+      `noupdate` do Odoo — ver `docs/adr/0010-dado-semente-com-identidade-estavel.md`.
+      A semente que embarcou é só `UN`, `KG` e `L`: fator de embalagem e categoria por
+      segmento são suposição enquanto não houver discovery (regra 6)
 
 **Demonstrável:** login, troca de empresa, e a prova de que um tenant não enxerga dados do outro.
 
@@ -61,8 +65,8 @@ Pendências conhecidas, registradas para não virarem dívida esquecida:
 
 - O refresh token fica em `localStorage`, exposto a XSS. A troca por cookie `httpOnly`
   exige tratar CSRF e mudar o backend — ver `apps/web/src/lib/session.ts`.
-- A fonte Inter ainda não é hospedada pelo projeto; hoje recai na fonte do sistema. Para
-  o modo offline, ela precisa vir junto com a aplicação, não de um CDN.
+- ~~A fonte Inter não é hospedada pelo projeto.~~ Resolvido: `@fontsource-variable/inter`
+  entra pelo pacote e é importada em `apps/web/src/styles.css`, sem CDN.
 
 ## Fase 2 — MVP Agro
 
@@ -85,7 +89,9 @@ Escopo e critério de aceite em `docs/discovery/agro-planejamento-operacional.md
 - [ ] Cache das consultas meteorológicas (só necessário com volume; ver ADR 0003)
 - [x] Wizard mobile de preenchimento
 - [x] Geração do PDF fiel ao talão atual
-- [ ] Assinaturas pela tela — depende da resposta de Q5 (física ou digital)
+- [x] Assinaturas pela tela, desenhadas com o dedo ou a caneta e presas ao documento por
+      hash — ver a Fase 5 e `docs/discovery/assinaturas-dois-modulos.md`. A Q5 deixou de
+      bloquear: as duas formas convivem, e a gov.br entra quando houver credenciamento
 - [x] Cadastro de contratante e propriedade pela tela, dentro do wizard, com captura da
       coordenada da propriedade pelo aparelho
 - [x] Conferência de CPF/CNPJ pelo dígito verificador, incluindo o CNPJ alfanumérico, na
@@ -155,10 +161,10 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [x] Permissão de módulo que evolui: versão nova que declara permissão nova agora alcança
       as empresas que já usavam o módulo, na subida da aplicação — ver a atualização no
       `docs/adr/0004-ativacao-de-modulo-por-empresa.md`
-- [ ] Corrigir o fechamento mensal para o formato que a Portaria MAPA 298/2021 exige:
-      agregado por município/UF, com horas de execução, e entrega pelo SIPEAGRO até o dia
-      15. O CSV de hoje tem colunas aproximadas do formulário, nenhuma delas pedida — ver
-      `docs/discovery/agro-normas-mapa.md`
+- [x] Fechamento mensal no formato que a Portaria MAPA 298/2021 exige: agregado por
+      município/UF, com horas de execução e prazo no dia 15 do mês seguinte. O CSV
+      aproximado de antes continua, renomeado como conferência, e os dois estão rotulados
+      na tela — ver `docs/discovery/agro-normas-mapa.md`
 - [x] Direção do vento na leitura meteorológica, exigida pelo art. 10 da Portaria 298/2021.
       O provedor já devolvia; faltava guardar e mostrar
 - [x] Croqui a partir do arquivo do voo: lê KML e KMZ, guarda a geometria e desenha o

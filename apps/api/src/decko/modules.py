@@ -142,9 +142,15 @@ def dependents(name: str, manifests: dict[str, ModuleManifest]) -> list[str]:
     )
 
 
-def load_into(app: FastAPI, modules_dir: Path) -> list[ModuleManifest]:
-    """Importa cada módulo e monta seu router em /api/v1/<nome>."""
-    loaded: list[ModuleManifest] = []
+def import_packages(modules_dir: Path) -> list[tuple[ModuleManifest, object]]:
+    """Importa cada pacote de módulo, em ordem de dependência.
+
+    Separado da montagem de rotas porque importar já tem efeito por si: é na importação
+    que o módulo registra o que o host declara por porta invertida — a verificação de
+    ativação, a reconciliação de permissão e a carga de semente. Quem só precisa desses
+    registros, como o comando de cadastro de empresa, importa sem montar aplicação.
+    """
+    importados: list[tuple[ModuleManifest, object]] = []
     for manifest in resolve_order(discover(modules_dir)):
         try:
             package = importlib.import_module(manifest.package)
@@ -153,7 +159,14 @@ def load_into(app: FastAPI, modules_dir: Path) -> list[ModuleManifest]:
                 f"módulo '{manifest.name}': não foi possível importar "
                 f"'{manifest.package}'. O pacote está instalado no workspace?"
             ) from exc
+        importados.append((manifest, package))
+    return importados
 
+
+def load_into(app: FastAPI, modules_dir: Path) -> list[ModuleManifest]:
+    """Importa cada módulo e monta seu router em /api/v1/<nome>."""
+    loaded: list[ModuleManifest] = []
+    for manifest, package in import_packages(modules_dir):
         router = getattr(package, "router", None)
         if router is None:
             raise ModuleError(f"módulo '{manifest.name}': o pacote não expõe 'router'")

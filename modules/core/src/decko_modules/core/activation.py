@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.activation import register_activation_guard, register_permission_reconciler
 from decko.db import SessionFactory, bind_tenant, get_session
+from decko.seed import apply_seed
 from decko_modules.core.deps import CurrentPrincipal
 from decko_modules.core.models import Role, RolePermission, Tenant, TenantModule
 
@@ -97,6 +98,10 @@ async def activate(
 
     Repetir a ativação não é erro: quem contrata duas vezes o mesmo módulo espera que
     continue funcionando, não uma falha.
+
+    É aqui que a semente do módulo entra, e não em cada chamador: contratar por perfil,
+    contratar módulo avulso e cadastrar empresa pelo comando passam todos por esta
+    função, e repetir a carga em três lugares é como um deles fica para trás.
     """
     if await is_active(session, tenant_id, module_name):
         return False
@@ -105,6 +110,10 @@ async def activate(
         TenantModule(tenant_id=tenant_id, module_name=module_name, activated_by=activated_by)
     )
     await session.flush()
+
+    # A semente é do módulo, escrita pelo serviço dele. O núcleo só dispara — ver
+    # docs/adr/0010-dado-semente-com-identidade-estavel.md.
+    await apply_seed(session, module_name=module_name, tenant_id=tenant_id)
     return True
 
 

@@ -13,8 +13,9 @@ Referência congelada do lado Odoo: [`odoo-20-arquitetura.md`](odoo-20-arquitetu
 lacuna, registre o ADR e atualize a linha. Ao concluir etapa do roadmap que mexa numa dimensão,
 revise a linha correspondente.
 
-Última revisão: 21/10/2026 — estado do Decko: Fase 1 concluída, Fase 2 quase completa, ativação de
-módulo por empresa implementada (lacuna 4.1 fechada).
+Última revisão: 28/10/2026 — estado do Decko: Fase 1 concluída, Fase 2 quase completa, base comercial
+com PDV, compras e clientes, e dado-semente com identidade estável (lacunas 4.1, metade de 4.2 e
+4.3 fechadas).
 
 ---
 
@@ -56,7 +57,7 @@ para o host.
 | **Versionamento de schema** | derivado dos campos + scripts por versão | Alembic, ramificado por módulo (`branch_label`) | **Decko melhor.** É a lacuna nº 6 do Odoo resolvida desde o início |
 | **Fila de trabalho** | cron worker com polling e advisory lock | Redis + `apps/worker` (previsto) | **Decko melhor**, quando `apps/worker` existir |
 | **Processo** | monólito; todo worker carrega os 696 módulos | monólito modular; `apps/api` carrega todos os módulos descobertos | **Mesma escolha, mesmo limite.** O processo carrega tudo; o que a empresa alcança é decidido na ativação |
-| **Entrada por ramo de negócio** | sem conceito próprio: o cliente instala "apps" avulsos, e o agrupamento por indústria vive fora do código aberto | `profiles/*.toml`: conjunto nomeado de módulos, conferido contra os manifestos na inicialização; um clique contrata o conjunto | **Decko melhor no que já existe.** Falta a metade pesada: o Odoo acopla dado-semente ao módulo, e isso depende da lacuna 4.3. ADR 0005 |
+| **Entrada por ramo de negócio** | sem conceito próprio: o cliente instala "apps" avulsos, e o agrupamento por indústria vive fora do código aberto | `profiles/*.toml`: conjunto nomeado de módulos, conferido contra os manifestos na inicialização; um clique contrata o conjunto, e a contratação semeia o que o módulo precisa | **Decko melhor.** As duas metades existem: conjunto de módulos (ADR 0005) e dado-semente com identidade estável por empresa (ADR 0010). O conteúdo da semente é que ainda é pequeno, por falta de discovery — não por falta de mecanismo |
 | **Ativação de módulo por cliente** | implícita no registry: módulo não instalado não existe naquele banco | `tenant_module` + verificação aplicada pelo host na montagem do router; porta invertida para o host não importar módulo | **Divergência obrigatória.** Banco único exige mecanismo próprio. ADR 0004. Ganho sobre o Odoo: a proteção vem da montagem, então um módulo não consegue ficar aberto por omissão |
 | **Diretrizes para quem mantém** | `skills/`, uma seção por regra, com o porquê | `CLAUDE.md` + `docs/` | **Equivalente.** O Odoo é mais granular: regra por seção, com exceções explícitas |
 
@@ -115,7 +116,7 @@ campo por PR. O terceiro é honesto e barato enquanto o projeto tiver um desenvo
 
 **Precisa de ADR** antes da Fase 5.
 
-### 4.3 Identidade estável para dados de módulo — **virou bloqueio em 21/10/2026**
+### 4.3 Identidade estável para dados de módulo — **fechada em 28/10/2026**
 
 Deixou de ser dívida distante: é o que sustenta o "um clique e o ambiente fica pronto".
 
@@ -134,7 +135,31 @@ A consequência para o Decko é direta: sem equivalente de `ir.model.data`, "ati
 supermercado" não tem como ser idempotente (reativar duplica), nem reversível (desativar não sabe
 o que remover), nem seguro em atualização (sobrescreveria ajuste do cliente).
 
-O caminho continua o mesmo descrito abaixo, e agora tem prazo.
+Resolvida por `docs/adr/0010-dado-semente-com-identidade-estavel.md`. Promovida para a §2.
+
+Como ficou, e **onde divergimos de propósito**: a tabela `seed_record` do núcleo faz o papel de
+`ir.model.data`, por empresa, e quem escreve a linha é sempre o módulo dono da tabela, por porta
+invertida. Duas diferenças foram deliberadas:
+
+- **No lugar de `noupdate`, um `fingerprint`.** O Odoo pede ao autor do módulo que declare, antes
+  de existir cliente, se aquele registro pode ser sobrescrito na atualização. O Decko guarda o
+  hash do que escreveu e **confere** se o cliente mexeu. É a mesma pergunta respondida por
+  observação em vez de previsão.
+- **Desativar não remove semente.** No Odoo, a desinstalação apaga o que as linhas de
+  `ir.model.data` do módulo apontam, e o `noupdate` não protege disso — "eu semeei esta linha" e
+  "esta linha é minha e eu a apago ao sair" são a mesma informação. Para um ERP multiempresa isso
+  é defeito: a categoria usada em trezentos produtos não pode depender de o módulo continuar
+  instalado. A ADR 0004 já preservava dados na desativação, e a semente segue a regra.
+
+Fica registrado o que **não** foi feito: o atualizador de semente. O `fingerprint` responde se a
+linha pode ser atualizada, mas nenhum módulo precisou corrigir semente já entregue, e o caminho
+nasce com o primeiro caso real. E a semente que embarcou é pequena de propósito — três unidades
+raiz — porque fator de embalagem e categoria por segmento são suposição enquanto não houver
+discovery que os sustente.
+
+---
+
+O registro histórico do problema, como estava antes da decisão:
 
 
 
