@@ -220,6 +220,24 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       débito, crédito e pix, troco, e baixa de estoque na mesma transação da venda — ver
       `docs/adr/0008-ponto-de-venda.md`. É também o primeiro módulo a depender de outro
       módulo de negócio, o que exigiu `docs/adr/0007-dependencia-entre-modulos.md`
+- [ ] **Venda identificada: o PDV não aponta para cliente.** O módulo `clientes` existe e o
+      PDV não o usa — e "venda identificada" era uma das razões de o módulo de clientes vir
+      primeiro. Sem isso não há histórico de compra por pessoa, nem como emitir cupom no
+      nome de quem comprou
+- [ ] **Fornecedor não existe como entidade.** A nota guarda o CNPJ do emitente como texto,
+      e o vínculo "código do fornecedor → produto" pendura num CNPJ solto. Prazo de entrega,
+      contato e histórico de compra por fornecedor não têm onde morar
+- [ ] **Contagem de estoque.** O lançamento de ajuste existe, por produto, na tela do
+      produto. O que falta é a sessão de contagem: contar o estoque inteiro e gerar os
+      ajustes de uma vez, com o que foi contado e por quem. Em loja de verdade divergência
+      é regra, não exceção
+- [ ] **Contratante do agro e cliente da base são duas tabelas.** `agro_client` nasceu antes
+      do módulo `clientes` e guarda a mesma coisa com menos campos; uma empresa com os dois
+      módulos cadastra a mesma fazenda duas vezes. Unificar é decisão de arquitetura e
+      **precisa de ADR** — há planejamento assinado apontando para a tabela atual, e hash
+      de documento que não pode mudar de significado.
+      (`agro_product` **não** entra aqui: defensivo com formulação, classe toxicológica e
+      registro no MAPA é coisa diferente de produto de prateleira)
 - [ ] Emissão fiscal (NFC-e/SAT) como módulo próprio. É o que falta para o PDV substituir
       o caixa de uma loja de verdade, e é o que não pode ser suposto: certificado digital,
       homologação na SEFAZ do estado, contingência e layout versionado
@@ -245,6 +263,30 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Empacotamento Android (Capacitor)
 - [ ] Empacotamento desktop (Tauri)
 - [ ] Observabilidade: Prometheus, Grafana, Jaeger
+
+---
+
+## Transversal — qualidade da base
+
+Não pertence a fase nenhuma: atravessa todas, e por isso some das listas por fase. Nenhum
+destes itens é funcionalidade; todos são a diferença entre mexer no código com confiança e
+mexer torcendo.
+
+- [ ] **Teste automatizado no frontend — hoje são zero, e não há runner instalado.** O
+      backend tem 558 testes contra banco real; a interface tem `oxlint` e `tsc -b`, que
+      acusam erro de tipo e não acusam comportamento errado. Já custou caro: o quadro de
+      assinatura travava no meio do traço, e a leitura meteorológica mostrava "0° (N)"
+      quando a direção do vento era ausente — os dois só apareceram ao usar à mão. O que
+      mais pede rede de proteção: identificação de produto na entrada por nota, troca de
+      empresa, e o PDV
+- [ ] **Navegação sem URL.** `App.tsx` é uma máquina de estado escrita à mão: não há link
+      direto para um planejamento ou um produto, o botão voltar do navegador sai do
+      sistema, e recarregar cai na tela inicial. Num ERP que se usa o dia inteiro isso é
+      defeito diário, não detalhe. Mexer nisso toca toda tela, então quanto antes, mais
+      barato
+- [ ] **Refresh token em `localStorage`.** Exposto a XSS. A troca por cookie `httpOnly`
+      exige tratar CSRF e mudar o backend — está em `apps/web/src/lib/session.ts`, e
+      repetido aqui porque a pendência da Fase 1 saiu de vista quando a fase fechou
 
 ---
 
