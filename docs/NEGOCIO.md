@@ -5,7 +5,7 @@ Ele não responde *o que isto é, para quem, e o que falta para alguém pagar* �
 justamente a linha que se perde depois de meses dentro do código. Este arquivo existe para
 ela ser reencontrada sem precisar reconstituí-la de memória.
 
-**Última revisão:** 29/10/2026.
+**Última revisão:** 30/10/2026.
 
 > **Como ler.** As seções 1 a 3 são **o que foi decidido** e vêm do `README.md` e do
 > `CLAUDE.md`. A seção 4 é **fato conferido no repositório**. As seções 5 e 6 separam
@@ -16,11 +16,33 @@ ela ser reencontrada sem precisar reconstituí-la de memória.
 
 ## 1. O que o Decko é
 
-Plataforma ERP/PDV modular, **Open Core**, no modelo do Odoo: o cliente escolhe o perfil da
-empresa e o sistema instala e configura os módulos daquele segmento.
+Plataforma ERP/PDV modular, no modelo do Odoo: o cliente escolhe o perfil da empresa e o
+sistema instala e configura os módulos daquele segmento.
 
-O núcleo é aberto. A monetização vem de **hospedagem gerenciada (SaaS)** e de **módulos
-avançados**.
+### Mudança de modelo — 30/10/2026
+
+**O Open Core foi abandonado.** A decisão é do dono do projeto:
+
+> *"Não vou mais manter isso aberto, a ideia vai ser realmente oferecer por assinatura
+> fechada."*
+
+O produto passa a ser vendido por **assinatura**, com o código fechado. O que isso custa e
+o que **não** custa:
+
+- **Não há licença aberta a revogar.** O repositório está público no GitHub, mas **sem
+  arquivo de licença** — e sem licença o padrão é "todos os direitos reservados": ver o
+  código nunca deu a ninguém o direito de usar, copiar ou derivar. Fechar é, na prática,
+  trocar a visibilidade para privado. Quem já clonou tem a cópia, e nunca teve o direito.
+- **O portfólio perde.** O `CLAUDE.md` registra a segunda intenção do projeto: servir de
+  portfólio para vagas no mercado internacional. Repositório privado não se mostra a
+  recrutador. As duas intenções agora brigam, e a escolha precisa ser consciente — uma
+  saída é manter público um recorte que sirva de vitrine técnica, sem o produto inteiro.
+- **O argumento de Open Core some da venda.** "O núcleo é aberto, você não fica refém"
+  era parte do posicionamento contra o software legado. Sem ele, a confiança precisa vir de
+  outro lugar: contrato, exportação dos próprios dados, e o que acontece se a Decko parar.
+
+A monetização passa a ser **assinatura do produto**, e o controle dela roda no próprio
+Decko — ver `docs/discovery/assinaturas-dois-modulos.md`, seção 3.
 
 Uma segunda intenção está registrada no `CLAUDE.md` e não deve ser esquecida na hora de
 priorizar: o projeto também serve de **portfólio** para vagas no mercado internacional. Isso
@@ -94,8 +116,25 @@ primeiro**.
 
 ### 5.3 Jurídico
 
-CNPJ para faturar, contrato e termos de uso, política de privacidade, e os direitos do
-titular pela LGPD: exportar e apagar os dados dele mediante pedido.
+Contrato e termos de uso, política de privacidade, e os direitos do titular pela LGPD:
+exportar e apagar os dados dele mediante pedido.
+
+> **O CNPJ existe, e provavelmente não serve para isto.** Há um MEI ativo desde maio de
+> 2026 — `66.711.850/0001-06`, conferido pelo dígito verificador em 30/10/2026. Duas
+> coisas pesam contra faturar a assinatura por ele, e as duas precisam de confirmação com
+> contador, porque as fontes consultadas foram blogs contábeis e não a resolução do CGSN:
+>
+> 1. **Desenvolvimento e licenciamento de software não constam na lista de ocupações
+>    permitidas ao MEI**, por serem tidos como atividade intelectual. Todas as fontes
+>    consultadas dizem isso, sem divergência. O risco apontado é cancelamento do CNPJ com
+>    débitos atrelados — não é multa pequena.
+> 2. **O teto do MEI segue em R$ 81.000 por ano**, cerca de R$ 6.750 por mês. Há projetos
+>    para elevar (PLP 67/2025 fala em R$ 150 mil; outro texto em R$ 130 mil), nenhum
+>    sancionado até esta revisão.
+>
+> O caminho que as fontes apontam é **ME no Simples Nacional**, com CNAE de software. Isso
+> custa contador mensal e muda o imposto — e entra na conta do preço da assinatura, não
+> depois dele.
 
 A parte técnica da LGPD está **à frente** da papelada: isolamento por RLS, trilha de
 auditoria e cadastro que desativa em vez de apagar já existem.
@@ -139,5 +178,6 @@ disso alguém pagaria.
 2. **Preço.** Por empresa, por usuário, por módulo? Nenhuma hipótese foi testada.
 3. **Agro é produto ou é o primeiro cliente?** Vender para uma operação de drone é diferente
    de vender para o setor.
-4. **Até onde o núcleo fica aberto?** "Open Core" está decidido; a linha entre o que é
-   aberto e o que é pago, não.
+4. ~~Até onde o núcleo fica aberto?~~ Respondido em 30/10/2026: **nada fica aberto**. Em
+   aberto agora é outra coisa — se sobra alguma vitrine pública para o portfólio, e qual.
+5. **Qual CNPJ fatura a assinatura?** O MEI atual provavelmente não serve — ver 5.3.

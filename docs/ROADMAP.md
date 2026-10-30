@@ -14,7 +14,8 @@ Ao concluir uma etapa, marque aqui na mesma alteração que entrega o código.
 
 ## Fase 0 — Organizar a casa ✅
 
-- [x] Definição de nome, posicionamento e modelo de negócio (Open Core + SaaS gerenciado)
+- [x] Definição de nome, posicionamento e modelo de negócio. ~~Open Core + SaaS~~ — trocado
+      em 30/10/2026 por **produto fechado, vendido por assinatura**; ver `docs/NEGOCIO.md`
 - [x] Paleta e regras de interface fundamentadas (`docs/BRAND.md`)
 - [x] Arquitetura definida: monólito modular com módulos instaláveis (`docs/ARCHITECTURE.md`)
 - [x] Discovery do módulo Agro a partir do formulário real (`docs/discovery/`)

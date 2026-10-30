@@ -5,9 +5,9 @@ projeto entre sessões diferentes, quando o contexto anterior já não está dis
 
 ## O que é o Decko
 
-Plataforma ERP/PDV modular, **Open Core**, no modelo do Odoo: o cliente escolhe o perfil da empresa
-e o sistema instala e configura os módulos daquele segmento. O núcleo é aberto; a monetização vem
-de hospedagem gerenciada (SaaS) e de módulos avançados.
+Plataforma ERP/PDV modular, no modelo do Odoo: o cliente escolhe o perfil da empresa e o sistema
+instala e configura os módulos daquele segmento. **Produto fechado, vendido por assinatura** — o
+Open Core foi abandonado em 30/10/2026, e o motivo está em `docs/NEGOCIO.md`, seção 1.
 
 Dono do projeto: Lucas Fagundes Souza (engenheiro de software). O projeto também serve de
 portfólio para vagas no mercado internacional.
