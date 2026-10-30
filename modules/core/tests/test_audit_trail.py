@@ -201,8 +201,10 @@ async def test_contratar_modulo_registra_o_que_veio_junto(conta: Conta) -> None:
     assert len(entradas) == 1
     assert entradas[0].entity_id == "pdv"
     assert entradas[0].user_id == conta.user_id
-    # O PDV traz a base comercial. Quem contrata escolhe um nome e recebe a árvore.
-    assert entradas[0].data == {"instalados": ["comercial", "pdv"]}
+    # O PDV traz a base comercial e o cadastro de clientes. Quem contrata escolhe um nome
+    # e recebe a árvore — e a trilha diz o que de fato passou a existir, não o que foi
+    # pedido.
+    assert entradas[0].data == {"instalados": ["comercial", "clientes", "pdv"]}
 
 
 async def test_desinstalar_deixa_rastro(conta: Conta) -> None:

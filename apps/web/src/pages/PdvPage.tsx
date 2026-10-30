@@ -7,6 +7,8 @@ import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { Modal } from "../components/Modal";
 import { TextField } from "../components/TextField";
+import { clientes } from "../lib/clientes";
+import type { Cliente } from "../lib/clientes";
 import { comercial } from "../lib/comercial";
 import type { Produto } from "../lib/comercial";
 import { brl, num } from "../lib/format";
@@ -15,6 +17,12 @@ import type { FormaPagamento, Venda } from "../lib/pdv";
 
 interface Props {
   onBack: () => void;
+  /** Só quando a empresa tem o módulo de clientes e quem opera pode identificar.
+   *
+   *  O PDV passou a depender de `clientes`, mas empresa que já tinha o PDV sem ele não
+   *  recebe o módulo sozinha — instalar na empresa dos outros sem pedido é o que a ADR
+   *  0010 recusa para a semente. Então a tela simplesmente não oferece. */
+  podeIdentificar: boolean;
 }
 
 function motivo(cause: unknown, padrao: string): string {
@@ -29,7 +37,7 @@ function motivo(cause: unknown, padrao: string): string {
  * O campo de código fica com o foco o tempo inteiro, porque o leitor de código de barras
  * digita e dá Enter. Perder o foco depois de cada item faria o operador pegar no mouse a
  * cada produto, que é o que torna um PDV lento. */
-export function PdvPage({ onBack }: Props) {
+export function PdvPage({ onBack, podeIdentificar }: Props) {
   const [venda, setVenda] = useState<Venda | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -42,6 +50,10 @@ export function PdvPage({ onBack }: Props) {
   const [cobrando, setCobrando] = useState<FormaPagamento | null>(null);
   const [valorRecebido, setValorRecebido] = useState("");
   const [concluida, setConcluida] = useState<Venda | null>(null);
+
+  const [identificando, setIdentificando] = useState(false);
+  const [buscaCliente, setBuscaCliente] = useState("");
+  const [achadosCliente, setAchadosCliente] = useState<Cliente[] | null>(null);
 
   const campoCodigo = useRef<HTMLInputElement>(null);
 
@@ -118,6 +130,26 @@ export function PdvPage({ onBack }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function procurarCliente() {
+    setErro(null);
+    try {
+      setAchadosCliente(await clientes.listar(buscaCliente));
+    } catch (cause) {
+      setErro(motivo(cause, "Não foi possível procurar o cliente."));
+    }
+  }
+
+  async function escolherCliente(cliente: Cliente) {
+    setIdentificando(false);
+    setBuscaCliente("");
+    setAchadosCliente(null);
+    if (!venda) return;
+    await operar(
+      () => pdv.identificar(venda.id, cliente.id),
+      "Não foi possível identificar a venda.",
+    );
   }
 
   async function operar(acao: () => Promise<Venda>, padrao: string) {
@@ -290,6 +322,42 @@ export function PdvPage({ onBack }: Props) {
             </CardBody>
           </Card>
 
+          {podeIdentificar && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base">
+              {venda.cliente_nome ? (
+                <>
+                  <span className="text-ink-muted">Cliente:</span>
+                  <span className="font-medium text-ink">{venda.cliente_nome}</span>
+                  <Button variant="ghost" inline disabled={busy} onClick={() => setIdentificando(true)}>
+                    Trocar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    inline
+                    disabled={busy}
+                    onClick={() =>
+                      void operar(
+                        () => pdv.desidentificar(venda.id),
+                        "Não foi possível tirar o cliente da venda.",
+                      )
+                    }
+                  >
+                    Tirar
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {/* Venda anônima é o caso normal, e a frase diz isso em vez de parecer
+                      um campo por preencher. */}
+                  <span className="text-ink-muted">Venda anônima.</span>
+                  <Button variant="ghost" inline disabled={busy} onClick={() => setIdentificando(true)}>
+                    Identificar cliente
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
           <Card>
             <CardHeader
               title="Itens"
@@ -439,6 +507,79 @@ export function PdvPage({ onBack }: Props) {
           </Card>
         </div>
       </div>
+
+      <Modal
+        open={identificando}
+        title="Identificar a venda"
+        description="Procure por nome, apelido ou documento."
+        onClose={() => {
+          setIdentificando(false);
+          setBuscaCliente("");
+          setAchadosCliente(null);
+          focarCodigo();
+        }}
+      >
+        <form
+          className="flex gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void procurarCliente();
+          }}
+        >
+          <div className="flex-1">
+            <TextField
+              label="Cliente"
+              leading="⌕"
+              autoFocus
+              autoComplete="off"
+              value={buscaCliente}
+              onChange={(event) => setBuscaCliente(event.target.value)}
+              placeholder="Nome, apelido ou CPF"
+            />
+          </div>
+          <div className="self-end">
+            <Button type="submit" inline>
+              Procurar
+            </Button>
+          </div>
+        </form>
+
+        {achadosCliente !== null && achadosCliente.length === 0 && (
+          <p className="mt-4 text-base text-ink-muted">
+            Nenhum cliente encontrado. Cadastre em Clientes e volte aqui.
+          </p>
+        )}
+
+        {achadosCliente !== null && achadosCliente.length > 0 && (
+          <ul className="mt-4 flex flex-col gap-2">
+            {achadosCliente.map((cliente) => (
+              <li key={cliente.id}>
+                <button
+                  type="button"
+                  onClick={() => void escolherCliente(cliente)}
+                  className="flex min-h-touch w-full items-center justify-between gap-3
+                             rounded-dk px-4 py-3 text-left ring-1 ring-line
+                             transition-colors duration-150 ease-dk hover:bg-sunken"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-base font-medium text-ink">
+                      {cliente.nome}
+                    </span>
+                    {(cliente.apelido || cliente.cpf_cnpj) && (
+                      <span className="block truncate text-sm text-ink-faint">
+                        {[cliente.apelido, cliente.cpf_cnpj].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </span>
+                  <span aria-hidden="true" className="text-ink-faint">
+                    →
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
 
       <Modal
         open={achados !== null}

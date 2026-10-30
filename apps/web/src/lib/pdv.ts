@@ -37,6 +37,10 @@ export interface Venda {
   aberta_em: string;
   fechada_em: string | null;
   observacao: string | null;
+  /** Nulo é o caso normal: venda anônima de balcão. */
+  cliente_id: string | null;
+  /** Lido na hora pelo servidor, não copiado para dentro da venda. */
+  cliente_nome: string | null;
   itens: ItemVenda[];
   pagamentos: PagamentoVenda[];
   soma_dos_itens: string;
@@ -87,6 +91,15 @@ export const pdv = {
 
   removerPagamento: (vendaId: string, pagamentoId: string): Promise<Venda> =>
     authedJson(`/pdv/vendas/${vendaId}/pagamentos/${pagamentoId}`, { method: "DELETE" }),
+
+  identificar: (vendaId: string, clienteId: string): Promise<Venda> =>
+    authedJson(`/pdv/vendas/${vendaId}/cliente`, {
+      method: "PUT",
+      body: { cliente_id: clienteId },
+    }),
+
+  desidentificar: (vendaId: string): Promise<Venda> =>
+    authedJson(`/pdv/vendas/${vendaId}/cliente`, { method: "DELETE" }),
 
   finalizar: (vendaId: string): Promise<Venda> =>
     authedJson(`/pdv/vendas/${vendaId}/finalizar`, { method: "POST" }),

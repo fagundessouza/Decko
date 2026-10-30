@@ -220,10 +220,14 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       débito, crédito e pix, troco, e baixa de estoque na mesma transação da venda — ver
       `docs/adr/0008-ponto-de-venda.md`. É também o primeiro módulo a depender de outro
       módulo de negócio, o que exigiu `docs/adr/0007-dependencia-entre-modulos.md`
-- [ ] **Venda identificada: o PDV não aponta para cliente.** O módulo `clientes` existe e o
-      PDV não o usa — e "venda identificada" era uma das razões de o módulo de clientes vir
-      primeiro. Sem isso não há histórico de compra por pessoa, nem como emitir cupom no
-      nome de quem comprou
+- [x] **Venda identificada.** A venda aponta para quem comprou, e o PDV passou a declarar
+      `clientes` em `depends` — instalar o ponto de venda traz o cadastro junto, com o
+      custo assumido na atualização de 29/10/2026 da `docs/adr/0008-ponto-de-venda.md`.
+      Venda anônima continua sendo o caso normal. Cliente desativado não entra em venda
+      nova, venda fechada não troca de dono, e o nome é lido na hora em vez de copiado:
+      corrigir um nome digitado errado vale para as vendas da pessoa também.
+      **Fiado e crediário continuam fora** — cobrança a prazo exige limite, vencimento e
+      regra de inadimplência, e nada disso tem requisito escrito
 - [ ] **Fornecedor não existe como entidade.** A nota guarda o CNPJ do emitente como texto,
       e o vínculo "código do fornecedor → produto" pendura num CNPJ solto. Prazo de entrega,
       contato e histórico de compra por fornecedor não têm onde morar

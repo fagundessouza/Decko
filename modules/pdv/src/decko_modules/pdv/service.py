@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from decko_modules.clientes.models import Cliente
 from decko_modules.comercial import service as comercial
 from decko_modules.comercial.models import Produto, TipoMovimento
 from decko_modules.pdv.models import (
@@ -49,6 +50,49 @@ async def abrir_venda(
 def _exige_aberta(venda: Venda) -> None:
     if venda.status is not StatusVenda.ABERTA:
         raise PdvError(f"A venda já está {venda.status.value}; não aceita mais alteração.")
+
+
+async def identificar(session: AsyncSession, *, venda: Venda, cliente_id: uuid.UUID) -> Venda:
+    """Diz de quem é esta venda.
+
+    Só enquanto aberta: depois de finalizada tudo na venda é congelado — total, preço e
+    descrição de cada item — porque o cupom precisa continuar dizendo o que o cliente
+    pagou. Trocar a quem a venda pertence depois de fechada seria reescrever um documento
+    entregue.
+    """
+    _exige_aberta(venda)
+
+    cliente = await session.get(Cliente, cliente_id)
+    if cliente is None:
+        raise PdvError("Cliente não encontrado.")
+    if not cliente.ativo:
+        # Vendas antigas dele continuam intactas; desativar quer dizer "não use mais daqui
+        # para frente".
+        raise PdvError(f"'{cliente.nome}' está desativado e não pode entrar numa venda nova.")
+
+    venda.cliente_id = cliente.id
+    await session.flush()
+    return venda
+
+
+async def desidentificar(session: AsyncSession, *, venda: Venda) -> Venda:
+    """Volta a venda a anônima. Errar o cliente no balcão é comum e tem de ser reversível."""
+    _exige_aberta(venda)
+    venda.cliente_id = None
+    await session.flush()
+    return venda
+
+
+async def cliente_de(session: AsyncSession, venda: Venda) -> Cliente | None:
+    """O cliente da venda, lido na hora.
+
+    Ao contrário do preço e da descrição do item, que são cópia: o preço de ontem é fato
+    histórico e não pode mudar, mas quem a pessoa é é cadastro, e corrigir um nome digitado
+    errado precisa valer para as vendas dela também.
+    """
+    if venda.cliente_id is None:
+        return None
+    return await session.get(Cliente, venda.cliente_id)
 
 
 async def adicionar_item(
