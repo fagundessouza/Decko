@@ -1,0 +1,37 @@
+# Assinatura recorrente: plano, assinante e a cobrança de cada mês.
+# Decisões e limites: docs/adr/0013-assinatura-recorrente.md
+#
+# Depende de `clientes` porque uma assinatura pertence a alguém — ver
+# docs/adr/0007-dependencia-entre-modulos.md. Não depende de `comercial`: aqui a assinatura
+# é serviço, não entrega de mercadoria, e não baixa estoque.
+
+[module]
+name = "assinaturas"
+label = "Assinaturas"
+version = "0.1.0"
+package = "decko_modules.assinaturas"
+depends = ["core", "clientes"]
+required = false
+category = "Operação"
+icon = "card"
+accent = "violet"
+summary = "Quem assina, quanto paga e quando vence. Avisa, dá prazo e aponta quem bloquear."
+
+[migrations]
+branch_label = "assinaturas"
+
+[permissions]
+provides = [
+  "assinaturas.plano.read",
+  "assinaturas.plano.write",
+  "assinaturas.assinatura.read",
+  "assinaturas.assinatura.write",
+  "assinaturas.cobranca.read",
+  "assinaturas.cobranca.gerar",
+  "assinaturas.cobranca.baixar",
+  "assinaturas.cobranca.prazo",
+]
+
+[menu]
+label = "Assinaturas"
+order = 65
