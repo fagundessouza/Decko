@@ -261,7 +261,16 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Emissão fiscal (NFC-e/SAT) como módulo próprio. É o que falta para o PDV substituir
       o caixa de uma loja de verdade, e é o que não pode ser suposto: certificado digital,
       homologação na SEFAZ do estado, contingência e layout versionado
-- [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito
+- [ ] **Conta de recebimento no pagamento.** `FormaPagamento` já distingue crédito,
+      débito, Pix e dinheiro — não distingue **em qual conta** o Pix caiu, e essa é metade
+      da dor de conferência de caixa descrita por cliente real. Não depende de hardware,
+      maquininha nem adquirente — ver `docs/discovery/pdv-perifericos-e-pagamento.md`
+- [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito,
+      e é o relatório que a cliente da seção 1 daquele discovery queria no fim do dia
+- [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
+      porta serial no iOS, e TEF pede agente local no Windows — o que cria um segundo
+      executável para instalar e atualizar na casa do cliente. O leitor de código de barras
+      **já funciona** sem nada disso, porque se apresenta como teclado
 - [ ] Devolução de venda. Hoje venda finalizada não é cancelada, e a recusa diz por quê
 - [ ] PDV offline-first
 - [ ] Verticais sobre a base. **Cada uma exige documento real da operação**, como o agro
