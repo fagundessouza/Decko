@@ -127,6 +127,70 @@ Só os cinco primeiros caracteres do SHA-1 saem da máquina, nunca a senha; o se
 ar deixa a senha passar, com aviso no log. Em instalação sem internet, desligue com
 `DECKO_BREACH_CHECK_ENABLED=false` — ver `docs/adr/0011-senha-conhecidamente-vazada.md`.
 
+### Front e API em domínios diferentes
+
+Em desenvolvimento não há o que configurar: o Vite encaminha `/api` para a porta 8000, o
+front chama caminho relativo e não existe requisição entre origens.
+
+Quando a tela é servida de outro lugar — Vercel, por exemplo — e a API responde noutro
+domínio, duas pontas precisam combinar:
+
+```powershell
+# na API, em .env
+DECKO_CORS_ORIGINS=https://decko.vercel.app
+
+# no front, em apps/web/.env.local
+VITE_API_URL=https://api.seudominio.com.br
+```
+
+Sem barra no fim da URL, e **nenhum segredo em variável `VITE_`**: o que entra no pacote
+montado é público por definição.
+
+### Expor a API de casa, sem abrir porta
+
+Internet residencial costuma estar atrás de CGNAT, e aí **não há porta para abrir** —
+nenhum roteador resolve, porque o provedor não entregou IP público. Para conferir:
+
+```powershell
+tracert -d -h 4 8.8.8.8
+```
+
+Salto na faixa `100.64.0.0/10` significa CGNAT.
+
+A saída é túnel reverso: a máquina abre a conexão de dentro para fora, e o tráfego volta
+por ela. Sem porta aberta, com HTTPS, e sem expor a máquina de casa à varredura da
+internet.
+
+```powershell
+winget install --id Cloudflare.cloudflared
+
+# 1. autentica no navegador e grava o certificado da conta
+cloudflared tunnel login
+
+# 2. cria o túnel (uma vez) e anota o UUID que ele imprime
+cloudflared tunnel create decko
+
+# 3. aponta um subdomínio para o túnel
+cloudflared tunnel route dns decko api.seudominio.com.br
+
+# 4. sobe, encaminhando para a API local
+cloudflared tunnel run --url http://localhost:8000 decko
+```
+
+Para um teste rápido, sem domínio nem conta, um comando só dá uma URL temporária:
+
+```powershell
+cloudflared tunnel --url http://localhost:8000
+```
+
+A URL some quando o comando para, e muda a cada execução — serve para mostrar o sistema a
+alguém, não para apontar cliente.
+
+> **O que isso é e o que não é.** Serve para desenvolvimento, demonstração e piloto
+> combinado. Não serve para cliente pagando mensalidade: máquina que desliga de noite,
+> loja que abre sábado e queda de luz são aceitáveis num piloto dito como piloto. Ver
+> `docs/adr/0015-modo-de-implantacao-e-licenca.md`.
+
 ### Frontend
 
 ```powershell
