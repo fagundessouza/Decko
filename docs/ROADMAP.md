@@ -219,6 +219,11 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
+- [ ] Responder as dez perguntas de `docs/discovery/comercial-emissao-fiscal.md`. Duas
+      correções que a pesquisa trouxe e mudam o escopo: a NFC-e é autorizada pela **SEFAZ
+      do estado**, não pela Receita, então não é "uma API"; e a Avalara que se quer imitar é
+      **motor de cálculo**, não emissor — é ele que responde à dor do lojista, e é o que a
+      reforma tributária está reescrevendo agora
 - [ ] Responder as perguntas em aberto do discovery fiscal (origem da mercadoria, CATMAT,
       marca e modelo, unidade tributável, tabela oficial de NCM). Nenhuma foi suposta
 - [x] Módulo `pdv`: venda de balcão com busca por código de barras, pagamento em dinheiro,
@@ -243,6 +248,9 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       de documento que não pode mudar de significado.
       (`agro_product` **não** entra aqui: defensivo com formulação, classe toxicológica e
       registro no MAPA é coisa diferente de produto de prateleira)
+- [ ] Recibo não fiscal em impressora térmica. Hoje o PDV não imprime nada. É a parte
+      barata e sem dependência externa — e **não substitui** documento fiscal onde ele é
+      exigido, o que precisa estar claro no produto e não só no código
 - [ ] Emissão fiscal (NFC-e/SAT) como módulo próprio. É o que falta para o PDV substituir
       o caixa de uma loja de verdade, e é o que não pode ser suposto: certificado digital,
       homologação na SEFAZ do estado, contingência e layout versionado
