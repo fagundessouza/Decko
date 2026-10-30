@@ -6,11 +6,14 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { Modal } from "../components/Modal";
+import { Select } from "../components/Select";
 import { LarguraDoPapel, Recibo } from "../components/Recibo";
 import { TextField } from "../components/TextField";
 import { clientes } from "../lib/clientes";
 import type { Cliente } from "../lib/clientes";
 import { comercial } from "../lib/comercial";
+import { financeiro } from "../lib/financeiro";
+import type { ContaRecebimento } from "../lib/financeiro";
 import type { Produto } from "../lib/comercial";
 import { brl, num } from "../lib/format";
 import { FORMAS, pdv } from "../lib/pdv";
@@ -51,6 +54,10 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
   const [achados, setAchados] = useState<Produto[] | null>(null);
 
   const [cobrando, setCobrando] = useState<FormaPagamento | null>(null);
+  const [contas, setContas] = useState<ContaRecebimento[]>([]);
+  /* A conta fica lembrada entre pagamentos da mesma sessão: num balcão o Pix cai quase
+   * sempre no mesmo lugar, e escolher a cada venda seria atrito por nada. */
+  const [conta, setConta] = useState("");
   const [valorRecebido, setValorRecebido] = useState("");
   const [concluida, setConcluida] = useState<Venda | null>(null);
 
@@ -68,6 +75,12 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
   /* Retoma a venda aberta em vez de começar outra: recarregar a página não pode perder o
    * que já foi bipado. */
   useEffect(() => {
+    /* O módulo `financeiro` pode não estar ativo nesta empresa: aí a escolha de conta
+     * simplesmente não aparece, e o caixa vende como antes. */
+    financeiro
+      .listarContas()
+      .then(setContas)
+      .catch(() => setContas([]));
     let vivo = true;
     (async () => {
       try {
@@ -171,10 +184,11 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
   async function cobrar() {
     if (!venda || cobrando === null) return;
     const valor = valorRecebido.replace(",", ".");
+    const destino = conta || null;
     setCobrando(null);
     setValorRecebido("");
     await operar(
-      () => pdv.pagar(venda.id, { forma: cobrando, valor }),
+      () => pdv.pagar(venda.id, { forma: cobrando, valor, conta_id: destino }),
       "Não foi possível registrar o pagamento.",
     );
   }
@@ -655,6 +669,19 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
             value={valorRecebido}
             onChange={(event) => setValorRecebido(event.target.value)}
           />
+          {contas.length > 0 && (
+            <div className="mt-4">
+              <Select
+                label="Caiu em"
+                value={conta}
+                onChange={setConta}
+                options={contas.map((item) => ({ value: item.id, label: item.nome }))}
+                placeholder="Não informar"
+                hint="Opcional. É o que permite fechar o caixa sabendo o que entrou em cada lugar."
+              />
+            </div>
+          )}
+
           <p className="mt-3 text-sm text-ink-muted">
             Falta {brl(venda.falta)}. Troco só sai de pagamento em dinheiro.
           </p>

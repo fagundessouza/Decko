@@ -261,7 +261,17 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Emissão fiscal (NFC-e/SAT) como módulo próprio. É o que falta para o PDV substituir
       o caixa de uma loja de verdade, e é o que não pode ser suposto: certificado digital,
       homologação na SEFAZ do estado, contingência e layout versionado
-- [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito
+- [x] **Conta de recebimento no pagamento.** Módulo `financeiro` com o cadastro de
+      destinos — banco, chave Pix, gaveta do caixa — e o pagamento do PDV apontando para
+      um. Dois Pix na mesma venda podem cair em contas diferentes, que era o caso descrito.
+      **Opcional de propósito**: o balcão não para para escolher conta. Não é plano de
+      contas e não guarda saldo — ver `docs/adr/0014-conta-de-recebimento.md`
+- [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito,
+      e é o relatório que a cliente da seção 1 daquele discovery queria no fim do dia
+- [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
+      porta serial no iOS, e TEF pede agente local no Windows — o que cria um segundo
+      executável para instalar e atualizar na casa do cliente. O leitor de código de barras
+      **já funciona** sem nada disso, porque se apresenta como teclado
 - [ ] Devolução de venda. Hoje venda finalizada não é cancelada, e a recusa diz por quê
 - [ ] PDV offline-first
 - [ ] Verticais sobre a base. **Cada uma exige documento real da operação**, como o agro

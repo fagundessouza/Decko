@@ -204,7 +204,7 @@ async def test_contratar_modulo_registra_o_que_veio_junto(conta: Conta) -> None:
     # O PDV traz a base comercial e o cadastro de clientes. Quem contrata escolhe um nome
     # e recebe a árvore — e a trilha diz o que de fato passou a existir, não o que foi
     # pedido.
-    assert entradas[0].data == {"instalados": ["comercial", "clientes", "pdv"]}
+    assert entradas[0].data == {"instalados": ["comercial", "clientes", "financeiro", "pdv"]}
 
 
 async def test_desinstalar_deixa_rastro(conta: Conta) -> None:
