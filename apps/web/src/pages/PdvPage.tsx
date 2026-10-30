@@ -6,6 +6,7 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { Modal } from "../components/Modal";
+import { LarguraDoPapel, Recibo } from "../components/Recibo";
 import { TextField } from "../components/TextField";
 import { clientes } from "../lib/clientes";
 import type { Cliente } from "../lib/clientes";
@@ -17,6 +18,8 @@ import type { FormaPagamento, Venda } from "../lib/pdv";
 
 interface Props {
   onBack: () => void;
+  /** Nome da empresa, para o cabeçalho do recibo. Vem da sessão, então existe sempre. */
+  empresa: string;
   /** Só quando a empresa tem o módulo de clientes e quem opera pode identificar.
    *
    *  O PDV passou a depender de `clientes`, mas empresa que já tinha o PDV sem ele não
@@ -37,7 +40,7 @@ function motivo(cause: unknown, padrao: string): string {
  * O campo de código fica com o foco o tempo inteiro, porque o leitor de código de barras
  * digita e dá Enter. Perder o foco depois de cada item faria o operador pegar no mouse a
  * cada produto, que é o que torna um PDV lento. */
-export function PdvPage({ onBack, podeIdentificar }: Props) {
+export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
   const [venda, setVenda] = useState<Venda | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -232,13 +235,23 @@ export function PdvPage({ onBack, podeIdentificar }: Props) {
               )}
             </dl>
 
-            <div className="mt-8">
+            <div className="mt-8 flex flex-col gap-3">
               <Button onClick={() => void novaVenda()} loading={busy}>
                 Nova venda
               </Button>
+              {/* O recibo é opcional: muito balcão não imprime nada, e obrigar a passar
+                  por um diálogo de impressão a cada venda atrasaria a fila. */}
+              <Button variant="secondary" onClick={() => window.print()}>
+                Imprimir recibo
+              </Button>
+              <div className="flex justify-center">
+                <LarguraDoPapel onChange={() => undefined} />
+              </div>
             </div>
           </CardBody>
         </Card>
+
+        <Recibo venda={concluida} empresa={empresa} />
       </Page>
     );
   }

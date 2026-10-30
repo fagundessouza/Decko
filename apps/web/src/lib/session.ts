@@ -12,6 +12,7 @@
 const REFRESH_KEY = "decko.refresh_token";
 const TENANT_KEY = "decko.tenant_slug";
 const THEME_KEY = "decko.theme";
+const RECIBO_KEY = "decko.recibo_largura";
 const COMPANIES_KEY = "decko.companies";
 
 /* Quantas empresas o seletor lembra. Computador de balcão passa por muita gente; guardar
@@ -110,5 +111,25 @@ export const theme = {
   apply(value: Theme): void {
     document.documentElement.setAttribute("data-theme", value);
     writeLocal(THEME_KEY, value);
+  },
+};
+
+
+/** Largura do papel da impressora térmica. 58 e 80 mm são as duas do balcão. */
+export type LarguraDoRecibo = "58mm" | "80mm";
+
+/* Escolhida **por estação**, como o tema e pela mesma razão: a impressora é do balcão, não
+ * da matriz, e duas lojas da mesma empresa podem ter papel diferente.
+ * Ver docs/BRAND.md, seção 3. */
+export const recibo = {
+  getLargura(): LarguraDoRecibo {
+    return readLocal(RECIBO_KEY) === "58mm" ? "58mm" : "80mm";
+  },
+  setLargura(largura: LarguraDoRecibo): void {
+    writeLocal(RECIBO_KEY, largura);
+    document.documentElement.style.setProperty("--dk-recibo-largura", largura);
+  },
+  aplicar(): void {
+    document.documentElement.style.setProperty("--dk-recibo-largura", recibo.getLargura());
   },
 };

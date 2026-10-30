@@ -243,3 +243,99 @@
     animation: dk-fade 0.16s var(--dk-ease) both;
   }
 }
+
+/* ---------------------------------------------------------------- recibo
+
+   O comprovante de venda em impressora térmica. Fora da impressão ele não existe: o
+   caixa não precisa de uma segunda via da venda na tela, e ocupar espaço com ela
+   atrapalharia o que o operador está fazendo.
+
+   Impressão em papel contínuo: a altura é `auto`, nunca uma folha. Margem zero porque a
+   bobina não tem margem — o recuo que existe é o do próprio mecanismo.
+
+   A largura vem de `--dk-recibo-largura`, escolhida por estação (58 ou 80 mm) — ver
+   apps/web/src/lib/session.ts. */
+.dk-recibo {
+  display: none;
+}
+
+@media print {
+  /* Só o recibo vai para o papel. Sem isto sai a aplicação inteira, menu e tudo.
+     
+     É `visibility` e não `display`: o recibo fica no fundo da árvore do React, e esconder
+     os filhos do body com `display: none` o levaria junto — elemento sem caixa não
+     reaparece porque um descendente pediu. Com `visibility`, as caixas continuam
+     existindo e o recibo volta a si. */
+  body * {
+    visibility: hidden;
+  }
+
+  .dk-recibo,
+  .dk-recibo * {
+    visibility: visible;
+  }
+
+  .dk-recibo {
+    display: block;
+    /* Tirado do fluxo e ancorado no topo: senão o papel sai com a altura de tudo o que
+       está invisível acima dele. */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--dk-recibo-largura, 80mm);
+    padding: 0 2mm;
+    /* Monoespaçada: é o que alinha valor com valor em coluna estreita. */
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 9pt;
+    line-height: 1.35;
+    color: #000;
+    background: #fff;
+  }
+
+  .dk-recibo p {
+    margin: 0;
+  }
+
+  .dk-recibo__centro {
+    text-align: center;
+  }
+
+  .dk-recibo__forte {
+    font-weight: 700;
+  }
+
+  .dk-recibo__regua {
+    border: none;
+    border-top: 1px dashed #000;
+    margin: 1.5mm 0;
+  }
+
+  .dk-recibo__linha {
+    display: flex;
+    justify-content: space-between;
+    gap: 2mm;
+  }
+
+  .dk-recibo__itens {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  /* O nome do produto ocupa a linha inteira e quebra; quantidade e valor vão embaixo.
+     Em 58 mm não cabem lado a lado, e cortar o nome do produto é pior que uma linha a
+     mais de papel. */
+  .dk-recibo__nome {
+    display: block;
+    word-break: break-word;
+  }
+
+  .dk-recibo__itens td {
+    padding: 0 0 1mm;
+    vertical-align: top;
+  }
+
+  @page {
+    size: var(--dk-recibo-largura, 80mm) auto;
+    margin: 0;
+  }
+}

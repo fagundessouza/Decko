@@ -367,6 +367,7 @@ export default function App() {
       {view.name === "pdv" && (
         <PdvPage
           onBack={() => setView({ name: "home" })}
+          empresa={info.tenant.name}
           podeIdentificar={hasClientes && info.permissions.includes("pdv.venda.identificar")}
         />
       )}
