@@ -50,13 +50,14 @@ apps/       api (FastAPI host) · web (React shell) · worker (async jobs)
 modules/    core · agro · distribuidora
 packages/   tokens (design tokens) · ui (shared components)
 infra/      compose · observability
-docs/       architecture · roadmap · brand · discovery · adr · benchmark
+docs/       negocio · architecture · roadmap · brand · discovery · adr · benchmark
 ```
 
 ## Documentation
 
 | | |
 |---|---|
+| [NEGOCIO.md](docs/NEGOCIO.md) | Positioning, where the product stands, and what is missing to sell it |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the system is built, and why |
 | [ROADMAP.md](docs/ROADMAP.md) | Phases and current progress |
 | [benchmark/](docs/benchmark/) | Odoo 20 architecture audit, and how Decko compares |

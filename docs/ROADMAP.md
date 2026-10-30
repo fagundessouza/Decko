@@ -1,5 +1,10 @@
 # Roadmap
 
+Este arquivo responde **o que construir e em que ordem**. O que falta para o produto ser
+**vendido** — cadastro de empresa pela aplicação, implantação, backup, cobrança, emissão
+fiscal e jurídico — está em `docs/NEGOCIO.md`, porque é operação e não produto, e some
+quando fica misturado com fase.
+
 Regra: cada fase precisa terminar em algo demonstrável. Fase que só produz código de infraestrutura
 sem nada visível é sinal de escopo mal cortado.
 
