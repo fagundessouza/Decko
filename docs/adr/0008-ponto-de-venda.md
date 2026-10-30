@@ -77,6 +77,10 @@ explicação em vez de inventada — `CLAUDE.md`, regra 6.
   lançamento fica na razão e a divergência aparece; travar por padrão pararia o balcão.
   Vira configuração quando alguém pedir.
 - **Cliente na venda, fiado, crediário.** Não há cadastro de cliente na base comercial.
+  > **Atualização de 29/10/2026.** A premissa venceu: o módulo `clientes` existe. A
+  > **venda identificada** foi feita — ver a seção no fim deste documento. **Fiado e
+  > crediário continuam fora**, e não por falta de cadastro: são cobrança a prazo, com
+  > limite, vencimento e inadimplência, e nada disso tem requisito escrito.
 - **Mesa, comanda e delivery.** São do `pos_restaurant` do Odoo, ou seja: vertical fina
   sobre este módulo. Entram depois, e dependem do dado-semente (lacuna 4.3).
 - **Desconto por autorização, cancelamento de item com senha.** Depende de política de
@@ -89,3 +93,58 @@ explicação em vez de inventada — `CLAUDE.md`, regra 6.
 - O perfil de segmento de comércio passa a ter o que configurar: `comercial` + `pdv`.
 - A permissão `pdv.venda.finalizar` é separada de `pdv.venda.write` para que, quando
   houver requisito, o caixa possa lançar sem poder fechar.
+
+
+---
+
+## Atualização de 29/10/2026 — venda identificada
+
+A lista acima deixava "cliente na venda" de fora por um motivo que deixou de valer: *"não
+há cadastro de cliente na base comercial"*. O módulo `clientes` existe, e identificar quem
+comprou era uma das razões de ele vir primeiro.
+
+### O PDV passa a depender de `clientes`
+
+`depends = ["core", "comercial", "clientes"]`. Instalar o ponto de venda na vitrine traz o
+cadastro de clientes junto, como já traz a base comercial.
+
+**O custo é real e assumido:** a padaria que só quer um caixa ganha um cadastro de clientes
+que talvez nunca preencha. A alternativa seria uma porta invertida entre módulos, para o
+PDV funcionar com e sem `clientes`. Foi descartada por duas razões. A primeira é que as
+portas do projeto são **host ↔ módulo**, e existem porque o host não pode importar módulo
+nenhum; acoplamento entre módulos irmãos já tem resposta decidida na ADR 0007, que é
+declarar a dependência. A segunda é que "PDV sem cadastro de clientes" é requisito que
+ninguém escreveu, e o `CLAUDE.md` veda construir para caso hipotético.
+
+Empresa que já tinha o PDV **sem** `clientes` não recebe o módulo sozinha: instalar na
+empresa dos outros sem pedido é o mesmo que a ADR 0010 recusa para a semente. A tela do
+PDV simplesmente não oferece identificação enquanto o módulo não estiver ativo, e a
+vitrine está ali para quem quiser.
+
+### O que a identificação é, e o que ela não é
+
+`pdv_venda.cliente_id`, nulo por padrão. **Venda anônima continua sendo o caso normal** —
+exigir CPF para vender um pão travaria o balcão, e o próprio cadastro de clientes já
+admite cliente sem documento pela mesma razão.
+
+Decisões menores, cada uma com o seu motivo:
+
+- **Só enquanto a venda está aberta.** Depois de finalizada tudo nela é congelado — total,
+  preço e descrição de cada item — porque o cupom precisa continuar dizendo o que o
+  cliente pagou. Trocar a quem a venda pertence depois de fechada seria reescrever um
+  documento entregue.
+- **A chave estrangeira é `RESTRICT`.** O cadastro de clientes nunca apaga, só desativa,
+  justamente para a venda continuar apontando para alguém. O `RESTRICT` é o banco
+  cobrando essa promessa.
+- **Cliente desativado não pode ser identificado numa venda nova.** Vendas antigas dele
+  continuam intactas; desativar quer dizer "não use mais daqui para frente".
+- **O nome é lido na hora, não copiado.** Ao contrário do preço e da descrição do item,
+  que são cópia. A razão é a diferença entre as duas coisas: o preço de ontem é fato
+  histórico e não pode mudar; quem a pessoa é é cadastro, e corrigir um nome digitado
+  errado precisa valer para as vendas dela também.
+
+### O que continua fora
+
+**Fiado e crediário.** Identificar quem comprou não é vender a prazo. Cobrança a prazo
+exige limite, vencimento, o que acontece quando atrasa e quem autoriza — e nada disso tem
+requisito escrito. Está dito aqui para ser decisão, e não esquecimento.

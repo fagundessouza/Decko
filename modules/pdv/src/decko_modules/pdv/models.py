@@ -1,7 +1,8 @@
 """Ponto de venda: a venda de balcão e o que ela movimenta.
 
-O PDV não tem cadastro próprio de produto nem de estoque: usa os do módulo ``comercial``,
-que ele declara em ``depends`` — ver ``docs/adr/0007-dependencia-entre-modulos.md``.
+O PDV não tem cadastro próprio de produto, de estoque nem de cliente: usa os dos módulos
+``comercial`` e ``clientes``, que ele declara em ``depends`` — ver
+``docs/adr/0007-dependencia-entre-modulos.md``.
 
 O que ficou de fora de propósito, e por quê, está em ``docs/adr/0008-ponto-de-venda.md``.
 """
@@ -113,6 +114,18 @@ class Venda(TenantMixin, TimestampMixin, Base):
 
     operador_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Quem comprou, quando a venda é identificada. Nulo é o caso normal: exigir CPF para
+    # vender um pão travaria o balcão.
+    #
+    # `RESTRICT` e não `SET NULL`: o cadastro de clientes nunca apaga, só desativa,
+    # justamente para a venda continuar apontando para alguém. Aqui o banco cobra essa
+    # promessa. Ver a atualização de 29/10/2026 em docs/adr/0008-ponto-de-venda.md.
+    cliente_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("clientes_cliente.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     observacao: Mapped[str | None] = mapped_column(String(300), nullable=True)
 

@@ -63,6 +63,12 @@ class VendaOut(BaseModel):
     fechada_em: datetime | None
     observacao: str | None
 
+    # Nulo é o caso normal: venda anônima de balcão.
+    cliente_id: uuid.UUID | None = None
+    # Lido na hora, não copiado: corrigir um nome digitado errado precisa valer para as
+    # vendas da pessoa também — ver docs/adr/0008-ponto-de-venda.md.
+    cliente_nome: str | None = None
+
     itens: list[ItemOut]
     pagamentos: list[PagamentoOut]
 
@@ -72,6 +78,10 @@ class VendaOut(BaseModel):
     pago: Decimal
     falta: Decimal
     troco: Decimal
+
+
+class IdentificarIn(BaseModel):
+    cliente_id: uuid.UUID
 
 
 class VendaResumoOut(BaseModel):

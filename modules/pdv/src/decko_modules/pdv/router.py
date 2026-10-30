@@ -14,6 +14,7 @@ from decko_modules.pdv import service
 from decko_modules.pdv.models import StatusVenda, Venda
 from decko_modules.pdv.schemas import (
     DescontoIn,
+    IdentificarIn,
     ItemIn,
     ItemOut,
     PagamentoIn,
@@ -50,6 +51,8 @@ async def _ver(session: AsyncSession, venda: Venda) -> VendaOut:
     total = await service.total_a_pagar(session, venda)
     pago = await service.total_pago(session, venda)
 
+    cliente = await service.cliente_de(session, venda)
+
     return VendaOut(
         id=venda.id,
         numero=venda.numero,
@@ -57,6 +60,8 @@ async def _ver(session: AsyncSession, venda: Venda) -> VendaOut:
         aberta_em=venda.aberta_em,
         fechada_em=venda.fechada_em,
         observacao=venda.observacao,
+        cliente_id=venda.cliente_id,
+        cliente_nome=cliente.nome if cliente else None,
         itens=[ItemOut.model_validate(item) for item in venda.itens],
         pagamentos=[PagamentoOut.model_validate(p) for p in venda.pagamentos],
         soma_dos_itens=soma,
@@ -183,6 +188,41 @@ async def remover_pagamento(
     venda = await _carregar(session, venda_id)
     try:
         await service.remover_pagamento(session, venda=venda, pagamento_id=pagamento_id)
+    except service.PdvError as exc:
+        raise _invalido(exc) from exc
+    return await _ver(session, venda)
+
+
+@router.put("/vendas/{venda_id}/cliente", response_model=VendaOut)
+async def identificar_venda(
+    venda_id: uuid.UUID,
+    payload: IdentificarIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("pdv.venda.identificar"))],
+) -> VendaOut:
+    """Diz de quem é esta venda.
+
+    Permissão própria, separada de `pdv.venda.write`: quem opera o caixa nem sempre é quem
+    pode ver e escolher na carteira de clientes da loja.
+    """
+    venda = await _carregar(session, venda_id)
+    try:
+        await service.identificar(session, venda=venda, cliente_id=payload.cliente_id)
+    except service.PdvError as exc:
+        raise _invalido(exc) from exc
+    return await _ver(session, venda)
+
+
+@router.delete("/vendas/{venda_id}/cliente", response_model=VendaOut)
+async def desidentificar_venda(
+    venda_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("pdv.venda.identificar"))],
+) -> VendaOut:
+    """Volta a venda a anônima. Errar o cliente no balcão é comum."""
+    venda = await _carregar(session, venda_id)
+    try:
+        await service.desidentificar(session, venda=venda)
     except service.PdvError as exc:
         raise _invalido(exc) from exc
     return await _ver(session, venda)

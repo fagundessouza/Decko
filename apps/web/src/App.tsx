@@ -364,7 +364,12 @@ export default function App() {
         <ConferenciaPage onBack={() => setView({ name: "home" })} />
       )}
 
-      {view.name === "pdv" && <PdvPage onBack={() => setView({ name: "home" })} />}
+      {view.name === "pdv" && (
+        <PdvPage
+          onBack={() => setView({ name: "home" })}
+          podeIdentificar={hasClientes && info.permissions.includes("pdv.venda.identificar")}
+        />
+      )}
 
       {view.name === "clientes" && (
         <ClientesPage onBack={() => setView({ name: "home" })} />
