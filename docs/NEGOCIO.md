@@ -75,6 +75,20 @@ Essa ausência é a razão de este documento existir.
 
 ### 5.1 Bloqueios de operação — a diferença entre "funciona" e "tem cliente"
 
+> **Atualização de 30/10/2026.** A ADR 0015 decidiu **híbrido, começando pela instalação
+> local**, e isso muda o peso da tabela abaixo. Instalação local não precisa de cadastro
+> pela aplicação, nem de hospedagem, nem de assinatura por gateway: a primeira venda deixa
+> de esperar por infraestrutura.
+>
+> O que **continua obrigatório** é menor do que parecia, e tem dono:
+>
+> - **Backup na casa do cliente.** Se o computador do balcão queimar com os dados dentro, a
+>   culpa chega ao fornecedor com ou sem contrato. Precisa de resposta antes do primeiro
+>   cliente.
+> - **Uma instância nossa online**, pequena, para demonstração e para o controle de
+>   assinaturas. É o único servidor necessário para começar a vender.
+> - **A licença com validade**, que ainda não existe.
+
 | Bloqueio | O que há hoje | O que falta |
 |---|---|---|
 | **Cadastro de empresa** | `decko-admin bootstrap`, no terminal de quem mantém o sistema | Ninguém assina sozinho. Para SaaS isso é bloqueio absoluto. A ausência da rota é **deliberada** (`CONTRIBUTING.md`: não deixar cadastro aberto na internet), então o que falta é o fluxo de assinatura com dono responsável, não só a rota |
@@ -134,8 +148,10 @@ disso alguém pagaria.
 
 ## Perguntas em aberto — decisão do dono do projeto
 
-1. **Vender como SaaS ou implantar na casa do cliente?** Muda tudo da seção 5.1. Implantação
-   local adianta a primeira venda e cria custo de suporte que não escala.
+1. ~~Vender como SaaS ou implantar na casa do cliente?~~ Respondido em 30/10/2026:
+   **híbrido, começando local** — ver `docs/adr/0015-modo-de-implantacao-e-licenca.md`. O
+   custo de suporte que não escala continua valendo, e agora está escrito onde entra: no
+   preço, desde o primeiro contrato.
 2. **Preço.** Por empresa, por usuário, por módulo? Nenhuma hipótese foi testada.
 3. **Agro é produto ou é o primeiro cliente?** Vender para uma operação de drone é diferente
    de vender para o setor.

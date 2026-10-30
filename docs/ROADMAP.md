@@ -212,6 +212,14 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       documento por hash, com quem, quando e de onde. Editar o planejamento depois de
       assinado passa a ser acusado. Ficou **dentro do agro**, e não em módulo próprio,
       porque há um consumidor só — ver `docs/discovery/assinaturas-dois-modulos.md`
+- [ ] **Licença com validade**, para a instalação na casa do cliente: arquivo assinado,
+      conferido na subida e uma vez por dia. **Degrada em vez de cortar** — avisa, depois
+      recusa operação nova, e **nunca** impede ler e exportar os próprios dados, porque o
+      dado é do cliente. Falha **aberta** quando não dá para verificar. É dissuasão, não
+      proteção: quem protege é o contrato — ver
+      `docs/adr/0015-modo-de-implantacao-e-licenca.md`
+- [ ] **Backup na instalação local.** Se o computador do balcão queimar com os dados
+      dentro, a culpa chega ao fornecedor. Precisa de resposta antes do primeiro cliente
 - [ ] Assinatura gov.br: depende de credenciamento da aplicação na plataforma, que é
       providência do dono do projeto, não código
 - [ ] Módulo de plano recorrente: depende de `clientes`, que já existe, e de uma decisão
