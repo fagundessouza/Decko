@@ -1,5 +1,10 @@
 # Roadmap
 
+Este arquivo responde **o que construir e em que ordem**. O que falta para o produto ser
+**vendido** — cadastro de empresa pela aplicação, implantação, backup, cobrança, emissão
+fiscal e jurídico — está em `docs/NEGOCIO.md`, porque é operação e não produto, e some
+quando fica misturado com fase.
+
 Regra: cada fase precisa terminar em algo demonstrável. Fase que só produz código de infraestrutura
 sem nada visível é sinal de escopo mal cortado.
 
@@ -214,6 +219,11 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
+- [ ] Responder as dez perguntas de `docs/discovery/comercial-emissao-fiscal.md`. Duas
+      correções que a pesquisa trouxe e mudam o escopo: a NFC-e é autorizada pela **SEFAZ
+      do estado**, não pela Receita, então não é "uma API"; e a Avalara que se quer imitar é
+      **motor de cálculo**, não emissor — é ele que responde à dor do lojista, e é o que a
+      reforma tributária está reescrevendo agora
 - [ ] Responder as perguntas em aberto do discovery fiscal (origem da mercadoria, CATMAT,
       marca e modelo, unidade tributável, tabela oficial de NCM). Nenhuma foi suposta
 - [x] Módulo `pdv`: venda de balcão com busca por código de barras, pagamento em dinheiro,
