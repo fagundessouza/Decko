@@ -1,0 +1,138 @@
+# Integração contínua do Decko.
+#
+# O ponto desta esteira é o banco ser **de verdade**. A regra do projeto é explícita:
+# teste que depende de banco usa PostgreSQL real, nunca mock, porque mock esconde
+# justamente a divergência que quebra em produção. E o que mais importa aqui — o
+# isolamento entre empresas por Row Level Security — só existe no banco: contra um mock,
+# a prova de isolamento passaria sem provar nada.
+#
+# Por isso a preparação abaixo repete os dois papéis do ambiente local, e não um
+# superusuário: `decko_app` não é dono das tabelas e não tem BYPASSRLS, de modo que as
+# políticas valem para ele. Ver docs/adr/0002-ambiente-de-desenvolvimento-nativo.md.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging, develop]
+
+# Push novo na mesma branch cancela a execução anterior: o resultado dela já não interessa.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: API, módulos e banco real
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Mesma versão principal do ambiente de desenvolvimento e da produção pretendida.
+        image: postgres:18
+        env:
+          # Credencial efêmera, de container que morre no fim da execução. Não é segredo:
+          # não vale fora desta máquina e não dá acesso a nada do projeto.
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DECKO_ENV: test
+      DECKO_DATABASE_URL: postgresql+asyncpg://decko_app:decko_app@localhost:5432/decko
+      DECKO_MIGRATION_DATABASE_URL: postgresql+psycopg://decko_owner:decko_owner@localhost:5432/decko
+      # Valor fixo e obviamente descartável: a suíte só precisa assinar e conferir token
+      # dentro da própria execução.
+      DECKO_SECRET_KEY: chave-de-integracao-continua-sem-valor-fora-daqui
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar banco e papéis
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE decko_owner LOGIN PASSWORD 'decko_owner';
+          -- Sem BYPASSRLS, e sem ser dono das tabelas: é o que faz as políticas valerem
+          -- para a aplicação. Um superusuário aqui faria a prova de isolamento passar
+          -- sem provar nada.
+          CREATE ROLE decko_app LOGIN PASSWORD 'decko_app';
+          CREATE DATABASE decko OWNER decko_owner;
+          SQL
+
+          psql -h localhost -U postgres -d decko -v ON_ERROR_STOP=1 <<'SQL'
+          GRANT USAGE ON SCHEMA public TO decko_app;
+          -- As tabelas ainda não existem: as migrações as criam como decko_owner, e são
+          -- estes privilégios padrão que alcançam o que vier depois.
+          ALTER DEFAULT PRIVILEGES FOR ROLE decko_owner IN SCHEMA public
+            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO decko_app;
+          ALTER DEFAULT PRIVILEGES FOR ROLE decko_owner IN SCHEMA public
+            GRANT USAGE, SELECT ON SEQUENCES TO decko_app;
+          SQL
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instalar o workspace
+        run: uv sync --frozen
+
+      - name: Migrações
+        run: uv run alembic -c apps/api/alembic.ini upgrade heads
+
+      - name: Conferir que a aplicação não ignora RLS
+        # Se este papel ignorasse RLS, todo teste de isolamento passaria por engano. Vale
+        # mais conferir aqui, uma vez, do que descobrir pela ausência de falha.
+        env:
+          PGPASSWORD: decko_app
+        run: |
+          bypass=$(psql -h localhost -U decko_app -d decko -tAc \
+            "SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
+          echo "decko_app ignora RLS? $bypass"
+          test "$bypass" = "f"
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Formatação
+        run: uv run ruff format --check .
+
+      - name: Testes
+        run: uv run pytest -q
+
+  frontend:
+    name: Web
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Instalar
+        run: npm ci --prefix apps/web
+
+      - name: Lint
+        run: npm run lint --prefix apps/web
+
+      # `tsc --noEmit` não serve aqui: o tsconfig usa `files: []` com referências, e o
+      # comando passa sem conferir nada. `tsc -b` é o que de fato checa os projetos.
+      - name: Tipos
+        run: npm run typecheck --prefix apps/web
+
+      - name: Build
+        run: npm run build --prefix apps/web

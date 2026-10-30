@@ -1,0 +1,362 @@
+import { authedJson, authedRequest } from "./api";
+
+export interface AgroClient {
+  id: string;
+  nome: string;
+  cpf_cnpj: string;
+}
+
+export interface AgroProperty {
+  id: string;
+  client_id: string;
+  nome: string;
+  municipio: string;
+  uf: string;
+  latitude: string | null;
+  longitude: string | null;
+}
+
+export interface Product {
+  id: string;
+  nome_comercial: string;
+  formulacao: string | null;
+  classe_toxicologica: string | null;
+  registro_mapa: string | null;
+  is_adjuvante: boolean;
+}
+
+export interface Prescription {
+  id: string;
+  numero: string;
+  emitido_em: string;
+  agronomo_nome: string | null;
+  agronomo_crea: string | null;
+}
+
+/** Linha da tabela de produtos do planejamento.
+ *
+ * `formulacao` e `classe_toxicologica` são a cópia feita quando a linha entrou, não o
+ * valor atual do cadastro: um documento já emitido não muda de conteúdo.
+ */
+export interface PlanProduct {
+  id: string;
+  product_id: string;
+  formulacao: string | null;
+  classe_toxicologica: string | null;
+  dosagem_ha: string | null;
+  volume_ha: string | null;
+  total_produto: string | null;
+  adjuvante: string | null;
+}
+
+export interface ConsolidationPlan {
+  id: string;
+  numero: number;
+  status: string;
+  data_aplicacao: string | null;
+  contratante: string;
+  contratante_documento: string;
+  propriedade: string;
+  municipio: string;
+  uf: string;
+  cultura: string;
+  area_ha: string | null;
+  aeronave: string;
+  produtos: string[];
+  leituras: number;
+  violacoes: number;
+}
+
+export interface Consolidation {
+  ano: number;
+  mes: number;
+  quantidade: number;
+  area_total_ha: string;
+  planos_com_violacao: number;
+  planos_sem_data: number;
+  totais_por_produto: { produto: string; total: string }[];
+  planos: ConsolidationPlan[];
+}
+
+export interface Plan {
+  id: string;
+  numero: number;
+  status: string;
+  client_id: string;
+  property_id: string;
+  prescription_id: string | null;
+  data_aplicacao: string | null;
+  cultura: string | null;
+  area_ha: string | null;
+  param_temperatura_maxima_c: string | null;
+  param_umidade_relativa_min_pct: string | null;
+  param_velocidade_vento_max_kmh: string | null;
+}
+
+export interface WeatherReading {
+  id: string;
+  data: string;
+  periodo: "matutino" | "vespertino";
+  momento: "inicio" | "final";
+  hora: string | null;
+  temperatura_c: string | null;
+  umidade_relativa_pct: string | null;
+  velocidade_vento_kmh: string | null;
+  /** Graus, de onde o vento vem. Exigida pela Portaria MAPA 298/2021, art. 10, VIII. */
+  direcao_vento_graus: string | null;
+  provider: string | null;
+  violou_parametro: boolean;
+}
+
+export interface WeatherCapture {
+  leitura: WeatherReading;
+  alertas: string[];
+}
+
+export interface Piloto {
+  id: string;
+  nome: string;
+  /** Código ANAC do aeronavegante, impresso ao lado da assinatura. */
+  canac: string | null;
+  /** Preenchido quando o piloto também assina como agrônomo — costuma ser a mesma pessoa. */
+  crea: string | null;
+  cpf: string | null;
+  telefone: string | null;
+  is_active: boolean;
+}
+
+export interface MonthlyReportRow {
+  municipio: string;
+  uf: string;
+  aeronave: string;
+  tipo_atividade: string;
+  area_ha: string;
+  horas: string;
+  /** "marca comercial, volume e dosagem aplicada", já montado para leitura. */
+  produtos: string[];
+}
+
+/** O relatório mensal do operador de ARP — Portaria MAPA 298/2021, art. 11. */
+export interface MonthlyReport {
+  ano: number;
+  mes: number;
+  linhas: MonthlyReportRow[];
+  area_total_ha: string;
+  horas_totais: string;
+  /** Rascunho não é atividade realizada; fica de fora, mas não some da conta. */
+  rascunhos_no_mes: number;
+  /** Dia 15 do mês seguinte, quando a entrega vence. */
+  prazo: string;
+}
+
+/** O que foi lido do arquivo do voo. Área e direção são sugestão, não o documento. */
+export interface CroquiLido {
+  faixas: number;
+  tem_limite: boolean;
+  area_sugerida_ha: string | null;
+  direcao_tiros_graus: string | null;
+  latitude: string | null;
+  longitude: string | null;
+}
+
+export type PapelAssinatura =
+  | "eng_agronomo"
+  | "piloto_agricola"
+  | "tec_agricola_executor"
+  | "proprietario_preposto";
+
+export const PAPEIS: { valor: PapelAssinatura; label: string }[] = [
+  { valor: "eng_agronomo", label: "Eng. Agrônomo" },
+  { valor: "piloto_agricola", label: "Piloto Agrícola" },
+  { valor: "tec_agricola_executor", label: "Téc. Agrícola Executor" },
+  { valor: "proprietario_preposto", label: "Proprietário ou Preposto" },
+];
+
+export interface Assinatura {
+  papel: PapelAssinatura;
+  nome: string;
+  registro: string | null;
+  assinado_em: string | null;
+  /** Impressão digital do documento no momento da assinatura. */
+  documento_hash: string | null;
+}
+
+export const agro = {
+  listPilots: (): Promise<Piloto[]> => authedJson("/agro/pilots"),
+
+  createPilot: (body: {
+    nome: string;
+    canac?: string | null;
+    crea?: string | null;
+    cpf?: string | null;
+    telefone?: string | null;
+  }): Promise<Piloto> => authedJson("/agro/pilots", { method: "POST", body }),
+
+  listClients: (): Promise<AgroClient[]> => authedJson("/agro/clients"),
+
+  createClient: (body: {
+    nome: string;
+    cpf_cnpj: string;
+    telefone?: string | null;
+    email?: string | null;
+  }): Promise<AgroClient> => authedJson("/agro/clients", { method: "POST", body }),
+
+  listProperties: (): Promise<AgroProperty[]> => authedJson("/agro/properties"),
+
+  createProperty: (body: {
+    client_id: string;
+    nome: string;
+    municipio: string;
+    uf: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  }): Promise<AgroProperty> => authedJson("/agro/properties", { method: "POST", body }),
+
+  listProducts: (): Promise<Product[]> => authedJson("/agro/products"),
+
+  createProduct: (body: {
+    nome_comercial: string;
+    formulacao?: string | null;
+    classe_toxicologica?: string | null;
+    registro_mapa?: string | null;
+  }): Promise<Product> => authedJson("/agro/products", { method: "POST", body }),
+
+  listPrescriptions: (): Promise<Prescription[]> => authedJson("/agro/prescriptions"),
+
+  createPrescription: (body: {
+    numero: string;
+    emitido_em: string;
+    agronomo_nome?: string | null;
+    agronomo_crea?: string | null;
+  }): Promise<Prescription> => authedJson("/agro/prescriptions", { method: "POST", body }),
+
+  listPlanProducts: (planId: string): Promise<PlanProduct[]> =>
+    authedJson(`/agro/plans/${planId}/products`),
+
+  addPlanProduct: (
+    planId: string,
+    body: {
+      product_id: string;
+      dosagem_ha?: number | null;
+      volume_ha?: number | null;
+      total_produto?: number | null;
+      adjuvante?: string | null;
+    },
+  ): Promise<PlanProduct> =>
+    authedJson(`/agro/plans/${planId}/products`, { method: "POST", body }),
+
+  removePlanProduct: async (planId: string, itemId: string): Promise<void> => {
+    await authedRequest(`/agro/plans/${planId}/products/${itemId}`, { method: "DELETE" });
+  },
+
+  linkPrescription: (planId: string, prescriptionId: string | null): Promise<Plan> =>
+    authedJson(`/agro/plans/${planId}/prescription`, {
+      method: "PUT",
+      body: { prescription_id: prescriptionId },
+    }),
+
+  consolidation: (ano: number, mes: number): Promise<Consolidation> =>
+    authedJson(`/agro/consolidation/${ano}/${mes}`),
+
+  /** CSV baixado como blob porque a rota exige o cabeçalho de autenticação. */
+  downloadConsolidation: async (ano: number, mes: number): Promise<void> => {
+    const response = await authedRequest(`/agro/consolidation/${ano}/${mes}/csv`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `consolidacao-${ano}-${String(mes).padStart(2, "0")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+
+  /** O relatório mensal do operador de ARP — Portaria MAPA 298/2021, art. 11. */
+  monthlyReport: (ano: number, mes: number): Promise<MonthlyReport> =>
+    authedJson(`/agro/monthly-report/${ano}/${mes}`),
+
+  downloadMonthlyReport: async (ano: number, mes: number): Promise<void> => {
+    const response = await authedRequest(`/agro/monthly-report/${ano}/${mes}/csv`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relatorio-mensal-mapa-${ano}-${String(mes).padStart(2, "0")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+
+  /** Lê o KML ou KMZ exportado pelo aplicativo do drone e guarda a geometria. */
+  importarCroqui: (
+    planId: string,
+    body: { kml: string; base64?: boolean; origem?: string | null },
+  ): Promise<CroquiLido> =>
+    authedJson(`/agro/plans/${planId}/croqui`, { method: "POST", body }),
+
+  /** Registra a assinatura desenhada na tela, com o que a prende ao documento. */
+  assinar: (
+    planId: string,
+    body: { papel: PapelAssinatura; nome: string; registro?: string | null; traco: number[][][] },
+  ): Promise<Assinatura> =>
+    authedJson(`/agro/plans/${planId}/signatures`, { method: "POST", body }),
+
+  /** Quais assinaturas não correspondem mais ao documento. Vazio é o caso bom. */
+  conferirAssinaturas: (planId: string): Promise<{ divergentes: PapelAssinatura[] }> =>
+    authedJson(`/agro/plans/${planId}/signatures/check`),
+
+  listPlans: (): Promise<Plan[]> => authedJson("/agro/plans"),
+
+  createPlan: (body: Record<string, unknown>): Promise<Plan> =>
+    authedJson("/agro/plans", { method: "POST", body }),
+
+  listWeather: (planId: string): Promise<WeatherReading[]> =>
+    authedJson(`/agro/plans/${planId}/weather`),
+
+  captureWeather: (
+    planId: string,
+    body: {
+      data: string;
+      periodo: string;
+      momento: string;
+      hora: string;
+      latitude?: number;
+      longitude?: number;
+    },
+  ): Promise<WeatherCapture> =>
+    authedJson(`/agro/plans/${planId}/weather`, { method: "POST", body }),
+
+  /** O PDF é baixado como blob porque a rota exige o cabeçalho de autenticação. */
+  downloadPdf: async (planId: string, numero: number): Promise<void> => {
+    const response = await authedRequest(`/agro/plans/${planId}/pdf`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `planejamento-operacional-${numero}.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
+};
+
+/** Posição do aparelho, que é o que diz onde o voo realmente aconteceu. */
+export function currentPosition(): Promise<{ latitude: number; longitude: number }> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Este aparelho não informa a localização."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) =>
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }),
+      (error) =>
+        reject(
+          new Error(
+            error.code === error.PERMISSION_DENIED
+              ? "Permissão de localização negada. Libere o acesso ou informe a área manualmente."
+              : "Não foi possível obter a localização agora.",
+          ),
+        ),
+      // O campo costuma ter sinal fraco; vale esperar um pouco por uma posição boa.
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    );
+  });
+}

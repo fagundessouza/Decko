@@ -1,0 +1,37 @@
+# Base comercial: o que ferragista, supermercado, lanchonete e distribuidora usam igual.
+# Decisões em docs/adr/0006-base-comercial.md
+#
+# Este módulo não depende de nenhuma vertical. As verticais é que dependem dele.
+
+[module]
+name = "comercial"
+label = "Produtos e estoque"
+version = "0.1.0"
+package = "decko_modules.comercial"
+depends = ["core"]
+required = false
+category = "Operação"
+icon = "boxes"
+accent = "blue"
+summary = "Catálogo com unidade, caixa e fardo, lote e validade, e estoque com histórico."
+
+[migrations]
+branch_label = "comercial"
+
+[permissions]
+provides = [
+  "comercial.unidade.read",
+  "comercial.unidade.write",
+  "comercial.categoria.read",
+  "comercial.categoria.write",
+  "comercial.produto.read",
+  "comercial.produto.write",
+  "comercial.lote.read",
+  "comercial.lote.write",
+  "comercial.estoque.read",
+  "comercial.estoque.movimentar",
+]
+
+[menu]
+label = "Produtos e estoque"
+order = 100

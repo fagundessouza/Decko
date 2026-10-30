@@ -1,0 +1,32 @@
+# Entrada de mercadoria pela nota do fornecedor.
+# Decisões e limites: docs/adr/0009-identidade-de-produto-e-entrada-por-nota.md
+#
+# Depende de `comercial` porque cadastra produto dele e lança na razão de estoque dele —
+# ver docs/adr/0007-dependencia-entre-modulos.md. Instalar Compras traz a base comercial.
+
+[module]
+name = "compras"
+label = "Compras"
+version = "0.1.0"
+package = "decko_modules.compras"
+depends = ["core", "comercial"]
+required = false
+category = "Operação"
+icon = "truck"
+accent = "violet"
+summary = "Importa o XML da nota do fornecedor, reconhece o produto e dá entrada no estoque."
+
+[migrations]
+branch_label = "compras"
+
+[permissions]
+provides = [
+  "compras.nota.read",
+  "compras.nota.importar",
+  "compras.nota.conferir",
+  "compras.nota.confirmar",
+]
+
+[menu]
+label = "Compras"
+order = 60

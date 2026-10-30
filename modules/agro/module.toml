@@ -1,0 +1,41 @@
+# Módulo de pulverização agrícola.
+# Requisitos: docs/discovery/agro-planejamento-operacional.md
+
+[module]
+name = "agro"
+label = "Pulverização agrícola"
+version = "0.1.0"
+package = "decko_modules.agro"
+depends = ["core"]
+required = false
+category = "Setores"
+icon = "drone"
+accent = "lime"
+summary = "Planejamento operacional, clima com registro probatório e relatório do MAPA."
+
+[migrations]
+branch_label = "agro"
+
+[permissions]
+provides = [
+  "agro.client.read",
+  "agro.client.write",
+  "agro.property.read",
+  "agro.property.write",
+  "agro.aircraft.read",
+  "agro.aircraft.write",
+  "agro.pilot.read",
+  "agro.pilot.write",
+  "agro.product.read",
+  "agro.product.write",
+  "agro.prescription.read",
+  "agro.prescription.write",
+  "agro.plan.read",
+  "agro.plan.write",
+  "agro.plan.sign",
+  "agro.plan.export",
+]
+
+[menu]
+label = "Pulverização"
+order = 100

@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import unicodedata
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
@@ -28,7 +29,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.config import get_settings
 from decko.db import SessionFactory, bind_tenant, engine
-from decko.modules import discover
+from decko.modules import discover, import_packages
+from decko_modules.core.activation import ADMIN_ROLE_NAME
+from decko_modules.core.activation import activate as activate_module
+from decko_modules.core.breach import SenhaVazadaError, recusar_se_vazada
 from decko_modules.core.models import (
     AuditLog,
     Role,
@@ -40,8 +44,14 @@ from decko_modules.core.models import (
 from decko_modules.core.security import hash_password
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-MIN_PASSWORD_LENGTH = 12
-ADMIN_ROLE_NAME = "Administrador"
+
+# Oito, que é o piso do NIST 800-63B. O valor anterior, 12, era escolha arbitrária e
+# recusava senha que o próprio dono da conta queria usar.
+#
+# Comprimento alto não é o que protege esta conta: o que protege é o hash Argon2id e o
+# tempo de resposta igualado no login. O que falta aqui, e vale mais que subir o número,
+# é recusar senha conhecidamente vazada — está no roadmap.
+MIN_PASSWORD_LENGTH = 8
 PASSWORD_ENV_VAR = "DECKO_ADMIN_PASSWORD"  # noqa: S105
 
 
@@ -107,6 +117,7 @@ async def _bootstrap(
     admin_email: str,
     admin_name: str,
     password: str,
+    modules: Sequence[str] = (),
 ) -> tuple[Tenant, User, int]:
     if not SLUG_PATTERN.match(tenant_slug):
         raise BootstrapError(
@@ -137,6 +148,11 @@ async def _bootstrap(
     for permission in permissions:
         session.add(RolePermission(tenant_id=tenant.id, role_id=role.id, permission=permission))
 
+    # Antes de guardar: senha que já vazou é adivinhada em segundos, e a do administrador
+    # é a que abre tudo. Falha aberta quando a conferência não pode ser feita — ver
+    # docs/adr/0011-senha-conhecidamente-vazada.md.
+    await recusar_se_vazada(password, habilitada=get_settings().breach_check_enabled)
+
     user = User(
         tenant_id=tenant.id,
         email=admin_email.strip().lower(),
@@ -147,6 +163,14 @@ async def _bootstrap(
     await session.flush()
 
     session.add(UserRole(tenant_id=tenant.id, user_id=user.id, role_id=role.id))
+
+    # A empresa nasce só com o núcleo. Módulo de segmento é contratado, não presumido —
+    # ver docs/adr/0004-ativacao-de-modulo-por-empresa.md.
+    for module_name in _validated_modules(modules):
+        await activate_module(
+            session, tenant_id=tenant.id, module_name=module_name, activated_by=user.id
+        )
+
     session.add(
         AuditLog(
             tenant_id=tenant.id,
@@ -154,11 +178,32 @@ async def _bootstrap(
             action="tenant.bootstrap",
             entity="tenant",
             entity_id=str(tenant.id),
-            data={"slug": tenant.slug, "granted_permissions": len(permissions)},
+            data={
+                "slug": tenant.slug,
+                "granted_permissions": len(permissions),
+                "activated_modules": list(modules),
+            },
         )
     )
 
     return tenant, user, len(permissions)
+
+
+def _validated_modules(modules: Sequence[str]) -> list[str]:
+    """Confere os nomes contra os manifestos em disco.
+
+    Ativar um módulo inexistente gravaria uma linha que nunca casaria com nada e a empresa
+    ficaria sem o módulo sem nenhum aviso.
+    """
+    available = discover(get_settings().modules_dir)
+    desconhecidos = [name for name in modules if name not in available]
+    if desconhecidos:
+        raise BootstrapError(
+            f"Módulo não encontrado: {', '.join(desconhecidos)}. "
+            f"Disponíveis: {', '.join(sorted(available))}."
+        )
+    # Obrigatório já vale como ativo; gravar linha para ele seria redundante.
+    return [name for name in modules if not available[name].required]
 
 
 async def _check_slug_available(slug: str) -> None:
@@ -198,9 +243,12 @@ async def _run_bootstrap(args: argparse.Namespace) -> int:
                 admin_email=args.admin_email,
                 admin_name=args.admin_name,
                 password=password,
+                modules=args.modules,
             )
             summary = (tenant.name, tenant.slug, user.email, granted)
-    except BootstrapError as exc:
+    except (BootstrapError, SenhaVazadaError) as exc:
+        # A senha vazada chega aqui como as demais recusas: a mensagem dela já é para quem
+        # está cadastrando, e um rastro de pilha na tela não ajudaria a escolher outra.
         print(f"erro: {exc}", file=sys.stderr)
         return 1
     finally:
@@ -245,12 +293,27 @@ def main() -> int:
     )
     bootstrap.add_argument("--admin-email", required=True)
     bootstrap.add_argument("--admin-name", required=True)
+    bootstrap.add_argument(
+        "--module",
+        action="append",
+        default=[],
+        dest="modules",
+        metavar="NOME",
+        help="Módulo a ativar na empresa (repetível). Sem isto, só o núcleo fica ativo.",
+    )
     bootstrap.set_defaults(handler=_run_bootstrap)
 
     status = sub.add_parser("status", help="Lista as empresas cadastradas.")
     status.set_defaults(handler=_run_status)
 
     args = parser.parse_args()
+
+    # Importar os pacotes de módulo é o que faz cada um registrar o que o host declara por
+    # porta invertida — aqui interessa a carga de semente, que a ativação dispara. Sem
+    # isto, cadastrar uma empresa com `--module comercial` a deixaria sem as unidades, e
+    # em silêncio. É a mesma coisa que a aplicação faz ao montar as rotas.
+    import_packages(get_settings().modules_dir)
+
     started = datetime.now(UTC)
     exit_code = asyncio.run(args.handler(args))
     if exit_code == 0 and args.command == "bootstrap":

@@ -46,10 +46,35 @@ label = "Agro"
 **Consequências:**
 
 - Instalar um perfil de empresa = ativar um conjunto de módulos para aquele tenant.
-- Um módulo nunca importa diretamente de outro módulo irmão. Depende do `core` ou comunica por
-  eventos. Isso é o que impede o sistema de virar um emaranhado conforme os segmentos crescem.
+- Um módulo só importa de outro módulo que ele declare em `depends`. Import não declarado quebra
+  a suíte — `apps/api/tests/test_module_boundaries.py`. O grafo de dependência fica no manifesto,
+  e não escondido no código, que é o que impede o sistema de virar um emaranhado conforme os
+  segmentos crescem. Ver `docs/adr/0007-dependencia-entre-modulos.md`.
+- Módulo irmão não escreve na tabela de outro módulo: chama o serviço dele.
 - O frontend carrega o bundle do módulo sob demanda (code splitting), então um supermercado não
   baixa o código do agro. Isso atende o requisito de leveza.
+
+### 2.1 Porta invertida: como o host usa conhecimento que é do módulo
+
+O host monta a aplicação e **não pode importar módulo**. Mas há coisas que só o host pode
+fazer no lugar certo, e que exigem saber algo que pertence a um módulo. A resposta do projeto é
+sempre a mesma: **o host declara a porta, o módulo registra a implementação ao ser importado, e o
+host aplica sem conhecer o schema de ninguém.**
+
+São três hoje, e as três existem porque fazer no módulo seria pior:
+
+| Porta | O que o host precisa | Por que não fica no módulo |
+|---|---|---|
+| Verificação de ativação | Recusar rota de módulo que a empresa não contratou | Escrita dentro de cada módulo, um deles esquece e fica aberto |
+| Reconciliação de permissão | Acertar os papéis na subida, para permissão nova alcançar quem já usa o módulo | Só o host conhece todos os manifestos de uma vez |
+| Carga de semente | Popular o que o módulo precisa na contratação | Semear é escrever, e módulo não escreve em tabela de outro |
+
+Registrar na importação tem uma consequência que vale lembrar: quem usa essas portas fora da
+aplicação web precisa importar os pacotes primeiro — `decko.modules.import_packages`. É o que o
+comando `decko-admin` faz antes de cadastrar empresa.
+
+Ver `docs/adr/0004-ativacao-de-modulo-por-empresa.md` e
+`docs/adr/0010-dado-semente-com-identidade-estavel.md`.
 
 ## 3. Estrutura do repositório
 

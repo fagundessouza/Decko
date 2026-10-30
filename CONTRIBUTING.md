@@ -60,6 +60,22 @@ Uma issue descreve o problema e o critério de aceite — não a solução. A so
 - Segredo nunca entra no repositório.
 - Migração de banco só via Alembic.
 
+### Integração contínua
+
+`.github/workflows/ci.yml` roda em todo pull request e em push para `main`, `staging` e
+`develop`. São dois trabalhos:
+
+- **Backend** — sobe um PostgreSQL 18 de verdade, cria os **mesmos dois papéis** do ambiente
+  local (`decko_owner` e `decko_app`), aplica as migrações, confere que `decko_app` **não**
+  ignora RLS, e então roda `ruff check`, `ruff format --check` e `pytest`.
+- **Frontend** — `oxlint`, `tsc -b` e build.
+
+A conferência do `rolbypassrls` existe porque um papel que ignorasse RLS faria todo teste de
+isolamento passar por engano: ausência de falha é a pior maneira de descobrir isso.
+
+A suíte não toca a rede. A conferência de senha vazada fica desligada por `conftest.py` na
+raiz, e é exercitada com um cliente HTTP que o próprio teste responde.
+
 ## Ambiente
 
 Pré-requisitos: Python 3.13+, Node 20+, PostgreSQL 18, [uv](https://docs.astral.sh/uv/).
@@ -105,6 +121,11 @@ histórico do shell e na lista de processos. `uv run decko-admin status` lista o
 O identificador é normalizado: `AgroDrone` e `Agro Drone` viram `agrodrone` e `agro-drone`,
 e o comando informa o valor gravado. Em execução automatizada, sem terminal para responder
 ao pedido de senha, defina `DECKO_ADMIN_PASSWORD` — sem isso o comando fica esperando.
+
+A senha escolhida é conferida contra vazamentos conhecidos, e recusada se aparecer em um.
+Só os cinco primeiros caracteres do SHA-1 saem da máquina, nunca a senha; o serviço fora do
+ar deixa a senha passar, com aviso no log. Em instalação sem internet, desligue com
+`DECKO_BREACH_CHECK_ENABLED=false` — ver `docs/adr/0011-senha-conhecidamente-vazada.md`.
 
 ### Frontend
 

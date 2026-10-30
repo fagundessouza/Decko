@@ -28,10 +28,26 @@ class AuthError(Exception):
 
     A mensagem é deliberadamente genérica: distinguir "empresa inexistente" de "senha
     errada" entrega informação a quem está sondando.
+
+    O contexto carregado aqui **não** vai para a resposta: serve para a trilha de auditoria
+    saber a qual empresa e a qual conta prender a tentativa. Sem isso, quem registra
+    precisaria repetir a consulta que acabou de falhar, ou a trilha diria apenas "alguém
+    errou", que não serve para investigar nada. O ``motivo`` é vocabulário interno, nunca
+    texto para quem chamou.
     """
 
-    def __init__(self, message: str = "Credenciais inválidas") -> None:
+    def __init__(
+        self,
+        message: str = "Credenciais inválidas",
+        *,
+        tenant_id: uuid.UUID | None = None,
+        user_id: uuid.UUID | None = None,
+        motivo: str | None = None,
+    ) -> None:
         super().__init__(message)
+        self.tenant_id = tenant_id
+        self.user_id = user_id
+        self.motivo = motivo
 
 
 async def _load_permissions(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
@@ -62,13 +78,19 @@ async def authenticate(
     user = await session.scalar(select(User).where(User.email == email))
     if user is None:
         security.verify_password(password, _DUMMY_HASH)
-        raise AuthError
+        # Sem ``user_id``: não há conta, e o e-mail digitado não entra na trilha.
+        raise AuthError(tenant_id=tenant.id, motivo="usuario_desconhecido")
 
     if not security.verify_password(password, user.password_hash):
-        raise AuthError
+        raise AuthError(tenant_id=tenant.id, user_id=user.id, motivo="senha")
 
     if not user.is_active:
-        raise AuthError("Usuário desativado")
+        raise AuthError(
+            "Usuário desativado",
+            tenant_id=tenant.id,
+            user_id=user.id,
+            motivo="usuario_inativo",
+        )
 
     if security.needs_rehash(user.password_hash):
         user.password_hash = security.hash_password(password)
@@ -124,8 +146,20 @@ async def rotate_refresh_token(
     """
     stored = await _find_refresh_token(session, raw_token)
 
-    if stored is None or stored.revoked_at is not None:
+    if stored is None:
         raise AuthError("Sessão inválida")
+    if stored.revoked_at is not None:
+        # Token que já morreu sendo apresentado de novo. A rotação garante que o legítimo
+        # só é usado uma vez, então reapresentar é cópia em circulação — e é o único
+        # evento desta rota que vale registrar. Renovação que dá certo acontece a cada
+        # poucos minutos por sessão e afogaria a trilha sem dizer nada que o login já não
+        # disse.
+        raise AuthError(
+            "Sessão inválida",
+            tenant_id=stored.tenant_id,
+            user_id=stored.user_id,
+            motivo="token_reutilizado",
+        )
     if stored.expires_at <= datetime.now(UTC):
         raise AuthError("Sessão expirada")
 
@@ -142,7 +176,18 @@ async def rotate_refresh_token(
     return user, tenant, permissions, access_token, raw_refresh, expires_in
 
 
-async def revoke_refresh_token(session: AsyncSession, *, raw_token: str) -> None:
+async def revoke_refresh_token(
+    session: AsyncSession, *, raw_token: str
+) -> tuple[uuid.UUID, uuid.UUID] | None:
+    """Encerra a sessão. Devolve a empresa e o usuário quando havia o que encerrar.
+
+    Devolve em vez de ficar calada porque a trilha precisa saber quem saiu, e só aqui se
+    descobre: o token vem cru, e quem o resolve é esta função. Sair com token já revogado
+    ou inválido continua devolvendo ``None`` — não aconteceu nada para registrar.
+    """
     stored = await _find_refresh_token(session, raw_token)
-    if stored is not None and stored.revoked_at is None:
-        stored.revoked_at = datetime.now(UTC)
+    if stored is None or stored.revoked_at is not None:
+        return None
+
+    stored.revoked_at = datetime.now(UTC)
+    return stored.tenant_id, stored.user_id

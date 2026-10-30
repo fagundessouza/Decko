@@ -6,6 +6,11 @@ requires-python = ">=3.13"
 dependencies = [
     "decko-api",
     "decko-module-core",
+    "decko-module-agro",
+    "decko-module-comercial",
+    "decko-module-pdv",
+    "decko-module-compras",
+    "decko-module-clientes",
 ]
 
 # Raiz do workspace: não é um pacote, apenas agrega os membros.
@@ -13,11 +18,24 @@ dependencies = [
 package = false
 
 [tool.uv.workspace]
-members = ["apps/api", "modules/core"]
+members = [
+    "apps/api",
+    "modules/core",
+    "modules/agro",
+    "modules/comercial",
+    "modules/pdv",
+    "modules/compras",
+    "modules/clientes",
+]
 
 [tool.uv.sources]
 decko-api = { workspace = true }
 decko-module-core = { workspace = true }
+decko-module-agro = { workspace = true }
+decko-module-comercial = { workspace = true }
+decko-module-pdv = { workspace = true }
+decko-module-compras = { workspace = true }
+decko-module-clientes = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -26,16 +44,25 @@ dev = [
     "pytest>=8.4",
     "pytest-asyncio>=1.2",
     "httpx>=0.28",
+    "pypdf>=6.1",
 ]
 
 [tool.ruff]
 target-version = "py313"
 line-length = 100
+# A auditoria do Odoo cita código-fonte de terceiro. Formatá-la faria a citação deixar de
+# ser fiel ao que o autor escreveu, e o documento é declarado congelado por si mesmo.
+extend-exclude = ["docs/benchmark/"]
 src = ["apps/api/src", "modules/core/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "ASYNC", "S", "C4", "SIM", "RUF"]
 ignore = ["S101"]
+
+[tool.ruff.lint.isort]
+# Sem isto, o ruff trata decko_modules como pacote de terceiros nos arquivos de um módulo
+# e ordena os imports de forma diferente conforme o diretório.
+known-first-party = ["decko", "decko_modules"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/migrations/*" = ["N999", "E501"]
@@ -54,4 +81,12 @@ asyncio_mode = "auto"
 # fechado. Um único loop para toda a sessão mantém pool e loop com o mesmo tempo de vida.
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
-testpaths = ["apps/api/tests", "modules/core/tests"]
+testpaths = [
+    "apps/api/tests",
+    "modules/core/tests",
+    "modules/agro/tests",
+    "modules/comercial/tests",
+    "modules/pdv/tests",
+    "modules/compras/tests",
+    "modules/clientes/tests",
+]
