@@ -242,6 +242,12 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       de documento que não pode mudar de significado.
       (`agro_product` **não** entra aqui: defensivo com formulação, classe toxicológica e
       registro no MAPA é coisa diferente de produto de prateleira)
+- [x] Recibo não fiscal em impressora térmica: cabeçalho da empresa com CNPJ e inscrição,
+      itens, totais, formas de pagamento, troco e o cliente quando a venda é identificada.
+      Sai pela impressora do sistema, que é como a térmica de balcão aparece no Windows.
+      Largura escolhida por estação, 58 ou 80 mm — a mesma regra do tema no `BRAND.md`.
+      **O papel diz "NÃO É DOCUMENTO FISCAL"**, porque onde a nota é exigida este recibo
+      não a substitui
 - [ ] Emissão fiscal (NFC-e/SAT) como módulo próprio. É o que falta para o PDV substituir
       o caixa de uma loja de verdade, e é o que não pode ser suposto: certificado digital,
       homologação na SEFAZ do estado, contingência e layout versionado
