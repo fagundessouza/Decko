@@ -89,21 +89,48 @@ provável exatamente disso.
 **Dado de terceiro em casa.** CPF e CNPJ de clientes de clientes, na mesma máquina onde se
 acessa banco e e-mail pessoal.
 
-**E não é de graça.** Um desktop desses ligado 24/7 consome algo entre 60 e 90 W, o que
-dá 43 a 65 kWh por mês:
+**A conta de luz — e a correção.** A primeira versão desta seção calculou 24/7 e concluiu
+que custaria R$ 32 a R$ 65 por mês, "o preço do VPS". **Estava errado para o caso real**, e
+o dono apontou: a máquina dele já fica ligada manhã, tarde e noite, e desliga para dormir.
+O custo **marginal** de hospedar nela é praticamente zero.
 
-| Consumo | R$ 0,75/kWh | R$ 0,85/kWh | R$ 1,00/kWh |
-|---|---|---|---|
-| 60 W | R$ 32 | R$ 37 | R$ 43 |
-| 70 W | R$ 38 | R$ 43 | R$ 50 |
-| 90 W | R$ 49 | R$ 55 | R$ 65 |
+A conta de 24/7 fica registrada porque vale para quem ligaria a máquina só para isso — 60 a
+90 W dão 43 a 65 kWh por mês, entre R$ 32 e R$ 65 conforme a tarifa. Para quem já deixa
+ligado, o argumento não se aplica. **Faltou perguntar o padrão de uso antes de calcular.**
 
-**É o preço do VPS.** A máquina de casa não economiza dinheiro; troca uma conta por outra, e
-a outra vem com CGNAT, queda de luz e o dado do cliente na sala.
+### 2.2 O investimento inicial não existe — é escolha de fornecedor
 
-**O que a máquina de casa serve, e bem:** desenvolvimento, demonstração e piloto — com
-túnel reverso, que atravessa CGNAT sem abrir porta. É o caminho de **custo zero até o
-primeiro cliente pagante**, e aí o VPS sai da primeira mensalidade.
+A objeção seguinte foi de caixa, e é a que realmente decide:
+
+> *"Tenho que pagar o valor cheio, 12 ou 24 meses; estamos falando de mais de mil reais de
+> investimento inicial."*
+
+Verdade **para aquele fornecedor**. Hostinger vende VPS com 12 a 24 meses pagos à frente, e
+é isso que produz os R$ 1.000 — não o preço do servidor.
+
+**Hetzner, DigitalOcean e Vultr cobram por uso, mês a mês, sem fidelidade.** A máquina de
+entrada da Hetzner (2 vCPU, 4 GB) ficou entre € 4,49 e € 5,49 nas fontes consultadas — algo
+como R$ 28 a R$ 35 por mês, **sem pagar nada adiantado**. Os preços divergiram entre as
+fontes e a Hetzner reajustou duas vezes em 2026: **confirmar na tabela oficial** antes de
+decidir.
+
+A conclusão muda o plano inteiro: **não há investimento inicial de mil reais.** Há uma
+mensalidade de trinta, que começa quando houver o primeiro cliente e para quando se quiser.
+
+### 2.3 Mikrotik não resolve CGNAT
+
+Perguntado, e vale a resposta: **nenhum roteador resolve.** CGNAT não é limitação do
+equipamento da casa — é o provedor não entregando um IP público, porque divide um entre
+dezenas de assinantes. Equipamento nenhum cria um IP que não foi dado.
+
+O que resolve é um dos dois: **pedir IP público ao provedor** (quase sempre só no plano
+empresarial) ou **túnel reverso** — a máquina de dentro abre a conexão para fora e o
+tráfego volta por ela, sem porta aberta e com HTTPS.
+
+**O que a máquina de casa serve, e bem:** desenvolvimento, demonstração e piloto combinado,
+com túnel. É o caminho de **custo zero até o primeiro cliente pagante** — e o limite não é
+técnico, é do que se promete: máquina que desliga de noite, loja que abre sábado e queda de
+luz são aceitáveis num piloto dito como piloto, e não em cliente pagando mensalidade.
 
 ### 3. A licença expira, e **degrada** em vez de cortar
 
