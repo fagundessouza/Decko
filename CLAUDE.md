@@ -16,6 +16,7 @@ portfólio para vagas no mercado internacional.
 
 | Pergunta | Arquivo |
 |---|---|
+| O que é o negócio, e o que falta para vender | `docs/NEGOCIO.md` |
 | Como o sistema é construído e por quê | `docs/ARCHITECTURE.md` |
 | O que fazer agora e em que ordem | `docs/ROADMAP.md` |
 | Cores, tipografia, regras de UX | `docs/BRAND.md` |
