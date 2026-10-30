@@ -223,6 +223,9 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       `docs/adr/0013-assinatura-recorrente.md`.
       **Bloquear marca o estado; não corta acesso de ninguém** — suspender empresa é ato
       do núcleo, e os clientes da Decko ainda não existem como empresas num sistema no ar
+- [x] Tela de assinaturas: ordenada pela preocupação — bloqueada, em aviso, em dia — com
+      dar baixa, dar prazo e gerar o mês. O cartão explica pela cobrança que **decide** o
+      bloqueio, não pela mais antiga: as duas divergem quando há várias em aberto
 - [x] Perfil `decko`: o próprio produto usa o próprio produto — clientes e assinaturas
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
