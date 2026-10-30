@@ -5,7 +5,7 @@ Ele não responde *o que isto é, para quem, e o que falta para alguém pagar* �
 justamente a linha que se perde depois de meses dentro do código. Este arquivo existe para
 ela ser reencontrada sem precisar reconstituí-la de memória.
 
-**Última revisão:** 30/10/2026.
+**Última revisão:** 30/10/2026 (ocupações do MEI alteradas no mesmo dia).
 
 > **Como ler.** As seções 1 a 3 são **o que foi decidido** e vêm do `README.md` e do
 > `CLAUDE.md`. A seção 4 é **fato conferido no repositório**. As seções 5 e 6 separam
@@ -119,22 +119,48 @@ primeiro**.
 Contrato e termos de uso, política de privacidade, e os direitos do titular pela LGPD:
 exportar e apagar os dados dele mediante pedido.
 
-> **O CNPJ existe, e provavelmente não serve para isto.** Há um MEI ativo desde maio de
-> 2026 — `66.711.850/0001-06`, conferido pelo dígito verificador em 30/10/2026. Duas
-> coisas pesam contra faturar a assinatura por ele, e as duas precisam de confirmação com
-> contador, porque as fontes consultadas foram blogs contábeis e não a resolução do CGSN:
->
-> 1. **Desenvolvimento e licenciamento de software não constam na lista de ocupações
->    permitidas ao MEI**, por serem tidos como atividade intelectual. Todas as fontes
->    consultadas dizem isso, sem divergência. O risco apontado é cancelamento do CNPJ com
->    débitos atrelados — não é multa pequena.
-> 2. **O teto do MEI segue em R$ 81.000 por ano**, cerca de R$ 6.750 por mês. Há projetos
->    para elevar (PLP 67/2025 fala em R$ 150 mil; outro texto em R$ 130 mil), nenhum
->    sancionado até esta revisão.
->
-> O caminho que as fontes apontam é **ME no Simples Nacional**, com CNAE de software. Isso
-> custa contador mensal e muda o imposto — e entra na conta do preço da assinatura, não
-> depois dele.
+#### O CNPJ: o que ele cobre, e o que não cobre
+
+MEI ativo desde maio de 2026 — `66.711.850/0001-06`, conferido pelo dígito verificador em
+30/10/2026. Em 30/10/2026 as ocupações foram alteradas, e a lista passou a ser:
+
+| Ocupação | CNAE | O que é |
+|---|---|---|
+| Técnico de manutenção de computador (principal) | 9511-8/00 | **Hardware**: conserto e manutenção de computador e periférico |
+| Comerciante de equipamentos e suprimentos de informática | 4751-2/01 | Venda de equipamento |
+| Instalador de rede de computadores | 6190-6/99 | Cabeamento e montagem de rede |
+| Instrutor de informática | 8599-6/03 | Treinamento |
+| Instrutor de cursos preparatórios | 8599-6/05 | Cursos |
+| Promotor de vendas | 7319-0/02 | Promoção de vendas |
+
+**O que isso destrava, e é real:** a receita de serviço em volta do Decko. Treinar a equipe
+do lojista para usar o sistema, vender a impressora térmica e o leitor de código de barras,
+montar a rede da loja, dar manutenção no PC do caixa. Numa implantação de ERP pequeno isso
+é boa parte do trabalho, e pode ser faturado hoje.
+
+**O que continua fora é exatamente a assinatura.** O 9511-8/00 é hardware — as fontes são
+consistentes em dizer que reparo e manutenção de computadores e periféricos não abrange
+software, e que suporte e manutenção de **software** caem em outro CNAE (6209-1/00 e a
+família 6201–6203), nenhum deles disponível ao MEI. Licenciamento e desenvolvimento não
+aparecem em ocupação nenhuma da lista.
+
+> **E não dá para faturar a assinatura como "suporte" ou "treinamento" porque é o que cabe
+> no CNPJ.** Se o treinamento acontece, é treinamento e se fatura; se o que o cliente paga
+> é o acesso ao sistema, é licença com outro nome. A diferença não é de rótulo, é de o
+> serviço existir. Está escrito aqui porque é a saída tentadora, e porque o risco apontado
+> para CNAE incompatível é cancelamento do CNPJ com débitos atrelados.
+
+**O teto vale para a soma de tudo:** R$ 81.000 por ano, cerca de R$ 6.750 por mês,
+serviço e assinatura juntos. Há projetos para elevar (PLP 67/2025 fala em R$ 150 mil; outro
+texto em R$ 130 mil), nenhum sancionado até esta revisão.
+
+O caminho que as fontes apontam para a assinatura é **ME no Simples Nacional**, com CNAE de
+software. Custa contador mensal e muda o imposto — e entra na conta do preço, não depois
+dele.
+
+> **Nada disto é parecer contábil.** As fontes consultadas foram blogs de contabilidade,
+> não o Anexo XI da Resolução CGSN. Serve para saber o que perguntar ao contador, não para
+> substituí-lo.
 
 A parte técnica da LGPD está **à frente** da papelada: isolamento por RLS, trilha de
 auditoria e cadastro que desativa em vez de apagar já existem.
@@ -180,4 +206,8 @@ disso alguém pagaria.
    de vender para o setor.
 4. ~~Até onde o núcleo fica aberto?~~ Respondido em 30/10/2026: **nada fica aberto**. Em
    aberto agora é outra coisa — se sobra alguma vitrine pública para o portfólio, e qual.
-5. **Qual CNPJ fatura a assinatura?** O MEI atual provavelmente não serve — ver 5.3.
+5. **Qual CNPJ fatura a assinatura?** O MEI cobre o serviço em volta — treinamento,
+   equipamento, rede, manutenção de hardware — e **não** a assinatura do software. Ver 5.3.
+6. **Vale começar pela receita de serviço?** Implantação e treinamento já são faturáveis
+   hoje, e pagam enquanto a decisão sobre a ME não é tomada. É opção, não recomendação:
+   serviço não escala como assinatura, e pode virar a armadilha de nunca sair dele.
