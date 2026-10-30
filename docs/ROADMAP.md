@@ -14,7 +14,8 @@ Ao concluir uma etapa, marque aqui na mesma alteração que entrega o código.
 
 ## Fase 0 — Organizar a casa ✅
 
-- [x] Definição de nome, posicionamento e modelo de negócio (Open Core + SaaS gerenciado)
+- [x] Definição de nome, posicionamento e modelo de negócio. ~~Open Core + SaaS~~ — trocado
+      em 30/10/2026 por **produto fechado, vendido por assinatura**; ver `docs/NEGOCIO.md`
 - [x] Paleta e regras de interface fundamentadas (`docs/BRAND.md`)
 - [x] Arquitetura definida: monólito modular com módulos instaláveis (`docs/ARCHITECTURE.md`)
 - [x] Discovery do módulo Agro a partir do formulário real (`docs/discovery/`)
@@ -214,8 +215,18 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       porque há um consumidor só — ver `docs/discovery/assinaturas-dois-modulos.md`
 - [ ] Assinatura gov.br: depende de credenciamento da aplicação na plataforma, que é
       providência do dono do projeto, não código
-- [ ] Módulo de plano recorrente: depende de `clientes`, que já existe, e de uma decisão
-      sobre meio de pagamento. Sem gateway, dá para gerar a cobrança e marcar como paga
+- [x] Módulo `assinaturas`: plano, assinante e a cobrança de cada mês, com a regra de
+      inadimplência inteira — aviso, cinco dias contados do **vencimento**, bloqueio, e o
+      **prazo de confiança** concedido à mão, com motivo e rastro na trilha. O estado de
+      acesso é derivado, nunca coluna; o valor da cobrança é cópia do preço, nunca
+      referência. Sem gateway: a cobrança nasce aberta e recebe baixa à mão — ver
+      `docs/adr/0013-assinatura-recorrente.md`.
+      **Bloquear marca o estado; não corta acesso de ninguém** — suspender empresa é ato
+      do núcleo, e os clientes da Decko ainda não existem como empresas num sistema no ar
+- [x] Tela de assinaturas: ordenada pela preocupação — bloqueada, em aviso, em dia — com
+      dar baixa, dar prazo e gerar o mês. O cartão explica pela cobrança que **decide** o
+      bloqueio, não pela mais antiga: as duas divergem quando há várias em aberto
+- [x] Perfil `decko`: o próprio produto usa o próprio produto — clientes e assinaturas
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6

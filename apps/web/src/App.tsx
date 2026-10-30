@@ -13,6 +13,7 @@ import { comercial } from "./lib/comercial";
 import type { Alertas, Produto } from "./lib/comercial";
 import { TrocarEmpresa } from "./components/TrocarEmpresa";
 import { AplicativosPage } from "./pages/AplicativosPage";
+import { AssinaturasPage } from "./pages/AssinaturasPage";
 import { ChooseProfilePage } from "./pages/ChooseProfilePage";
 import { ClientesPage } from "./pages/ClientesPage";
 import { CompanyPage } from "./pages/CompanyPage";
@@ -47,6 +48,7 @@ type View =
   | { name: "plan"; plan: Plan }
   | { name: "pdv" }
   | { name: "clientes" }
+  | { name: "assinaturas" }
   | { name: "notas" }
   | { name: "nota"; notaId: string }
   | { name: "produtos" }
@@ -67,6 +69,7 @@ const SECTION: Record<View["name"], string> = {
   pilotos: "agro",
   pdv: "pdv",
   clientes: "clientes",
+  assinaturas: "assinaturas",
   notas: "compras",
   nota: "compras",
   produtos: "comercial",
@@ -113,6 +116,7 @@ export default function App() {
   const hasPdv = info.active_modules.includes("pdv");
   const hasCompras = info.active_modules.includes("compras");
   const hasClientes = info.active_modules.includes("clientes");
+  const hasAssinaturas = info.active_modules.includes("assinaturas");
   const canEditCompany = info.permissions.includes("core.tenant.update");
   const canInstall = info.permissions.includes("core.module.activate");
   const canReadAudit = info.permissions.includes("core.audit.read");
@@ -205,6 +209,14 @@ export default function App() {
       label: "Clientes",
       icon: <ModuleIcon name="people" size={22} />,
       onSelect: () => setView({ name: "clientes" }),
+    });
+  }
+  if (hasAssinaturas) {
+    items.push({
+      key: "assinaturas",
+      label: "Assinaturas",
+      icon: <ModuleIcon name="card" size={22} />,
+      onSelect: () => setView({ name: "assinaturas" }),
     });
   }
   if (hasCompras) {
@@ -374,6 +386,10 @@ export default function App() {
 
       {view.name === "clientes" && (
         <ClientesPage onBack={() => setView({ name: "home" })} />
+      )}
+
+      {view.name === "assinaturas" && (
+        <AssinaturasPage onBack={() => setView({ name: "home" })} />
       )}
 
       {view.name === "notas" && (
