@@ -75,19 +75,16 @@ Essa ausência é a razão de este documento existir.
 
 ### 5.1 Bloqueios de operação — a diferença entre "funciona" e "tem cliente"
 
-> **Atualização de 30/10/2026.** A ADR 0015 decidiu **híbrido, começando pela instalação
-> local**, e isso muda o peso da tabela abaixo. Instalação local não precisa de cadastro
-> pela aplicação, nem de hospedagem, nem de assinatura por gateway: a primeira venda deixa
-> de esperar por infraestrutura.
+> **Atualização de 30/10/2026.** A ADR 0015 decidiu **hospedar como padrão**, e a tabela
+> abaixo continua valendo inteira — é o preço de escalar para dezenas de clientes sem
+> pegar a estrada.
 >
-> O que **continua obrigatório** é menor do que parecia, e tem dono:
+> O que a decisão barateia é o **backup**: um banco com rotina testada, em vez de cem
+> computadores de balcão. O que ela acrescenta é **observabilidade antes do décimo
+> cliente** — ver a carga antes de o cliente avisar, que é o requisito escrito pelo dono.
 >
-> - **Backup na casa do cliente.** Se o computador do balcão queimar com os dados dentro, a
->   culpa chega ao fornecedor com ou sem contrato. Precisa de resposta antes do primeiro
->   cliente.
-> - **Uma instância nossa online**, pequena, para demonstração e para o controle de
->   assinaturas. É o único servidor necessário para começar a vender.
-> - **A licença com validade**, que ainda não existe.
+> Um VPS de 2 a 4 vCPU é o ponto de partida plausível pelas medidas da ADR 0015:
+> **plausível, não medido sob carga real**, e essa conferência é trabalho próprio.
 
 | Bloqueio | O que há hoje | O que falta |
 |---|---|---|
@@ -149,9 +146,9 @@ disso alguém pagaria.
 ## Perguntas em aberto — decisão do dono do projeto
 
 1. ~~Vender como SaaS ou implantar na casa do cliente?~~ Respondido em 30/10/2026:
-   **híbrido, começando local** — ver `docs/adr/0015-modo-de-implantacao-e-licenca.md`. O
-   custo de suporte que não escala continua valendo, e agora está escrito onde entra: no
-   preço, desde o primeiro contrato.
+   **hospedado por nós como padrão, local como exceção** — ver
+   `docs/adr/0015-modo-de-implantacao-e-licenca.md`. Cem clientes são cem linhas na tabela
+   `tenant`, não cem instalações, e uma visita custa mais que um mês de VPS.
 2. **Preço.** Por empresa, por usuário, por módulo? Nenhuma hipótese foi testada.
 3. **Agro é produto ou é o primeiro cliente?** Vender para uma operação de drone é diferente
    de vender para o setor.

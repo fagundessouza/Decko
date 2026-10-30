@@ -218,6 +218,11 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       dado é do cliente. Falha **aberta** quando não dá para verificar. É dissuasão, não
       proteção: quem protege é o contrato — ver
       `docs/adr/0015-modo-de-implantacao-e-licenca.md`
+- [ ] **Ver a carga antes do cliente avisar**, e **antes do décimo cliente**: tempo de
+      resposta, taxa de erro e conexões de banco. Não é a Fase 7 inteira — é o mínimo que
+      evita o cliente atribuir lentidão ao software. O `pool_size=10` em `decko/db.py` foi
+      escolhido quando havia uma empresa, e é o primeiro limite a aparecer — ver
+      `docs/adr/0015-modo-de-implantacao-e-licenca.md`
 - [ ] **Backup na instalação local.** Se o computador do balcão queimar com os dados
       dentro, a culpa chega ao fornecedor. Precisa de resposta antes do primeiro cliente
 - [ ] Assinatura gov.br: depende de credenciamento da aplicação na plataforma, que é
@@ -290,7 +295,7 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] PWA offline completo
 - [ ] Empacotamento Android (Capacitor)
 - [ ] Empacotamento desktop (Tauri)
-- [ ] Observabilidade: Prometheus, Grafana, Jaeger
+- [ ] Observabilidade completa: Prometheus, Grafana, Jaeger
 
 ---
 

@@ -31,16 +31,45 @@ dois: monólito modular num processo, PostgreSQL, isolamento no banco. Uma insta
 O modo é escolhido **por cliente**, e não para sempre. Quem começa local pode migrar: é
 dump e restore, porque é o mesmo schema.
 
-### 2. Começa local, por uma razão que não é técnica
+### 2. Hospedado por nós é o padrão; local é exceção
 
-Renda zero não paga servidor, e **cliente de balcão não precisa de nuvem**: distribuidora e
-padaria operam numa rede local, e um PDV que funciona sem internet é vantagem, não
-limitação. A primeira venda não espera infraestrutura.
+> **Corrigido no mesmo dia, 30/10/2026.** A primeira redação desta decisão dizia "começa
+> local". Estava errada, e a objeção do dono do projeto é que a derrubou:
+>
+> > *"Pensa comigo: eu tendo 50 clientes, ou até uns 100, como vou ir pessoalmente em cada
+> > um? Instalação local na máquina do cliente é inviável."*
+>
+> Está certo. O erro foi otimizar para o custo de hoje e ignorar a armadilha de amanhã:
+> começar local e dar certo significa migrar cinquenta instalações à mão.
 
-> **O que precisa estar online primeiro não é o produto do cliente.** É a demonstração e o
-> controle de assinaturas — a instância da própria Decko, que tem uma empresa e alguns
-> registros. Isso cabe em qualquer lugar barato, e é o único servidor necessário para
-> começar a vender.
+**Cem clientes não são cem instalações. São cem linhas na tabela `tenant`.**
+
+O Decko é multi-inquilino desde a primeira migração: um processo, um banco, isolamento por
+Row Level Security. Cadastrar um cliente é inserir uma linha — não subir container, não
+criar banco, não visitar ninguém. A arquitetura escolhida pela ADR 0001 é exatamente o que
+torna isto barato, e vale dizer porque de dentro do código não se enxerga.
+
+A conta fecha pelo lado do custo também: **uma visita a um cliente custa mais que um mês de
+servidor.** Combustível e meio dia contra algo entre R$ 43 e R$ 60 por mês.
+
+**O que foi medido** nesta máquina de desenvolvimento, em 30/10/2026, para a conversa não
+ficar no achismo:
+
+| Medida | Valor |
+|---|---|
+| Banco com 10 empresas | 17 MB — quase tudo índice e schema, não dado |
+| `GET /core/auth/me` | 5,2 ms |
+| `GET /comercial/produtos` | 5,0 ms |
+| `GET /pdv/vendas` | 15,2 ms |
+| `GET /financeiro/contas` | 1,9 ms |
+
+Requisição custa milissegundo de um dígito, e carga de balcão é intermitente: cada caixa
+faz uma chamada a cada poucos segundos. Um VPS de 2 a 4 vCPU comporta dezenas de lojas por
+esse raciocínio — **e ninguém mediu sob carga real**, que é a lacuna honesta desta decisão.
+
+**Instalação local continua existindo**, para o cliente que exigir o dado na própria casa ou
+que opere sem internet confiável. É exceção com preço próprio, porque carrega o custo de
+suporte presencial — e é por ela que a licença da decisão 3 existe.
 
 ### 3. A licença expira, e **degrada** em vez de cortar
 
@@ -106,8 +135,19 @@ O backend quer uma máquina comum com container: a mesma coisa que roda na casa 
 
 - **O custo escondido da instalação local não é o servidor, é a pessoa.** Instalar,
   atualizar, fazer backup e atender presencialmente. Com três clientes é administrável;
-  com quinze vira refém da estrada, e é essa a razão de o SaaS existir. A conta precisa
-  entrar no preço desde o primeiro contrato.
+  com quinze vira refém da estrada. A conta entra no preço de quem pedir instalação local.
+- **Observabilidade deixa de ser Fase 7.** O requisito do dono é que o sistema "não trave
+  nem dê indícios do cliente reclamar", e isso quer dizer **ver a carga antes de o cliente
+  avisar**. Tempo de resposta, taxa de erro e conexões de banco precisam estar visíveis
+  antes do décimo cliente, nem que seja do jeito mais simples possível.
+- **O pool de conexões vira número a vigiar.** Hoje é `pool_size=10, max_overflow=5` em
+  `apps/api/src/decko/db.py`, escolhido quando havia uma empresa. Com dezenas de lojas ele
+  é o primeiro limite a aparecer, e aparece como lentidão — exatamente o sintoma que o
+  cliente atribui ao software.
+- **Backup passa a ser nosso, e isso é vantagem.** Um banco para copiar, com rotina
+  testada, em vez de cem computadores de balcão.
+- **Hospedagem compartilhada não serve.** Aquele produto é para site e loja em PHP, sem
+  processo longo e sem PostgreSQL com papéis próprios e RLS. O certo é **VPS**.
 - **Backup na casa do cliente é responsabilidade que alguém vai cobrar.** Se o computador
   do balcão queimar com os dados dentro, a culpa chega ao fornecedor, tenha ou não contrato
   dizendo o contrário. Precisa de resposta antes do primeiro cliente — nem que seja cópia
