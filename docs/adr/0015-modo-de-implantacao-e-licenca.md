@@ -71,6 +71,40 @@ esse raciocínio — **e ninguém mediu sob carga real**, que é a lacuna honest
 que opere sem internet confiável. É exceção com preço próprio, porque carrega o custo de
 suporte presencial — e é por ela que a licença da decisão 3 existe.
 
+### 2.1 E a máquina de casa?
+
+A pergunta veio com a máquina junto: Ryzen 7 5700, 16 GB de RAM, 700 GB livres. **O
+hardware não é o problema** — é quatro vezes o VPS de entrada. A casa é.
+
+**CGNAT.** Internet residencial brasileira raramente dá IP público: a Claro divide um IP
+entre 30 e mais de 100 assinantes, e pedir IP fixo no suporte leva ao plano empresarial.
+Sem IP público não há porta para abrir. Dá para conferir: se o IP de WAN do roteador estiver
+em `100.64.0.0/10`, é CGNAT.
+
+**Disponibilidade.** Falta de luz, queda de internet, Windows Update e um reinicio para
+jogar derrubam **todos** os clientes ao mesmo tempo. O requisito escrito pelo dono é que o
+sistema "não trave nem dê indícios do cliente reclamar" — e um PC de casa é a fonte mais
+provável exatamente disso.
+
+**Dado de terceiro em casa.** CPF e CNPJ de clientes de clientes, na mesma máquina onde se
+acessa banco e e-mail pessoal.
+
+**E não é de graça.** Um desktop desses ligado 24/7 consome algo entre 60 e 90 W, o que
+dá 43 a 65 kWh por mês:
+
+| Consumo | R$ 0,75/kWh | R$ 0,85/kWh | R$ 1,00/kWh |
+|---|---|---|---|
+| 60 W | R$ 32 | R$ 37 | R$ 43 |
+| 70 W | R$ 38 | R$ 43 | R$ 50 |
+| 90 W | R$ 49 | R$ 55 | R$ 65 |
+
+**É o preço do VPS.** A máquina de casa não economiza dinheiro; troca uma conta por outra, e
+a outra vem com CGNAT, queda de luz e o dado do cliente na sala.
+
+**O que a máquina de casa serve, e bem:** desenvolvimento, demonstração e piloto — com
+túnel reverso, que atravessa CGNAT sem abrir porta. É o caminho de **custo zero até o
+primeiro cliente pagante**, e aí o VPS sai da primeira mensalidade.
+
 ### 3. A licença expira, e **degrada** em vez de cortar
 
 O bloqueio é uma data de validade conferida na subida e uma vez por dia, com o mesmo
