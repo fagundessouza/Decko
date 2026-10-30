@@ -1,7 +1,8 @@
 # Ponto de venda. Decisões e limites: docs/adr/0008-ponto-de-venda.md
 #
 # Depende de `comercial` porque vende os produtos dele e baixa o estoque dele, e de
-# `clientes` porque a venda pode apontar para quem comprou — ver
+# `clientes` porque a venda pode apontar para quem comprou, e de `financeiro` porque o
+# pagamento pode dizer em qual conta o dinheiro caiu — ver
 # docs/adr/0007-dependencia-entre-modulos.md. Instalar o PDV traz os dois junto; o custo
 # disso está assumido na atualização de 29/10/2026 da docs/adr/0008-ponto-de-venda.md.
 
@@ -10,7 +11,7 @@ name = "pdv"
 label = "Ponto de venda"
 version = "0.1.0"
 package = "decko_modules.pdv"
-depends = ["core", "comercial", "clientes"]
+depends = ["core", "comercial", "clientes", "financeiro"]
 required = false
 category = "Operação"
 icon = "register"

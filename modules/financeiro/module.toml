@@ -1,0 +1,30 @@
+# Conta de recebimento: para onde o dinheiro foi.
+# Decisões e limites: docs/adr/0014-conta-de-recebimento.md
+#
+# O ponto de venda diz **como** o cliente pagou; este módulo diz **onde caiu**. São
+# perguntas diferentes, e a segunda é a que não fecha no fim do dia.
+
+[module]
+name = "financeiro"
+label = "Contas de recebimento"
+version = "0.1.0"
+package = "decko_modules.financeiro"
+depends = ["core"]
+required = false
+category = "Operação"
+icon = "bank"
+accent = "blue"
+summary = "Para onde o dinheiro vai: banco, chave Pix, caixa da loja. É o que falta para o fim do dia fechar."
+
+[migrations]
+branch_label = "financeiro"
+
+[permissions]
+provides = [
+  "financeiro.conta.read",
+  "financeiro.conta.write",
+]
+
+[menu]
+label = "Contas de recebimento"
+order = 80

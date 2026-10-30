@@ -52,6 +52,7 @@ async def _ver(session: AsyncSession, venda: Venda) -> VendaOut:
     pago = await service.total_pago(session, venda)
 
     cliente = await service.cliente_de(session, venda)
+    contas = await service.contas_dos_pagamentos(session, venda)
 
     return VendaOut(
         id=venda.id,
@@ -63,7 +64,16 @@ async def _ver(session: AsyncSession, venda: Venda) -> VendaOut:
         cliente_id=venda.cliente_id,
         cliente_nome=cliente.nome if cliente else None,
         itens=[ItemOut.model_validate(item) for item in venda.itens],
-        pagamentos=[PagamentoOut.model_validate(p) for p in venda.pagamentos],
+        pagamentos=[
+            PagamentoOut(
+                id=p.id,
+                forma=p.forma,
+                valor=p.valor,
+                conta_id=p.conta_id,
+                conta_nome=contas.get(p.conta_id),
+            )
+            for p in venda.pagamentos
+        ],
         soma_dos_itens=soma,
         desconto=venda.desconto,
         total=total,
@@ -171,7 +181,11 @@ async def registrar_pagamento(
     venda = await _carregar(session, venda_id)
     try:
         await service.registrar_pagamento(
-            session, venda=venda, forma=payload.forma, valor=payload.valor
+            session,
+            venda=venda,
+            forma=payload.forma,
+            valor=payload.valor,
+            conta_id=payload.conta_id,
         )
     except service.PdvError as exc:
         raise _invalido(exc) from exc

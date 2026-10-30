@@ -35,14 +35,17 @@ class ItemOut(BaseModel):
 class PagamentoIn(BaseModel):
     forma: FormaPagamento
     valor: Decimal = Field(gt=0)
+    # Opcional: o balcão não para para escolher conta — ver ADR 0014, decisão 3.
+    conta_id: uuid.UUID | None = None
 
 
 class PagamentoOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: uuid.UUID
     forma: FormaPagamento
     valor: Decimal
+    conta_id: uuid.UUID | None = None
+    # Lido na hora, não copiado: renomear a conta vale para o histórico dela também.
+    conta_nome: str | None = None
 
 
 class DescontoIn(BaseModel):

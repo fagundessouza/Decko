@@ -261,10 +261,11 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Emissão fiscal (NFC-e/SAT) como módulo próprio. É o que falta para o PDV substituir
       o caixa de uma loja de verdade, e é o que não pode ser suposto: certificado digital,
       homologação na SEFAZ do estado, contingência e layout versionado
-- [ ] **Conta de recebimento no pagamento.** `FormaPagamento` já distingue crédito,
-      débito, Pix e dinheiro — não distingue **em qual conta** o Pix caiu, e essa é metade
-      da dor de conferência de caixa descrita por cliente real. Não depende de hardware,
-      maquininha nem adquirente — ver `docs/discovery/pdv-perifericos-e-pagamento.md`
+- [x] **Conta de recebimento no pagamento.** Módulo `financeiro` com o cadastro de
+      destinos — banco, chave Pix, gaveta do caixa — e o pagamento do PDV apontando para
+      um. Dois Pix na mesma venda podem cair em contas diferentes, que era o caso descrito.
+      **Opcional de propósito**: o balcão não para para escolher conta. Não é plano de
+      contas e não guarda saldo — ver `docs/adr/0014-conta-de-recebimento.md`
 - [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito,
       e é o relatório que a cliente da seção 1 daquele discovery queria no fim do dia
 - [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança

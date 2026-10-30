@@ -27,6 +27,9 @@ export interface PagamentoVenda {
   id: string;
   forma: FormaPagamento;
   valor: string;
+  /** Em qual conta o dinheiro caiu. Nulo quando o caixa não escolheu — e isso é normal. */
+  conta_id: string | null;
+  conta_nome: string | null;
 }
 
 /* Os totais vêm somados do servidor — a tela não soma dinheiro. Ver ADR 0008, decisão 3. */
@@ -86,7 +89,10 @@ export const pdv = {
   definirDesconto: (vendaId: string, desconto: string): Promise<Venda> =>
     authedJson(`/pdv/vendas/${vendaId}/desconto`, { method: "PUT", body: { desconto } }),
 
-  pagar: (vendaId: string, body: { forma: FormaPagamento; valor: string }): Promise<Venda> =>
+  pagar: (
+    vendaId: string,
+    body: { forma: FormaPagamento; valor: string; conta_id?: string | null },
+  ): Promise<Venda> =>
     authedJson(`/pdv/vendas/${vendaId}/pagamentos`, { method: "POST", body }),
 
   removerPagamento: (vendaId: string, pagamentoId: string): Promise<Venda> =>
