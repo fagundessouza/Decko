@@ -127,6 +127,109 @@ Só os cinco primeiros caracteres do SHA-1 saem da máquina, nunca a senha; o se
 ar deixa a senha passar, com aviso no log. Em instalação sem internet, desligue com
 `DECKO_BREACH_CHECK_ENABLED=false` — ver `docs/adr/0011-senha-conhecidamente-vazada.md`.
 
+### Front e API em domínios diferentes
+
+Em desenvolvimento não há o que configurar: o Vite encaminha `/api` para a porta 8000, o
+front chama caminho relativo e não existe requisição entre origens.
+
+Quando a tela é servida de outro lugar — Vercel, por exemplo — e a API responde noutro
+domínio, duas pontas precisam combinar:
+
+```powershell
+# na API, em .env
+DECKO_CORS_ORIGINS=https://decko.vercel.app
+
+# no front, em apps/web/.env.local
+VITE_API_URL=https://api.seudominio.com.br
+```
+
+Sem barra no fim da URL, e **nenhum segredo em variável `VITE_`**: o que entra no pacote
+montado é público por definição.
+
+### Expor a API de casa, sem abrir porta
+
+Internet residencial costuma estar atrás de CGNAT, e aí **não há porta para abrir** —
+nenhum roteador resolve, porque o provedor não entregou IP público. Para conferir:
+
+```powershell
+tracert -d -h 4 8.8.8.8
+```
+
+Salto na faixa `100.64.0.0/10` significa CGNAT.
+
+A saída é túnel reverso: a máquina abre a conexão de dentro para fora, e o tráfego volta
+por ela. Sem porta aberta, com HTTPS, e sem expor a máquina de casa à varredura da
+internet.
+
+```powershell
+winget install --id Cloudflare.cloudflared
+
+# 1. autentica no navegador e grava o certificado da conta
+cloudflared tunnel login
+
+# 2. cria o túnel (uma vez) e anota o UUID que ele imprime
+cloudflared tunnel create decko
+
+# 3. aponta um subdomínio para o túnel
+cloudflared tunnel route dns decko api.seudominio.com.br
+
+# 4. sobe, encaminhando para a API local
+cloudflared tunnel run --url http://localhost:8000 decko
+```
+
+Para um teste rápido, sem domínio nem conta, um comando só dá uma URL temporária:
+
+```powershell
+cloudflared tunnel --url http://localhost:8000
+```
+
+A URL some quando o comando para, e muda a cada execução — serve para mostrar o sistema a
+alguém, não para apontar cliente.
+
+> **O que isso é e o que não é.** Serve para desenvolvimento, demonstração e piloto
+> combinado. Não serve para cliente pagando mensalidade: máquina que desliga de noite,
+> loja que abre sábado e queda de luz são aceitáveis num piloto dito como piloto. Ver
+> `docs/adr/0015-modo-de-implantacao-e-licenca.md`.
+
+### Subir o piloto
+
+Desenvolvimento e piloto não são a mesma coisa rodando no mesmo lugar. Três ajustes
+separam um do outro, e nenhum é opcional:
+
+**1. Banco próprio.** O banco de desenvolvimento tem empresas de teste e dado inventado.
+Cliente de piloto não divide banco com isso.
+
+```powershell
+psql -U postgres -c "CREATE DATABASE decko_piloto OWNER decko_owner"
+psql -U postgres -d decko_piloto -c "GRANT USAGE ON SCHEMA public TO decko_app"
+psql -U postgres -d decko_piloto -c "ALTER DEFAULT PRIVILEGES FOR ROLE decko_owner IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO decko_app"
+psql -U postgres -d decko_piloto -c "ALTER DEFAULT PRIVILEGES FOR ROLE decko_owner IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO decko_app"
+```
+
+**2. Ambiente de produção, não de desenvolvimento.** `DECKO_ENV=production` fecha o `/docs`,
+que senão fica público junto com a API. E a chave de assinatura precisa ser própria:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+**3. API sem recarregamento automático.** `--reload` existe para desenvolver; num piloto
+ele derruba a conexão a cada arquivo salvo.
+
+```powershell
+uv run uvicorn decko.main:app --host 127.0.0.1 --port 8000
+```
+
+`--host 127.0.0.1` de propósito: quem alcança a API é o túnel, que roda na mesma máquina.
+Escutar em `0.0.0.0` exporia a API para a rede local sem precisar.
+
+Com isso de pé, o túnel da seção anterior, e no front a `VITE_API_URL` apontando para o
+domínio do túnel.
+
+> **O que um piloto é.** Máquina que desliga de noite, queda de luz e internet de casa.
+> Combinado com o cliente, é honesto; vendido como serviço, não é. Ver
+> `docs/adr/0015-modo-de-implantacao-e-licenca.md`.
+
 ### Frontend
 
 ```powershell

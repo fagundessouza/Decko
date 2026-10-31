@@ -1,7 +1,15 @@
 import { session } from "./session";
 
+/* Vazio em desenvolvimento e quando front e API moram no mesmo domínio: aí o caminho é
+ * relativo e quem encaminha é o proxy do Vite ou o servidor da frente.
+ *
+ * Preenchido quando a tela é servida de outro lugar — a Vercel, por exemplo — e a API
+ * responde num domínio próprio. O prefixo `VITE_` não é enfeite: só variável com ele
+ * chega ao pacote montado. */
+const ORIGEM = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "";
+
 // Prefixo da API, não de um módulo: cada módulo é montado sob o próprio nome.
-const BASE = "/api/v1";
+const BASE = `${ORIGEM}/api/v1`;
 const CORE = `${BASE}/core`;
 
 export interface Credentials {
