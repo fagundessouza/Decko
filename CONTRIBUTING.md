@@ -191,6 +191,45 @@ alguém, não para apontar cliente.
 > loja que abre sábado e queda de luz são aceitáveis num piloto dito como piloto. Ver
 > `docs/adr/0015-modo-de-implantacao-e-licenca.md`.
 
+### Subir o piloto
+
+Desenvolvimento e piloto não são a mesma coisa rodando no mesmo lugar. Três ajustes
+separam um do outro, e nenhum é opcional:
+
+**1. Banco próprio.** O banco de desenvolvimento tem empresas de teste e dado inventado.
+Cliente de piloto não divide banco com isso.
+
+```powershell
+psql -U postgres -c "CREATE DATABASE decko_piloto OWNER decko_owner"
+psql -U postgres -d decko_piloto -c "GRANT USAGE ON SCHEMA public TO decko_app"
+psql -U postgres -d decko_piloto -c "ALTER DEFAULT PRIVILEGES FOR ROLE decko_owner IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO decko_app"
+psql -U postgres -d decko_piloto -c "ALTER DEFAULT PRIVILEGES FOR ROLE decko_owner IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO decko_app"
+```
+
+**2. Ambiente de produção, não de desenvolvimento.** `DECKO_ENV=production` fecha o `/docs`,
+que senão fica público junto com a API. E a chave de assinatura precisa ser própria:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+**3. API sem recarregamento automático.** `--reload` existe para desenvolver; num piloto
+ele derruba a conexão a cada arquivo salvo.
+
+```powershell
+uv run uvicorn decko.main:app --host 127.0.0.1 --port 8000
+```
+
+`--host 127.0.0.1` de propósito: quem alcança a API é o túnel, que roda na mesma máquina.
+Escutar em `0.0.0.0` exporia a API para a rede local sem precisar.
+
+Com isso de pé, o túnel da seção anterior, e no front a `VITE_API_URL` apontando para o
+domínio do túnel.
+
+> **O que um piloto é.** Máquina que desliga de noite, queda de luz e internet de casa.
+> Combinado com o cliente, é honesto; vendido como serviço, não é. Ver
+> `docs/adr/0015-modo-de-implantacao-e-licenca.md`.
+
 ### Frontend
 
 ```powershell
