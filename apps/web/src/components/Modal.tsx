@@ -29,6 +29,18 @@ export function Modal({
   const painel = useRef<HTMLDivElement>(null);
   const anterior = useRef<HTMLElement | null>(null);
 
+  /* O fechar mais recente, guardado fora da lista de dependências do efeito.
+   *
+   * Quem abre este diálogo escreve `onClose={() => setAberto(false)}`, uma função nova a
+   * cada render. Se ela entrasse nas dependências, qualquer tecla digitada no formulário
+   * refaria o efeito inteiro: a limpeza devolveria o foco a quem abriu e a montagem o
+   * jogaria de volta no primeiro elemento do painel. No celular, foco saindo de um campo
+   * de texto fecha o teclado — era preciso tocar no campo outra vez a cada letra. */
+  const fechar = useRef(onClose);
+  useEffect(() => {
+    fechar.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return;
 
@@ -43,7 +55,7 @@ export function Modal({
     (alvo ?? painel.current)?.focus();
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") fechar.current();
     };
     document.addEventListener("keydown", onKey);
 
@@ -52,7 +64,7 @@ export function Modal({
       document.body.style.overflow = rolagem;
       anterior.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
