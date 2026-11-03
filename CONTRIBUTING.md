@@ -226,6 +226,35 @@ Escutar em `0.0.0.0` exporia a API para a rede local sem precisar.
 Com isso de pé, o túnel da seção anterior, e no front a `VITE_API_URL` apontando para o
 domínio do túnel.
 
+#### Subir sozinho ao ligar o PC
+
+`infra/windows/iniciar_decko.vbs` sobe a API e o túnel ao entrar no Windows, ocultos e sem
+segurar o login. Para instalar, copie para a pasta de inicialização:
+
+```powershell
+Copy-Item infra\windows\iniciar_decko.vbs ([Environment]::GetFolderPath("Startup"))
+```
+
+Ele espera a API dizer `Application startup complete` antes de subir o túnel — contar
+segundos no escuro falha em máquina fria, e aí o túnel sobe apontando para porta vazia.
+
+Registros em `%LOCALAPPDATA%\Decko\logs`, recriados a cada partida:
+
+| Arquivo | O que tem |
+|---|---|
+| `api.log` | saída do uvicorn |
+| `tunel.log` | saída do cloudflared |
+| `url-do-tunel.txt` | a URL pública do dia |
+
+> **A URL do túnel rápido muda a cada reinicialização**, e a tela publicada leva a URL da
+> API **embutida no pacote montado**. Ou seja: enquanto for túnel rápido, reiniciar o PC
+> quebra o front até um build novo. Para piloto com cliente, crie o **túnel nomeado** — o
+> script passa a usá-lo sozinho assim que a credencial existir.
+
+> **A pasta de inicialização roda no *login*, não no *boot*.** Se a máquina reiniciar e
+> ninguém entrar na conta, nada sobe. Para um piloto de verdade, Agendador de Tarefas com
+> "ao iniciar o computador" é mais firme — e aí o VBS vira a ação da tarefa.
+
 > **O que um piloto é.** Máquina que desliga de noite, queda de luz e internet de casa.
 > Combinado com o cliente, é honesto; vendido como serviço, não é. Ver
 > `docs/adr/0015-modo-de-implantacao-e-licenca.md`.
