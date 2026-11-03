@@ -292,13 +292,16 @@ Não pertence a fase nenhuma: atravessa todas, e por isso some das listas por fa
 destes itens é funcionalidade; todos são a diferença entre mexer no código com confiança e
 mexer torcendo.
 
-- [ ] **Teste automatizado no frontend — hoje são zero, e não há runner instalado.** O
-      backend tem 558 testes contra banco real; a interface tem `oxlint` e `tsc -b`, que
-      acusam erro de tipo e não acusam comportamento errado. Já custou caro: o quadro de
-      assinatura travava no meio do traço, e a leitura meteorológica mostrava "0° (N)"
-      quando a direção do vento era ausente — os dois só apareceram ao usar à mão. O que
-      mais pede rede de proteção: identificação de produto na entrada por nota, troca de
-      empresa, e o PDV
+- [ ] **Teste automatizado no frontend — o executor existe desde 03/11/2026, a cobertura
+      é de um componente.** Vitest com jsdom e Testing Library, na esteira junto do lint
+      e dos tipos. Os cinco primeiros testes cobrem o foco do `Modal` e nasceram de um
+      defeito que só aparecia no celular: digitar uma letra em qualquer diálogo fechava o
+      teclado. O backend tem 579 testes contra banco real; a interface tem cinco, e
+      `oxlint` e `tsc -b`, que acusam erro de tipo e não acusam comportamento errado. Já
+      custou caro três vezes — além do teclado, o quadro de assinatura travava no meio do
+      traço, e a leitura meteorológica mostrava "0° (N)" quando a direção do vento era
+      ausente, os dois descobertos à mão. O que mais pede rede de proteção: identificação
+      de produto na entrada por nota, troca de empresa, e o PDV
 - [ ] **Navegação sem URL.** `App.tsx` é uma máquina de estado escrita à mão: não há link
       direto para um planejamento ou um produto, o botão voltar do navegador sai do
       sistema, e recarregar cai na tela inicial. Num ERP que se usa o dia inteiro isso é
