@@ -134,5 +134,10 @@ jobs:
       - name: Tipos
         run: npm run typecheck --prefix apps/web
 
+      # Em jsdom, não em navegador: o que se afirma aqui é sobre foco e marcação, que o
+      # jsdom representa fielmente, e navegador de verdade custa minutos por execução.
+      - name: Testes
+        run: npm test --prefix apps/web
+
       - name: Build
         run: npm run build --prefix apps/web
