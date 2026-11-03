@@ -49,8 +49,16 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins(self) -> list[str]:
-        """As origens, separadas e sem espaço em branco."""
-        return [origem.strip() for origem in self.cors_origins.split(",") if origem.strip()]
+        """As origens, separadas, sem espaço em branco e sem barra no fim.
+
+        A barra final é o erro fácil de cometer e difícil de enxergar: o navegador manda
+        `Origin: https://x.vercel.app`, sem ela, e a comparação é exata — uma barra a mais
+        na configuração faz o CORS recusar em silêncio, e o sintoma aparece como "não foi
+        possível entrar".
+        """
+        return [
+            origem.strip().rstrip("/") for origem in self.cors_origins.split(",") if origem.strip()
+        ]
 
     @property
     def modules_dir(self) -> Path:
