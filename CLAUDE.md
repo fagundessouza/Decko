@@ -21,6 +21,7 @@ portfólio para vagas no mercado internacional.
 | O que fazer agora e em que ordem | `docs/ROADMAP.md` |
 | Cores, tipografia, regras de UX | `docs/BRAND.md` |
 | Requisitos do módulo Agro | `docs/discovery/agro-planejamento-operacional.md` |
+| Endpoints do módulo Agro e suas permissões | `docs/agro-api.md` |
 | Decisões arquiteturais e seus motivos | `docs/adr/` |
 | Como o Odoo resolve o mesmo problema, e onde divergimos | `docs/benchmark/odoo-20-comparativo.md` |
 
