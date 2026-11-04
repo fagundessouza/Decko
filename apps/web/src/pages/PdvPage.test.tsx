@@ -76,6 +76,29 @@ function umaVenda(sobre: Partial<Venda> = {}): Venda {
   };
 }
 
+/** Uma venda com um item lançado, que é a condição para cobrar e fechar. */
+function vendaComItem(sobre: Partial<Venda> = {}): Venda {
+  return umaVenda({
+    itens: [
+      {
+        id: "item-1",
+        produto_id: "produto-1",
+        lote_id: null,
+        unidade_id: "unidade-1",
+        descricao: "Café torrado 500g",
+        quantidade: "1",
+        preco_unitario: "19.90",
+        desconto: "0.00",
+        total: "19.90",
+      },
+    ],
+    soma_dos_itens: "19.90",
+    total: "19.90",
+    falta: "19.90",
+    ...sobre,
+  });
+}
+
 function umProduto(sobre: Partial<Produto> = {}): Produto {
   return {
     id: "produto-1",
@@ -242,5 +265,107 @@ describe("PdvPage, o foco", () => {
 
     // Sem isto o operador pega no mouse a cada produto, que é o que torna um PDV lento.
     await waitFor(() => expect(document.activeElement).toBe(campoDeCodigo()));
+  });
+});
+
+describe("PdvPage, recebendo", () => {
+  it("já chega com o que falta preenchido", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.click(screen.getByRole("button", { name: "Dinheiro" }));
+
+    // O caso comum do balcão é receber exatamente o que falta. Obrigar a redigitar o
+    // valor a cada venda é trabalho repetido com fila esperando.
+    expect(screen.getByLabelText("Valor recebido")).toHaveProperty("value", "19.90");
+  });
+
+  it("manda o valor com ponto e a forma escolhida", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+    vi.mocked(pdv.pagar).mockResolvedValue(vendaComItem({ pago: "20.00", falta: "0.00" }));
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.click(screen.getByRole("button", { name: "Pix" }));
+    const valor = screen.getByLabelText("Valor recebido");
+    await usuario.clear(valor);
+    await usuario.type(valor, "20,00");
+    await usuario.click(screen.getByRole("button", { name: "Receber" }));
+
+    await waitFor(() =>
+      expect(pdv.pagar).toHaveBeenCalledWith("venda-1", { forma: "pix", valor: "20.00" }),
+    );
+  });
+});
+
+describe("PdvPage, fechando", () => {
+  it("não deixa fechar enquanto falta receber", async () => {
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem({ falta: "19.90" }));
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    // Fechar com saldo em aberto registraria a saída do estoque sem o dinheiro entrar.
+    expect(screen.getByRole("button", { name: "Fechar venda" })).toHaveProperty("disabled", true);
+  });
+
+  it("não deixa cobrar nem fechar venda sem item", async () => {
+    vi.mocked(pdv.abrir).mockResolvedValue(umaVenda());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    expect(screen.getByRole("button", { name: "Dinheiro" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Fechar venda" })).toHaveProperty("disabled", true);
+  });
+
+  it("fecha e mostra o número da venda e o troco", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(
+      vendaComItem({ pago: "20.00", falta: "0.00", troco: "0.10" }),
+    );
+    vi.mocked(pdv.finalizar).mockResolvedValue(
+      vendaComItem({
+        numero: 42,
+        status: "finalizada",
+        pago: "20.00",
+        falta: "0.00",
+        troco: "0.10",
+      }),
+    );
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.click(screen.getByRole("button", { name: "Fechar venda" }));
+
+    // O número é o que o cliente ouve e o que se procura depois; o troco é o que a mão
+    // devolve. Os dois têm de estar na tela sem rolagem nem clique.
+    expect(await screen.findByText("42")).toBeTruthy();
+    // Em dois lugares: o resumo da tela e o recibo imprimível, que tem de concordar com
+    // ela — recibo que discorda do troco na tela é discussão no balcão.
+    expect(screen.getAllByText("Troco").length).toBeGreaterThan(0);
+  });
+
+  it("não mostra linha de troco quando não há troco", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem({ pago: "19.90", falta: "0.00" }));
+    vi.mocked(pdv.finalizar).mockResolvedValue(
+      vendaComItem({ numero: 43, status: "finalizada", pago: "19.90", falta: "0.00", troco: "0.00" }),
+    );
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+    await usuario.click(screen.getByRole("button", { name: "Fechar venda" }));
+
+    expect(await screen.findByText("43")).toBeTruthy();
+    // Troco zero não é informação: é ruído. Vale para o resumo e para o recibo, e a
+    // busca sem escopo cobre os dois.
+    expect(screen.queryAllByText("Troco")).toHaveLength(0);
   });
 });
