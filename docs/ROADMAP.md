@@ -247,6 +247,10 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       débito, crédito e pix, troco, e baixa de estoque na mesma transação da venda — ver
       `docs/adr/0008-ponto-de-venda.md`. É também o primeiro módulo a depender de outro
       módulo de negócio, o que exigiu `docs/adr/0007-dependencia-entre-modulos.md`
+- [ ] Desconto na venda pela tela do PDV. O servidor já aceita
+      (`PUT /pdv/vendas/{id}/desconto`) e `lib/pdv.ts` já embrulha a rota, mas nenhuma
+      tela chama: o operador não tem como dar desconto. Achado em 03/11/2026, ao mapear
+      quais operações do PDV os testes exercitavam
 - [x] **Venda identificada.** A venda aponta para quem comprou, e o PDV passou a declarar
       `clientes` em `depends` — instalar o ponto de venda traz o cadastro junto, com o
       custo assumido na atualização de 29/10/2026 da `docs/adr/0008-ponto-de-venda.md`.
@@ -322,10 +326,11 @@ mexer torcendo.
 - [ ] **Teste automatizado no frontend — o executor existe desde 03/11/2026, e cobre
       três pontos.** Vitest com jsdom e Testing Library, na esteira junto do lint e dos
       tipos, com o fuso fixado em `America/Sao_Paulo` (sem isso o teste de data local
-      passaria por engano na esteira, que roda em UTC). São 44 testes: o foco do `Modal`,
+      passaria por engano na esteira, que roda em UTC). São 50 testes: o foco do `Modal`,
       as funções de `format.ts`, e o PDV — leitor de código de barras, recebimento,
-      fechamento da venda, atalhos F1 a F4 e identificação do cliente. O backend tem 579
-      contra banco real.
+      fechamento, atalhos F1 a F4, identificação do cliente, conta de recebimento e as
+      três operações que desfazem (retirar item, retirar pagamento, cancelar). O backend
+      tem 643 contra banco real.
 
       Cada um nasceu de defeito que aconteceu: o teclado do celular fechava a cada letra
       digitada em qualquer diálogo, o quadro de assinatura travava no meio do traço, e a

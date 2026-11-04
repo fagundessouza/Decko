@@ -602,3 +602,93 @@ describe("PdvPage, a conta que recebeu", () => {
   });
 });
 
+describe("PdvPage, desfazendo", () => {
+  /* As três operações que tiram algo da venda.
+   *
+   * São as que mais merecem guarda: num balcão, retirar o item errado, apagar um
+   * pagamento já recebido ou cancelar a venda inteira são erros que custam dinheiro e
+   * que o operador comete com a fila olhando. */
+
+  it("retira o item pelo botão que diz qual é", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+    vi.mocked(pdv.removerItem).mockResolvedValue(umaVenda());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    // O rótulo nomeia o produto: "Retirar", sozinho, numa lista de itens, não diz qual
+    // sai — e é o que o leitor de tela anuncia.
+    await usuario.click(screen.getByRole("button", { name: "Retirar Café torrado 500g" }));
+
+    await waitFor(() => expect(pdv.removerItem).toHaveBeenCalledWith("venda-1", "item-1"));
+  });
+
+  it("retira um pagamento já lançado", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(
+      vendaComItem({
+        pagamentos: [
+          {
+            id: "pagamento-1",
+            forma: "dinheiro",
+            valor: "19.90",
+            conta_id: null,
+            conta_nome: null,
+          },
+        ],
+        pago: "19.90",
+        falta: "0.00",
+      }),
+    );
+    vi.mocked(pdv.removerPagamento).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    // Digitou 50 onde era 5: sem desfazer, a saída é cancelar a venda inteira e bipar
+    // tudo de novo.
+    await usuario.click(screen.getByRole("button", { name: "Retirar pagamento" }));
+
+    await waitFor(() =>
+      expect(pdv.removerPagamento).toHaveBeenCalledWith("venda-1", "pagamento-1"),
+    );
+  });
+
+  it("cancela a venda e fica sem venda aberta", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+    vi.mocked(pdv.cancelar).mockResolvedValue(vendaComItem({ status: "cancelada" }));
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.click(screen.getByRole("button", { name: "Cancelar venda" }));
+    await waitFor(() => expect(pdv.cancelar).toHaveBeenCalledWith("venda-1"));
+
+    /* Cancelar não pode deixar a tela apontando para uma venda que não existe mais. O
+     * caixa fica sem venda aberta, e a única coisa oferecida é abrir outra. */
+    expect(await screen.findByRole("button", { name: "Abrir venda" })).toBeTruthy();
+  });
+
+  it("abre outra venda depois de fechar a anterior", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem({ pago: "19.90", falta: "0.00" }));
+    vi.mocked(pdv.finalizar).mockResolvedValue(
+      vendaComItem({ numero: 7, status: "finalizada", pago: "19.90", falta: "0.00" }),
+    );
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+    await usuario.click(screen.getByRole("button", { name: "Fechar venda" }));
+    expect(await screen.findByText("7")).toBeTruthy();
+
+    vi.mocked(pdv.abrir).mockClear();
+    await usuario.click(screen.getByRole("button", { name: "Nova venda" }));
+
+    // A fila não espera: o caminho do fim de uma venda para o começo da próxima é um
+    // clique, sem voltar para a tela inicial.
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+  });
+});
+
