@@ -52,9 +52,14 @@ vi.mock("../lib/clientes", () => ({
   clientes: { listar: vi.fn() },
 }));
 
+vi.mock("../lib/financeiro", () => ({
+  financeiro: { listarContas: vi.fn() },
+}));
+
 const { pdv } = await import("../lib/pdv");
 const { comercial } = await import("../lib/comercial");
 const { clientes } = await import("../lib/clientes");
+const { financeiro } = await import("../lib/financeiro");
 
 function umaVenda(sobre: Partial<Venda> = {}): Venda {
   return {
@@ -163,6 +168,8 @@ beforeEach(() => {
   vi.mocked(comercial.listProdutos).mockResolvedValue([]);
   vi.mocked(pdv.adicionarItem).mockResolvedValue(umaVenda());
   vi.mocked(clientes.listar).mockResolvedValue([]);
+  // Empresa sem o módulo `financeiro` é o padrão: a escolha de conta nem aparece.
+  vi.mocked(financeiro.listarContas).mockResolvedValue([]);
 });
 
 describe("PdvPage, ao abrir", () => {
@@ -326,7 +333,13 @@ describe("PdvPage, recebendo", () => {
     await usuario.click(screen.getByRole("button", { name: "Receber" }));
 
     await waitFor(() =>
-      expect(pdv.pagar).toHaveBeenCalledWith("venda-1", { forma: "pix", valor: "20.00" }),
+      expect(pdv.pagar).toHaveBeenCalledWith("venda-1", {
+        forma: "pix",
+        valor: "20.00",
+        // Nulo porque esta empresa não tem conta cadastrada, que é o caso sem o módulo
+        // `financeiro`. Ver ADR 0014.
+        conta_id: null,
+      }),
     );
   });
 });
@@ -545,6 +558,47 @@ describe("PdvPage, identificando o cliente", () => {
     // A frase manda para o lugar certo em vez de só dizer não.
     expect(await screen.findByText(/Cadastre em Clientes/)).toBeTruthy();
     expect(pdv.identificar).not.toHaveBeenCalled();
+  });
+});
+
+describe("PdvPage, a conta que recebeu", () => {
+  it("não pergunta a conta quando a empresa não tem nenhuma", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+    await usuario.click(screen.getByRole("button", { name: "Dinheiro" }));
+
+    // O módulo `financeiro` pode não estar ativo. Perguntar "caiu em qual conta" sem ter
+    // conta nenhuma é um campo vazio no meio do caixa.
+    expect(screen.queryByLabelText("Caiu em")).toBeNull();
+  });
+
+  it("manda a conta escolhida junto do pagamento", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+    vi.mocked(pdv.pagar).mockResolvedValue(vendaComItem({ pago: "19.90", falta: "0.00" }));
+    vi.mocked(financeiro.listarContas).mockResolvedValue([
+      { id: "conta-1", nome: "Banco do Brasil", instituicao: null, chave_pix: null, ativa: true },
+      { id: "conta-2", nome: "Gaveta do caixa", instituicao: null, chave_pix: null, ativa: true },
+    ]);
+
+    abrirCaixa();
+    await waitFor(() => expect(financeiro.listarContas).toHaveBeenCalled());
+    await usuario.click(screen.getByRole("button", { name: "Pix" }));
+
+    await usuario.selectOptions(await screen.findByLabelText("Caiu em"), "conta-1");
+    await usuario.click(screen.getByRole("button", { name: "Receber" }));
+
+    // É o que permite fechar o caixa sabendo o que entrou em cada lugar — ADR 0014.
+    await waitFor(() =>
+      expect(pdv.pagar).toHaveBeenCalledWith("venda-1", {
+        forma: "pix",
+        valor: "19.90",
+        conta_id: "conta-1",
+      }),
+    );
   });
 });
 

@@ -205,6 +205,18 @@ class Pagamento(TenantMixin, TimestampMixin, Base):
     )
     valor: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
 
+    # Em qual conta o dinheiro caiu. A forma diz **como** o cliente pagou; isto diz
+    # **onde** — e é a segunda pergunta que não fecha no fim do dia, porque duas chaves Pix
+    # da mesma loja são dois destinos.
+    #
+    # Nulo por padrão, e nada no caixa trava por causa dele: velocidade de balcão é
+    # requisito. Ver docs/adr/0014-conta-de-recebimento.md, decisão 3.
+    conta_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("financeiro_conta.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
     venda: Mapped["Venda"] = relationship(back_populates="pagamentos")
 
 
