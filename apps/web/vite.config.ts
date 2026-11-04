@@ -28,6 +28,10 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["src/setupTests.ts"],
+    /* O produto é brasileiro e as datas são lidas por quem está no Brasil. Sem fixar o
+     * fuso, o teste que guarda a data local passaria por engano na esteira, que roda em
+     * UTC: lá o dia local e o dia UTC coincidem, e o defeito que ele vigia desaparece. */
+    env: { TZ: "America/Sao_Paulo" },
     restoreMocks: true,
   },
 });
