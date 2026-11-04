@@ -295,9 +295,9 @@ mexer torcendo.
 - [ ] **Teste automatizado no frontend — o executor existe desde 03/11/2026, e cobre
       três pontos.** Vitest com jsdom e Testing Library, na esteira junto do lint e dos
       tipos, com o fuso fixado em `America/Sao_Paulo` (sem isso o teste de data local
-      passaria por engano na esteira, que roda em UTC). São 33 testes: o foco do `Modal`,
-      as funções de `format.ts`, e o PDV — leitor de código de barras, recebimento e
-      fechamento da venda. O backend tem 579 contra banco real.
+      passaria por engano na esteira, que roda em UTC). São 39 testes: o foco do `Modal`,
+      as funções de `format.ts`, e o PDV — leitor de código de barras, recebimento,
+      fechamento da venda e os atalhos F1 a F4. O backend tem 579 contra banco real.
 
       Cada um nasceu de defeito que aconteceu: o teclado do celular fechava a cada letra
       digitada em qualquer diálogo, o quadro de assinatura travava no meio do traço, e a
