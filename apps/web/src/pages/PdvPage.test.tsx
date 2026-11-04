@@ -369,3 +369,83 @@ describe("PdvPage, fechando", () => {
     expect(screen.queryAllByText("Troco")).toHaveLength(0);
   });
 });
+
+describe("PdvPage, os atalhos de teclado", () => {
+  it("F1 abre o recebimento em dinheiro, já com o que falta", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.keyboard("{F1}");
+
+    expect(await screen.findByText("Receber em Dinheiro")).toBeTruthy();
+    expect(screen.getByLabelText("Valor recebido")).toHaveProperty("value", "19.90");
+  });
+
+  it("F4 abre o recebimento em Pix", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+    await usuario.keyboard("{F4}");
+
+    expect(await screen.findByText("Receber em Pix")).toBeTruthy();
+  });
+
+  it("segura a tecla para o navegador não levar a tela embora", async () => {
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    // F1 abre a ajuda do navegador e F3 a busca. Sem `preventDefault`, o atalho funciona
+    // e o caixa perde a tela de vista no mesmo gesto.
+    const evento = new KeyboardEvent("keydown", { key: "F1", cancelable: true, bubbles: true });
+    document.dispatchEvent(evento);
+    expect(evento.defaultPrevented).toBe(true);
+  });
+
+  it("não faz nada em venda sem item", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(umaVenda());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+    await usuario.keyboard("{F1}");
+
+    // O botão recusa venda vazia; atalho que aceitasse seria um caminho por fora da regra.
+    expect(screen.queryByText("Receber em Dinheiro")).toBeNull();
+  });
+
+  it("não troca a forma com o recebimento já aberto", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+    await usuario.keyboard("{F1}");
+    expect(await screen.findByText("Receber em Dinheiro")).toBeTruthy();
+
+    await usuario.keyboard("{F4}");
+
+    // Trocar por baixo de quem já está digitando o valor faria o título do diálogo mentir
+    // sobre o que vai ser registrado.
+    expect(screen.getByText("Receber em Dinheiro")).toBeTruthy();
+    expect(screen.queryByText("Receber em Pix")).toBeNull();
+  });
+
+  it("ignora a tecla com Ctrl, que é atalho do navegador", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+    await usuario.keyboard("{Control>}{F1}{/Control}");
+
+    expect(screen.queryByText("Receber em Dinheiro")).toBeNull();
+  });
+});
+

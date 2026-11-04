@@ -90,6 +90,39 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
     };
   }, [focarCodigo]);
 
+  /* As teclas de função abrem o recebimento.
+   *
+   * No caixa a mão não sai do teclado: o código é bipado, a quantidade é digitada, e ter
+   * de pegar no mouse no fim de cada venda quebra o ritmo no ponto que mais se repete.
+   * As teclas são as que `FORMAS` já declarava e que até aqui não faziam nada.
+   *
+   * O efeito se desliga enquanto há diálogo aberto. Dentro do recebimento, F2 trocaria a
+   * forma por baixo de quem já está digitando o valor — e o título do diálogo passaria a
+   * mentir sobre o que vai ser registrado.
+   *
+   * As guardas repetem as do botão de propósito: atalho que faz o que o botão desabilitado
+   * recusa é um caminho por fora da regra, não uma conveniência. */
+  useEffect(() => {
+    if (!venda || venda.itens.length === 0 || busy) return;
+    if (cobrando !== null || achados !== null || identificando) return;
+
+    const aoTeclar = (evento: KeyboardEvent) => {
+      if (evento.ctrlKey || evento.altKey || evento.metaKey) return;
+      const forma = FORMAS.find((item) => item.atalho === evento.key);
+      if (!forma) return;
+
+      // F1 abre a ajuda do navegador e F3 a busca: sem isto o caixa perde a tela de vista
+      // no meio do atendimento.
+      evento.preventDefault();
+      setCobrando(forma.valor);
+      // Mesmo padrão do botão: o caso comum é receber exatamente o que falta.
+      setValorRecebido(venda.falta);
+    };
+
+    document.addEventListener("keydown", aoTeclar);
+    return () => document.removeEventListener("keydown", aoTeclar);
+  }, [venda, busy, cobrando, achados, identificando]);
+
   async function lancar(produto: Produto) {
     if (!venda) return;
     setBusy(true);
@@ -490,8 +523,14 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
                       // O caso comum é receber exatamente o que falta.
                       setValorRecebido(venda.falta);
                     }}
+                    aria-keyshortcuts={forma.atalho}
                   >
                     {forma.label}
+                    {/* Escondido de leitor de tela porque `aria-keyshortcuts` já informa
+                        o atalho, e some no celular, onde não há tecla de função. */}
+                    <span aria-hidden="true" className="hidden text-sm font-normal text-ink-faint sm:inline">
+                      {forma.atalho}
+                    </span>
                   </Button>
                 ))}
               </div>
