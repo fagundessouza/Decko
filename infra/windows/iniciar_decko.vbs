@@ -28,6 +28,7 @@ Option Explicit
 Const OCULTO = 0
 Const NAO_ESPERAR = False
 Const LER = 1
+Const SOBRESCREVER = 2
 
 Const RAIZ = "E:\Projetos\decko"
 Const PORTA = 8000
@@ -75,7 +76,7 @@ If fso.FileExists(credencialDoTunel) Then
     ' Túnel nomeado: domínio fixo, a tela da Vercel continua valendo entre reinicializações.
     shell.Run "cmd /c cloudflared tunnel run --url http://127.0.0.1:" & PORTA & _
               " " & TUNEL_NOMEADO & " >> """ & logDoTunel & """ 2>&1", OCULTO, NAO_ESPERAR
-    Registrar arquivoDaUrl, "Túnel nomeado '" & TUNEL_NOMEADO & "' — domínio fixo." & vbCrLf & _
+    Gravar arquivoDaUrl, "Túnel nomeado '" & TUNEL_NOMEADO & "' — domínio fixo." & vbCrLf & _
                             "Veja o domínio com: cloudflared tunnel route dns list"
 Else
     shell.Run "cmd /c cloudflared tunnel --url http://127.0.0.1:" & PORTA & _
@@ -85,9 +86,9 @@ Else
     Dim url
     url = EsperarPelaUrl(logDoTunel, 60)
     If url = "" Then
-        Registrar arquivoDaUrl, "O túnel não publicou URL. Veja " & logDoTunel
+        Gravar arquivoDaUrl, "O túnel não publicou URL. Veja " & logDoTunel
     Else
-        Registrar arquivoDaUrl, url & vbCrLf & vbCrLf & _
+        Gravar arquivoDaUrl, url & vbCrLf & vbCrLf & _
             "URL TEMPORÁRIA: muda a cada reinicialização." & vbCrLf & _
             "A tela publicada precisa de build novo com VITE_API_URL=" & url & vbCrLf & _
             "Para parar de mudar, crie o túnel nomeado — ver o cabeçalho deste script."
@@ -111,6 +112,18 @@ End Sub
 Sub Registrar(caminho, texto)
     Dim saida
     Set saida = fso.OpenTextFile(caminho, 8, True)
+    saida.WriteLine texto
+    saida.Close
+End Sub
+
+' Para o arquivo da URL, que precisa dizer a URL DE AGORA.
+'
+' Ele era escrito com Registrar, que acrescenta. Depois de duas partidas o arquivo tinha
+' quatro linhas e a primeira era a URL de anteontem — quem abrisse leria a errada, e o
+' erro só aparece como "não foi possível entrar" na tela publicada.
+Sub Gravar(caminho, texto)
+    Dim saida
+    Set saida = fso.OpenTextFile(caminho, SOBRESCREVER, True)
     saida.WriteLine texto
     saida.Close
 End Sub
