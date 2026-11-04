@@ -1,4 +1,12 @@
-# ADR 0019 — Local-first: a escrita acontece no aparelho, a sincronização vem depois
+# ADR 0019 — Offline-first: a escrita acontece no aparelho, o servidor continua sendo o dono
+
+> **Renomeada em 04/11/2026, de "local-first" para "offline-first".** O nome anterior fez o
+> dono do projeto entender que o dado passaria a morar na máquina do cliente, e ele recusou
+> por um motivo certo: *"quero manter o controle, não posso deixar na máquina do cliente"*.
+> A decisão nunca foi essa — a decisão 5 sempre disse que o servidor é a verdade e que a
+> hospedagem não muda. Era o termo que estava errado: "local-first", no uso corrente,
+> sugere dado morando no cliente e sincronizando entre máquinas. O aparelho aqui só
+> **adianta** a escrita; ele não vira dono de nada.
 
 - **Data:** 2026-11-03
 - **Status:** aceito como direção; **bloqueado para implementação** pelas questões da última
@@ -40,7 +48,7 @@ onde as coisas acontecem".
 
 ## Decisão
 
-**1. Escrita nasce local.** Criar cliente, registrar venda, lançar nota, atualizar lote do
+**1. Escrita nasce no aparelho.** Criar cliente, registrar venda, lançar nota, atualizar lote do
 agro — tudo é gravado primeiro no aparelho, com identidade gerada ali, e a interface
 responde na hora. Nenhuma tela espera resposta de rede para confirmar o que a pessoa fez.
 
@@ -55,7 +63,7 @@ tela de "sincronizando".
 **4. A API aceita o mesmo pacote duas vezes sem duplicar.** Reenvio por oscilação de sinal é
 o caso normal, não o excepcional. Rota de escrita responde igual na segunda vez.
 
-**5. O servidor continua sendo a verdade depois da sincronização.** Local-first não é
+**5. O servidor continua sendo a verdade depois da sincronização.** Isto não é
 peer-to-peer nem banco distribuído. O aparelho adianta a escrita; o servidor consolida,
 valida e é de onde sai relatório, fechamento e documento fiscal. A hospedagem gerenciada da
 ADR 0015 não muda.
@@ -75,8 +83,11 @@ e dois caixas sem rede não têm como combinar. Ou o número só existe depois d
 para isso que existe o regime de contingência da ADR 0018. Operacional e fiscal se separam
 aqui, e a ADR 0018 já os separou.
 
-**Estoque pode ser vendido duas vezes.** A baixa é na mesma transação da venda. Offline,
-dois aparelhos vendem a última unidade sem saber um do outro. O que o sistema faz quando as
+**Estoque pode ser vendido duas vezes — com dois aparelhos, não com um.** A baixa é na mesma
+transação da venda. Um caixa sozinho offline não inventa estoque: ele saiu com o saldo
+sincronizado e vai subtraindo. O furo aparece quando **há mais de uma origem** — dois caixas,
+ou um caixa e uma entrada de nota, ou um ajuste feito no escritório — e cada uma enxerga uma
+fotografia diferente do mesmo saldo. O que o sistema faz quando as
 duas chegam — aceitar e deixar negativo, recusar a segunda, avisar alguém — é **regra de
 negócio**, e o `CLAUDE.md` proíbe supor.
 
@@ -103,15 +114,28 @@ requisito — então o ganho de resiliência tem de ser medido contra o que cust
 
 1. **Qual conflito resolver como.** Por entidade: venda não conflita (é append), cadastro
    conflita. Sem regra escrita, não se implementa sincronização.
-2. **Estoque negativo é aceito?** Ver acima. É pergunta para quem opera a loja.
+2. ~~**Estoque negativo é aceito?**~~ **Respondida em 04/11/2026 pelo dono do projeto.**
+   A venda registra o que aconteceu de verdade: o cliente levou a mercadoria, então o
+   sistema subtrai. Recusar a venda por divergência criaria exatamente o que o controle de
+   estoque existe para impedir — mercadoria saindo sem registro, "caixa 2", recebimento que
+   ninguém lançou.
+
+   Nas palavras dele: *"se não bater a conta é aí que tá o pulo do gato que o dono quer,
+   manter o controle do estoque. (...) Se houver, ele já sabe que teve algum problema no
+   dia."* **A divergência é o produto, não o defeito.** Saldo negativo é um aviso com
+   endereço — diz quanto faltou e em qual venda —, e escondê-lo trocaria um número
+   desconfortável por um furo invisível.
+
+   O que fica para a implementação: a divergência precisa **aparecer** na sincronização,
+   não só existir no banco.
 3. **Até quando um aparelho pode ficar offline** antes de a sincronização ser recusada? Um
    dia é operação; três meses é outro problema.
 4. **O que fica disponível offline.** Vender offline exige o catálogo no aparelho. O
    catálogo inteiro de uma distribuidora cabe num celular fraco?
 5. **Permissão revogada enquanto o aparelho está fora.** A pessoa foi desligada às 9h e o
    aparelho sincroniza às 18h o que ela fez às 11h. Aceita ou recusa?
-6. **Quanto disto vale para quais telas.** Local-first em consolidação mensal e em trilha de
-   auditoria provavelmente não paga o custo. "Global" é a direção; a lista por tela não foi
+6. **Quanto disto vale para quais telas.** Escrita no aparelho em consolidação mensal e em
+   trilha de auditoria provavelmente não paga o custo. "Global" é a direção; a lista por tela não foi
    feita.
 
 ## Alternativas consideradas
