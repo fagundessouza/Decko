@@ -106,7 +106,7 @@ registra que emissão fiscal em comércio
 de balcão a põe em questão, e que a resposta precisa ser dada antes de prometer NFC-e a um
 lojista — não depois.
 
-**Respondida no mesmo dia.** A `docs/adr/0019-local-first.md` decidiu que a escrita nasce no
+**Respondida no mesmo dia.** A `docs/adr/0019-offline-first.md` decidiu que a escrita nasce no
 aparelho em todo o Decko, não só no caixa. Com isso a contingência contra a rede passa a ter
 onde enfileirar, e a tensão acima deixa de estar aberta — o que não torna a implementação
 mais barata, só possível. A contingência contra a SEFAZ continua sendo o que esta ADR
