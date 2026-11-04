@@ -236,6 +236,13 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
+- [ ] **Pedido do caixa para a cozinha.** Restaurante do setor do dono do projeto: hoje
+      entrega ficha de papel e o cliente caminha até o fundo, onde a fila se forma de novo.
+      Quer que o pedido apareça lá sozinho. **Não precisa de emissão fiscal** — é dor de
+      operação, como a do agro, e por isso é vendável antes do bloqueio mais caro. Oito
+      perguntas em aberto em `docs/discovery/restaurante-pedido-na-cozinha.md`, e a que
+      decide tudo é como o cliente fica sabendo que o pedido saiu. Exige mecanismo que o
+      sistema não tem: hoje toda tela pergunta ao servidor, e uma cozinha precisa ser avisada
 - [ ] **Local-first.** Escrita nasce no aparelho, identidade vem da origem, fila sincroniza
       sozinha e a API aceita o mesmo pacote duas vezes sem duplicar — ver
       `docs/adr/0019-local-first.md`. Atravessa todos os módulos e **não começa** antes de
