@@ -236,6 +236,12 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
+- [ ] Modelo do documento fiscal, desenhado para atravessar a transição sem reescrita:
+      documento é entidade própria e não coluna na venda, tributo é linha e não coluna, e o
+      que foi autorizado é guardado como foi e nunca recalculado — ver
+      `docs/adr/0018-modelo-fiscal-na-transicao.md`. Duas mudanças dali podem ser feitas
+      antes da emissão: **CPF avulso no cupom** (hoje identificar é apontar para um cliente
+      cadastrado) e **terminal de caixa**, que não existe como entidade
 - [ ] Responder as dez perguntas de `docs/discovery/comercial-emissao-fiscal.md`. Duas
       correções que a pesquisa trouxe e mudam o escopo: a NFC-e é autorizada pela **SEFAZ
       do estado**, não pela Receita, então não é "uma API"; e a Avalara que se quer imitar é
