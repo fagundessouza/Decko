@@ -1,4 +1,5 @@
 import apps from "../assets/icons/apps.png";
+import bank from "../assets/icons/bank.png";
 import boxes from "../assets/icons/boxes.png";
 import card from "../assets/icons/card.png";
 import drone from "../assets/icons/drone.png";
@@ -18,6 +19,7 @@ import truck from "../assets/icons/truck.png";
  * está em uso. Módulo novo que declare um ícone acrescenta uma linha aqui. */
 const ARTE: Record<string, string> = {
   apps,
+  bank,
   boxes,
   card,
   drone,

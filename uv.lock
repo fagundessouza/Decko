@@ -17,6 +17,7 @@ members = [
     "decko-module-comercial",
     "decko-module-compras",
     "decko-module-core",
+    "decko-module-financeiro",
     "decko-module-pdv",
 ]
 
@@ -464,6 +465,7 @@ dependencies = [
     { name = "decko-module-comercial" },
     { name = "decko-module-compras" },
     { name = "decko-module-core" },
+    { name = "decko-module-financeiro" },
     { name = "decko-module-pdv" },
 ]
 
@@ -486,6 +488,7 @@ requires-dist = [
     { name = "decko-module-comercial", editable = "modules/comercial" },
     { name = "decko-module-compras", editable = "modules/compras" },
     { name = "decko-module-core", editable = "modules/core" },
+    { name = "decko-module-financeiro", editable = "modules/financeiro" },
     { name = "decko-module-pdv", editable = "modules/pdv" },
 ]
 
@@ -632,6 +635,21 @@ requires-dist = [
     { name = "email-validator", specifier = ">=2.3" },
     { name = "pyjwt", specifier = ">=2.10" },
     { name = "python-multipart", specifier = ">=0.0.20" },
+]
+
+[[package]]
+name = "decko-module-financeiro"
+version = "0.1.0"
+source = { editable = "modules/financeiro" }
+dependencies = [
+    { name = "decko-api" },
+    { name = "decko-module-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "decko-api", editable = "apps/api" },
+    { name = "decko-module-core", editable = "modules/core" },
 ]
 
 [[package]]

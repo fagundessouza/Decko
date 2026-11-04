@@ -29,6 +29,18 @@ export function Modal({
   const painel = useRef<HTMLDivElement>(null);
   const anterior = useRef<HTMLElement | null>(null);
 
+  /* O fechar mais recente, guardado fora da lista de dependências do efeito.
+   *
+   * Quem abre este diálogo escreve `onClose={() => setAberto(false)}`, uma função nova a
+   * cada render. Se ela entrasse nas dependências, qualquer tecla digitada no formulário
+   * refaria o efeito inteiro: a limpeza devolveria o foco a quem abriu e a montagem o
+   * jogaria de volta no primeiro elemento do painel. No celular, foco saindo de um campo
+   * de texto fecha o teclado — era preciso tocar no campo outra vez a cada letra. */
+  const fechar = useRef(onClose);
+  useEffect(() => {
+    fechar.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return;
 
@@ -36,14 +48,20 @@ export function Modal({
     const rolagem = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Foco no primeiro campo; sem campo, no próprio painel, para o Esc funcionar.
+    /* Foco no primeiro campo; sem campo, no próprio painel, para o Esc funcionar.
+     *
+     * Botão fica fora da busca de propósito. O primeiro do painel é o X do cabeçalho, e
+     * abrir um formulário com o foco no fechar obriga quem usa teclado a percorrer o
+     * diálogo de trás para frente — e no celular não levanta o teclado. Em diálogo que
+     * só confirma, sem campo nenhum, o foco vai para o painel e não para o botão de
+     * confirmar: ação destrutiva não deve estar a um Enter distraído de distância. */
     const alvo = painel.current?.querySelector<HTMLElement>(
-      "input, select, textarea, button",
+      "input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
     );
     (alvo ?? painel.current)?.focus();
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") fechar.current();
     };
     document.addEventListener("keydown", onKey);
 
@@ -52,7 +70,7 @@ export function Modal({
       document.body.style.overflow = rolagem;
       anterior.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

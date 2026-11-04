@@ -11,6 +11,7 @@ dependencies = [
     "decko-module-pdv",
     "decko-module-compras",
     "decko-module-clientes",
+    "decko-module-financeiro",
     "decko-module-assinaturas",
 ]
 
@@ -27,6 +28,7 @@ members = [
     "modules/pdv",
     "modules/compras",
     "modules/clientes",
+    "modules/financeiro",
     "modules/assinaturas",
 ]
 
@@ -38,6 +40,7 @@ decko-module-comercial = { workspace = true }
 decko-module-pdv = { workspace = true }
 decko-module-compras = { workspace = true }
 decko-module-clientes = { workspace = true }
+decko-module-financeiro = { workspace = true }
 decko-module-assinaturas = { workspace = true }
 
 [dependency-groups]
@@ -92,5 +95,6 @@ testpaths = [
     "modules/pdv/tests",
     "modules/compras/tests",
     "modules/clientes/tests",
+    "modules/financeiro/tests",
     "modules/assinaturas/tests",
 ]

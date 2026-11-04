@@ -6,11 +6,14 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { Modal } from "../components/Modal";
+import { Select } from "../components/Select";
 import { LarguraDoPapel, Recibo } from "../components/Recibo";
 import { TextField } from "../components/TextField";
 import { clientes } from "../lib/clientes";
 import type { Cliente } from "../lib/clientes";
 import { comercial } from "../lib/comercial";
+import { financeiro } from "../lib/financeiro";
+import type { ContaRecebimento } from "../lib/financeiro";
 import type { Produto } from "../lib/comercial";
 import { brl, num } from "../lib/format";
 import { FORMAS, pdv } from "../lib/pdv";
@@ -51,6 +54,10 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
   const [achados, setAchados] = useState<Produto[] | null>(null);
 
   const [cobrando, setCobrando] = useState<FormaPagamento | null>(null);
+  const [contas, setContas] = useState<ContaRecebimento[]>([]);
+  /* A conta fica lembrada entre pagamentos da mesma sessão: num balcão o Pix cai quase
+   * sempre no mesmo lugar, e escolher a cada venda seria atrito por nada. */
+  const [conta, setConta] = useState("");
   const [valorRecebido, setValorRecebido] = useState("");
   const [concluida, setConcluida] = useState<Venda | null>(null);
 
@@ -68,6 +75,12 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
   /* Retoma a venda aberta em vez de começar outra: recarregar a página não pode perder o
    * que já foi bipado. */
   useEffect(() => {
+    /* O módulo `financeiro` pode não estar ativo nesta empresa: aí a escolha de conta
+     * simplesmente não aparece, e o caixa vende como antes. */
+    financeiro
+      .listarContas()
+      .then(setContas)
+      .catch(() => setContas([]));
     let vivo = true;
     (async () => {
       try {
@@ -89,6 +102,39 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
       vivo = false;
     };
   }, [focarCodigo]);
+
+  /* As teclas de função abrem o recebimento.
+   *
+   * No caixa a mão não sai do teclado: o código é bipado, a quantidade é digitada, e ter
+   * de pegar no mouse no fim de cada venda quebra o ritmo no ponto que mais se repete.
+   * As teclas são as que `FORMAS` já declarava e que até aqui não faziam nada.
+   *
+   * O efeito se desliga enquanto há diálogo aberto. Dentro do recebimento, F2 trocaria a
+   * forma por baixo de quem já está digitando o valor — e o título do diálogo passaria a
+   * mentir sobre o que vai ser registrado.
+   *
+   * As guardas repetem as do botão de propósito: atalho que faz o que o botão desabilitado
+   * recusa é um caminho por fora da regra, não uma conveniência. */
+  useEffect(() => {
+    if (!venda || venda.itens.length === 0 || busy) return;
+    if (cobrando !== null || achados !== null || identificando) return;
+
+    const aoTeclar = (evento: KeyboardEvent) => {
+      if (evento.ctrlKey || evento.altKey || evento.metaKey) return;
+      const forma = FORMAS.find((item) => item.atalho === evento.key);
+      if (!forma) return;
+
+      // F1 abre a ajuda do navegador e F3 a busca: sem isto o caixa perde a tela de vista
+      // no meio do atendimento.
+      evento.preventDefault();
+      setCobrando(forma.valor);
+      // Mesmo padrão do botão: o caso comum é receber exatamente o que falta.
+      setValorRecebido(venda.falta);
+    };
+
+    document.addEventListener("keydown", aoTeclar);
+    return () => document.removeEventListener("keydown", aoTeclar);
+  }, [venda, busy, cobrando, achados, identificando]);
 
   async function lancar(produto: Produto) {
     if (!venda) return;
@@ -171,10 +217,11 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
   async function cobrar() {
     if (!venda || cobrando === null) return;
     const valor = valorRecebido.replace(",", ".");
+    const destino = conta || null;
     setCobrando(null);
     setValorRecebido("");
     await operar(
-      () => pdv.pagar(venda.id, { forma: cobrando, valor }),
+      () => pdv.pagar(venda.id, { forma: cobrando, valor, conta_id: destino }),
       "Não foi possível registrar o pagamento.",
     );
   }
@@ -490,8 +537,14 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
                       // O caso comum é receber exatamente o que falta.
                       setValorRecebido(venda.falta);
                     }}
+                    aria-keyshortcuts={forma.atalho}
                   >
                     {forma.label}
+                    {/* Escondido de leitor de tela porque `aria-keyshortcuts` já informa
+                        o atalho, e some no celular, onde não há tecla de função. */}
+                    <span aria-hidden="true" className="hidden text-sm font-normal text-ink-faint sm:inline">
+                      {forma.atalho}
+                    </span>
                   </Button>
                 ))}
               </div>
@@ -655,6 +708,19 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
             value={valorRecebido}
             onChange={(event) => setValorRecebido(event.target.value)}
           />
+          {contas.length > 0 && (
+            <div className="mt-4">
+              <Select
+                label="Caiu em"
+                value={conta}
+                onChange={setConta}
+                options={contas.map((item) => ({ value: item.id, label: item.nome }))}
+                placeholder="Não informar"
+                hint="Opcional. É o que permite fechar o caixa sabendo o que entrou em cada lugar."
+              />
+            </div>
+          )}
+
           <p className="mt-3 text-sm text-ink-muted">
             Falta {brl(venda.falta)}. Troco só sai de pagamento em dinheiro.
           </p>

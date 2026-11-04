@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decko_modules.clientes.models import Cliente
 from decko_modules.comercial import service as comercial
 from decko_modules.comercial.models import Produto, TipoMovimento
+from decko_modules.financeiro.models import ContaRecebimento
 from decko_modules.pdv.models import (
     Contador,
     FormaPagamento,
@@ -183,15 +184,36 @@ async def definir_desconto(session: AsyncSession, *, venda: Venda, desconto: Dec
 
 
 async def registrar_pagamento(
-    session: AsyncSession, *, venda: Venda, forma: FormaPagamento, valor: Decimal
+    session: AsyncSession,
+    *,
+    venda: Venda,
+    forma: FormaPagamento,
+    valor: Decimal,
+    conta_id: uuid.UUID | None = None,
 ) -> Pagamento:
-    """Registra uma forma de pagamento. Uma venda pode ter várias."""
+    """Registra uma forma de pagamento. Uma venda pode ter várias.
+
+    ``conta_id`` é opcional de propósito: a loja de uma conta só não ganha nada
+    preenchendo sempre a mesma, e um campo obrigatório a mais por pagamento é fila parada.
+    """
     _exige_aberta(venda)
     if valor <= 0:
         raise PdvError("O valor do pagamento precisa ser maior que zero.")
 
+    if conta_id is not None:
+        conta = await session.get(ContaRecebimento, conta_id)
+        if conta is None:
+            raise PdvError("Conta de recebimento não encontrada.")
+        if not conta.ativa:
+            # Conta desativada some das escolhas novas; vendas antigas continuam nela.
+            raise PdvError(f"A conta '{conta.nome}' está desativada.")
+
     pagamento = Pagamento(
-        tenant_id=venda.tenant_id, venda_id=venda.id, forma=forma, valor=_dinheiro(valor)
+        tenant_id=venda.tenant_id,
+        venda_id=venda.id,
+        forma=forma,
+        valor=_dinheiro(valor),
+        conta_id=conta_id,
     )
     session.add(pagamento)
     await session.flush()
@@ -214,6 +236,24 @@ async def remover_pagamento(
 async def _pagamentos(session: AsyncSession, venda: Venda) -> list[Pagamento]:
     result = await session.execute(select(Pagamento).where(Pagamento.venda_id == venda.id))
     return list(result.scalars())
+
+
+async def contas_dos_pagamentos(session: AsyncSession, venda: Venda) -> dict[uuid.UUID, str]:
+    """Nome de cada conta usada nos pagamentos desta venda, por id.
+
+    Uma consulta para todas, e não uma por pagamento. O nome é lido na hora e não copiado:
+    renomear a conta vale para o histórico dela também — cadastro, não fato histórico.
+    """
+    ids = {p.conta_id for p in await _pagamentos(session, venda) if p.conta_id is not None}
+    if not ids:
+        return {}
+
+    achadas = await session.execute(
+        select(ContaRecebimento.id, ContaRecebimento.nome).where(ContaRecebimento.id.in_(ids))
+    )
+    # `.all()` materializa as linhas antes do dict: o Result do SQLAlchemy não é um
+    # iterável de pares, e `dict(resultado)` estoura.
+    return dict(achadas.all())
 
 
 async def soma_dos_itens(session: AsyncSession, venda: Venda) -> Decimal:

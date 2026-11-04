@@ -76,8 +76,8 @@ engine = create_async_engine(
     _settings.database_url,
     echo=False,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=5,
+    pool_size=_settings.db_pool_size,
+    max_overflow=_settings.db_max_overflow,
 )
 
 SessionFactory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)

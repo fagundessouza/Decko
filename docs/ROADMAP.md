@@ -220,13 +220,19 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       **prazo de confiança** concedido à mão, com motivo e rastro na trilha. O estado de
       acesso é derivado, nunca coluna; o valor da cobrança é cópia do preço, nunca
       referência. Sem gateway: a cobrança nasce aberta e recebe baixa à mão — ver
-      `docs/adr/0013-assinatura-recorrente.md`.
+      `docs/adr/0013-assinatura-recorrente.md`. É este "sem gateway" que a
+      `docs/adr/0017-meios-de-pagamento.md` decidiu como fechar; com quem, ainda não.
       **Bloquear marca o estado; não corta acesso de ninguém** — suspender empresa é ato
       do núcleo, e os clientes da Decko ainda não existem como empresas num sistema no ar
 - [x] Tela de assinaturas: ordenada pela preocupação — bloqueada, em aviso, em dia — com
       dar baixa, dar prazo e gerar o mês. O cartão explica pela cobrança que **decide** o
       bloqueio, não pela mais antiga: as duas divergem quando há várias em aberto
 - [x] Perfil `decko`: o próprio produto usa o próprio produto — clientes e assinaturas
+- [ ] Captura de pagamento, em módulo próprio atrás da porta decidida na
+      `docs/adr/0017-meios-de-pagamento.md`. Não está agendado: começa quando houver
+      cliente pedindo. Quatro coisas bloqueiam antes do código — qual agregador, se a
+      captura é pela API ou pela maquininha do balcão, onde guardar a credencial do
+      provedor por empresa, e quem faz a conciliação
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
@@ -272,7 +278,17 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Emissão fiscal (NFC-e/SAT) como módulo próprio. É o que falta para o PDV substituir
       o caixa de uma loja de verdade, e é o que não pode ser suposto: certificado digital,
       homologação na SEFAZ do estado, contingência e layout versionado
-- [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito
+- [x] **Conta de recebimento no pagamento.** Módulo `financeiro` com o cadastro de
+      destinos — banco, chave Pix, gaveta do caixa — e o pagamento do PDV apontando para
+      um. Dois Pix na mesma venda podem cair em contas diferentes, que era o caso descrito.
+      **Opcional de propósito**: o balcão não para para escolher conta. Não é plano de
+      contas e não guarda saldo — ver `docs/adr/0014-conta-de-recebimento.md`
+- [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito,
+      e é o relatório que a cliente da seção 1 daquele discovery queria no fim do dia
+- [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
+      porta serial no iOS, e TEF pede agente local no Windows — o que cria um segundo
+      executável para instalar e atualizar na casa do cliente. O leitor de código de barras
+      **já funciona** sem nada disso, porque se apresenta como teclado
 - [ ] Devolução de venda. Hoje venda finalizada não é cancelada, e a recusa diz por quê
 - [ ] PDV offline-first
 - [ ] Verticais sobre a base. **Cada uma exige documento real da operação**, como o agro
@@ -303,13 +319,26 @@ Não pertence a fase nenhuma: atravessa todas, e por isso some das listas por fa
 destes itens é funcionalidade; todos são a diferença entre mexer no código com confiança e
 mexer torcendo.
 
-- [ ] **Teste automatizado no frontend — hoje são zero, e não há runner instalado.** O
-      backend tem 558 testes contra banco real; a interface tem `oxlint` e `tsc -b`, que
-      acusam erro de tipo e não acusam comportamento errado. Já custou caro: o quadro de
-      assinatura travava no meio do traço, e a leitura meteorológica mostrava "0° (N)"
-      quando a direção do vento era ausente — os dois só apareceram ao usar à mão. O que
-      mais pede rede de proteção: identificação de produto na entrada por nota, troca de
-      empresa, e o PDV
+- [ ] **Teste automatizado no frontend — o executor existe desde 03/11/2026, e cobre
+      três pontos.** Vitest com jsdom e Testing Library, na esteira junto do lint e dos
+      tipos, com o fuso fixado em `America/Sao_Paulo` (sem isso o teste de data local
+      passaria por engano na esteira, que roda em UTC). São 44 testes: o foco do `Modal`,
+      as funções de `format.ts`, e o PDV — leitor de código de barras, recebimento,
+      fechamento da venda, atalhos F1 a F4 e identificação do cliente. O backend tem 579
+      contra banco real.
+
+      Cada um nasceu de defeito que aconteceu: o teclado do celular fechava a cada letra
+      digitada em qualquer diálogo, o quadro de assinatura travava no meio do traço, e a
+      leitura meteorológica mostrava "0° (N)" quando a direção do vento era ausente.
+      Nenhum é erro de tipo, então nem `oxlint` nem `tsc -b` tinham como ver.
+
+      Os testes do PDV foram conferidos por mutação — quebrando a tela de um jeito por
+      vez e exigindo que reprovassem. Valeu a pena: o teste de foco passava com o defeito
+      posto de volta, porque digitar no campo de código já deixa o foco nele. O caminho
+      em que o foco se perde é o do mouse, e é esse que o teste faz agora.
+
+      O que ainda pede rede: identificação de produto na entrada por nota, troca de
+      empresa, e a identificação do cliente na venda
 - [ ] **Navegação sem URL.** `App.tsx` é uma máquina de estado escrita à mão: não há link
       direto para um planejamento ou um produto, o botão voltar do navegador sai do
       sistema, e recarregar cai na tela inicial. Num ERP que se usa o dia inteiro isso é

@@ -31,6 +31,35 @@ class Settings(BaseSettings):
     access_token_ttl_seconds: int = 900
     refresh_token_ttl_seconds: int = 60 * 60 * 24 * 14
 
+    # Origens que podem chamar a API de outro domínio, separadas por vírgula.
+    #
+    # Vazio é o padrão, e quer dizer **nenhuma**: com front e API atrás do mesmo domínio —
+    # ou atrás do proxy do Vite em desenvolvimento — não há requisição entre origens, e
+    # ligar CORS sem precisar só amplia a superfície.
+    cors_origins: str = ""
+
+    # Conexões que a aplicação mantém com o banco. Era fixo em código, escolhido quando
+    # havia uma empresa; vira configuração porque o número certo depende da máquina e da
+    # quantidade de inquilinos — ver docs/adr/0015-modo-de-implantacao-e-licenca.md.
+    #
+    # Cada conexão custa memória **no PostgreSQL**, não só aqui: aumentar sem olhar o
+    # `max_connections` do servidor troca um limite por outro.
+    db_pool_size: int = 10
+    db_max_overflow: int = 5
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """As origens, separadas, sem espaço em branco e sem barra no fim.
+
+        A barra final é o erro fácil de cometer e difícil de enxergar: o navegador manda
+        `Origin: https://x.vercel.app`, sem ela, e a comparação é exata — uma barra a mais
+        na configuração faz o CORS recusar em silêncio, e o sintoma aparece como "não foi
+        possível entrar".
+        """
+        return [
+            origem.strip().rstrip("/") for origem in self.cors_origins.split(",") if origem.strip()
+        ]
+
     @property
     def modules_dir(self) -> Path:
         return REPO_ROOT / "modules"

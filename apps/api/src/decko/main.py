@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from decko.activation import reconcile_permissions
 from decko.config import get_settings
@@ -33,6 +34,23 @@ def create_app() -> FastAPI:
         redoc_url=None,
         lifespan=lifespan,
     )
+
+    # Front servido de outro domínio — a tela na Vercel, a API num túnel ou num VPS — faz
+    # requisição entre origens, e o navegador recusa sem isto. Quando os dois estão atrás
+    # do mesmo domínio a lista fica vazia e o middleware nem entra.
+    #
+    # `allow_credentials` fica **falso** de propósito: a sessão do Decko viaja no cabeçalho
+    # `Authorization`, não em cookie, e permitir credencial sem precisar afrouxa o que o
+    # navegador protege de graça.
+    origens = settings.allowed_origins
+    if origens:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origens,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Authorization", "Content-Type"],
+        )
 
     loaded: list[ModuleManifest] = load_into(app, settings.modules_dir)
     app.state.modules = loaded
