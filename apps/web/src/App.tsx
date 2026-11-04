@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { AppShell, Page, PageHeader } from "./components/AppShell";
 import type { NavItem } from "./components/AppShell";
@@ -12,27 +12,79 @@ import type { Plan } from "./lib/agro";
 import { comercial } from "./lib/comercial";
 import type { Alertas, Produto } from "./lib/comercial";
 import { TrocarEmpresa } from "./components/TrocarEmpresa";
-import { AplicativosPage } from "./pages/AplicativosPage";
-import { AssinaturasPage } from "./pages/AssinaturasPage";
-import { ChooseProfilePage } from "./pages/ChooseProfilePage";
-import { ClientesPage } from "./pages/ClientesPage";
-import { CompanyPage } from "./pages/CompanyPage";
-import { ContasPage } from "./pages/ContasPage";
-import { ConferenciaPage } from "./pages/ConferenciaPage";
-import { ConsolidationPage } from "./pages/ConsolidationPage";
 import { LoginPage } from "./pages/LoginPage";
-import { NewPlanWizard } from "./pages/NewPlanWizard";
-import { NotaConferenciaPage } from "./pages/NotaConferenciaPage";
-import { NotasPage } from "./pages/NotasPage";
-import { NovoProdutoWizard } from "./pages/NovoProdutoWizard";
-import { PdvPage } from "./pages/PdvPage";
-import { PilotosPage } from "./pages/PilotosPage";
-import { PlanDetailPage } from "./pages/PlanDetailPage";
-import { PlansPage } from "./pages/PlansPage";
-import { ProdutoDetailPage } from "./pages/ProdutoDetailPage";
-import { ProdutosPage } from "./pages/ProdutosPage";
-import { TrilhaPage } from "./pages/TrilhaPage";
-import { UnidadesPage } from "./pages/UnidadesPage";
+
+/* Cada tela entra sob demanda, e não no pacote de abertura.
+ *
+ * O sistema é modular por empresa: quem contratou só o cadastro de clientes não tem
+ * motivo para baixar o wizard do agro, o ponto de venda e a consolidação mensal. Até
+ * aqui baixava — tudo estava no mesmo arquivo. Peso é requisito funcional neste projeto,
+ * e esta é a única economia que cresce junto com o catálogo de módulos.
+ *
+ * A LoginPage fica de fora: é a primeira coisa que aparece, e buscá-la à parte
+ * acrescentaria uma viagem de rede no pior momento possível.
+ *
+ * São exportações nomeadas, daí o `.then` — `lazy` espera `default`. */
+const AplicativosPage = lazy(() =>
+  import("./pages/AplicativosPage").then((m) => ({ default: m.AplicativosPage })),
+);
+const AssinaturasPage = lazy(() =>
+  import("./pages/AssinaturasPage").then((m) => ({ default: m.AssinaturasPage })),
+);
+const ChooseProfilePage = lazy(() =>
+  import("./pages/ChooseProfilePage").then((m) => ({ default: m.ChooseProfilePage })),
+);
+const ClientesPage = lazy(() =>
+  import("./pages/ClientesPage").then((m) => ({ default: m.ClientesPage })),
+);
+const CompanyPage = lazy(() =>
+  import("./pages/CompanyPage").then((m) => ({ default: m.CompanyPage })),
+);
+const ContasPage = lazy(() =>
+  import("./pages/ContasPage").then((m) => ({ default: m.ContasPage })),
+);
+const ConferenciaPage = lazy(() =>
+  import("./pages/ConferenciaPage").then((m) => ({ default: m.ConferenciaPage })),
+);
+const ConsolidationPage = lazy(() =>
+  import("./pages/ConsolidationPage").then((m) => ({ default: m.ConsolidationPage })),
+);
+const NewPlanWizard = lazy(() =>
+  import("./pages/NewPlanWizard").then((m) => ({ default: m.NewPlanWizard })),
+);
+const NotaConferenciaPage = lazy(() =>
+  import("./pages/NotaConferenciaPage").then((m) => ({ default: m.NotaConferenciaPage })),
+);
+const NotasPage = lazy(() =>
+  import("./pages/NotasPage").then((m) => ({ default: m.NotasPage })),
+);
+const NovoProdutoWizard = lazy(() =>
+  import("./pages/NovoProdutoWizard").then((m) => ({ default: m.NovoProdutoWizard })),
+);
+const PdvPage = lazy(() =>
+  import("./pages/PdvPage").then((m) => ({ default: m.PdvPage })),
+);
+const PilotosPage = lazy(() =>
+  import("./pages/PilotosPage").then((m) => ({ default: m.PilotosPage })),
+);
+const PlanDetailPage = lazy(() =>
+  import("./pages/PlanDetailPage").then((m) => ({ default: m.PlanDetailPage })),
+);
+const PlansPage = lazy(() =>
+  import("./pages/PlansPage").then((m) => ({ default: m.PlansPage })),
+);
+const ProdutoDetailPage = lazy(() =>
+  import("./pages/ProdutoDetailPage").then((m) => ({ default: m.ProdutoDetailPage })),
+);
+const ProdutosPage = lazy(() =>
+  import("./pages/ProdutosPage").then((m) => ({ default: m.ProdutosPage })),
+);
+const TrilhaPage = lazy(() =>
+  import("./pages/TrilhaPage").then((m) => ({ default: m.TrilhaPage })),
+);
+const UnidadesPage = lazy(() =>
+  import("./pages/UnidadesPage").then((m) => ({ default: m.UnidadesPage })),
+);
 
 /* Navegação por estado, sem biblioteca de rotas: o peso do pacote é requisito, não
  * detalhe. Quando houver deep link ou histórico a navegar, entra um roteador — ver
@@ -98,6 +150,15 @@ export default function App() {
       .then(setInfo)
       .finally(() => setChecking(false));
   }, []);
+
+  /* Busca o pedaço do PDV assim que a sessão existe, se a empresa tiver o módulo.
+   *
+   * Carregar sob demanda troca peso de abertura por uma espera na primeira visita a cada
+   * tela. Em quase toda tela isso é invisível; no caixa não é, porque lá há fila. Baixar
+   * em segundo plano logo depois de entrar põe essa espera onde ninguém a vê. */
+  useEffect(() => {
+    if (info?.active_modules.includes("pdv")) void import("./pages/PdvPage");
+  }, [info]);
 
   if (checking) {
     return (
@@ -295,6 +356,13 @@ export default function App() {
         });
       }}
     >
+      <Suspense
+        fallback={
+          <Page>
+            <p className="animate-fade text-base text-ink-muted">Carregando…</p>
+          </Page>
+        }
+      >
       {view.name === "home" && (
         <Page wide>
           <PageHeader
@@ -491,6 +559,7 @@ export default function App() {
           setView({ name: "home" });
         }}
       />
+      </Suspense>
     </AppShell>
   );
 }

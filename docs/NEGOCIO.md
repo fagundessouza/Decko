@@ -82,7 +82,7 @@ falta.
 | Escolher o segmento e o sistema se configurar | **Existe.** Perfis, vitrine de aplicativos, instalar e desinstalar a qualquer momento, dependências resolvidas, dado-semente com identidade estável |
 | Empresas isoladas umas das outras | **Existe.** Row Level Security no banco, provado por teste contra PostgreSQL real — não filtro na aplicação |
 | Núcleo aberto, módulos instaláveis | **Existe.** 6 módulos com manifesto, migrações ramificadas por módulo, fronteira entre módulos cobrada por teste |
-| Leveza | **Existe.** Bundle de ~350 kB, ~100 kB comprimido |
+| Leveza | **Existe.** Pacote de abertura de 258 kB, 80 kB comprimido, com cada tela carregada sob demanda — empresa não baixa o código de módulo que não contratou |
 | Trilha de auditoria e LGPD técnica | **Existe.** Escrita nos fluxos de autenticação e contratação, e legível por tela |
 | Verticais sobre a base | **Uma e meia.** Agro quase completo; "comércio" é genérico; distribuidora é uma pasta vazia |
 | Validação em operação real | **Nenhuma.** A Fase 3 nunca começou |
