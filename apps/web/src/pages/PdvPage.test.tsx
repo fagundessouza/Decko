@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { Cliente } from "../lib/clientes";
 import type { Produto } from "../lib/comercial";
 import type { Venda } from "../lib/pdv";
 import { PdvPage } from "./PdvPage";
@@ -53,6 +54,7 @@ vi.mock("../lib/clientes", () => ({
 
 const { pdv } = await import("../lib/pdv");
 const { comercial } = await import("../lib/comercial");
+const { clientes } = await import("../lib/clientes");
 
 function umaVenda(sobre: Partial<Venda> = {}): Venda {
   return {
@@ -120,8 +122,33 @@ function umProduto(sobre: Partial<Produto> = {}): Produto {
   };
 }
 
-function abrirCaixa() {
-  return render(<PdvPage onBack={() => {}} empresa="Mercado do Teste" podeIdentificar={false} />);
+function umCliente(sobre: Partial<Cliente> = {}): Cliente {
+  return {
+    id: "cliente-1",
+    tipo: "fisica",
+    nome: "Maria da Silva",
+    apelido: null,
+    cpf_cnpj: "12345678909",
+    inscricao_estadual: null,
+    email: null,
+    telefone: null,
+    cep: null,
+    logradouro: null,
+    numero: null,
+    complemento: null,
+    bairro: null,
+    cidade: null,
+    uf: null,
+    observacao: null,
+    ativo: true,
+    ...sobre,
+  };
+}
+
+function abrirCaixa({ podeIdentificar = false } = {}) {
+  return render(
+    <PdvPage onBack={() => {}} empresa="Mercado do Teste" podeIdentificar={podeIdentificar} />,
+  );
 }
 
 /** O campo que recebe o código de barras. */
@@ -135,6 +162,7 @@ beforeEach(() => {
   vi.mocked(pdv.ver).mockResolvedValue(umaVenda());
   vi.mocked(comercial.listProdutos).mockResolvedValue([]);
   vi.mocked(pdv.adicionarItem).mockResolvedValue(umaVenda());
+  vi.mocked(clientes.listar).mockResolvedValue([]);
 });
 
 describe("PdvPage, ao abrir", () => {
@@ -446,6 +474,77 @@ describe("PdvPage, os atalhos de teclado", () => {
     await usuario.keyboard("{Control>}{F1}{/Control}");
 
     expect(screen.queryByText("Receber em Dinheiro")).toBeNull();
+  });
+});
+
+describe("PdvPage, identificando o cliente", () => {
+  it("não oferece identificação quando a empresa não tem o módulo", async () => {
+    abrirCaixa({ podeIdentificar: false });
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    /* Empresa que já tinha o PDV não ganha o módulo de clientes sozinha: instalar na
+     * empresa dos outros sem pedido é o que a ADR 0010 recusa. Então a tela não oferece,
+     * em vez de oferecer e falhar. */
+    expect(screen.queryByRole("button", { name: "Identificar cliente" })).toBeNull();
+    expect(screen.queryByText("Venda anônima.")).toBeNull();
+  });
+
+  it("diz que a venda é anônima, que é o caso normal", async () => {
+    abrirCaixa({ podeIdentificar: true });
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    // A frase existe para não parecer um campo por preencher: balcão quase sempre vende
+    // sem identificar, e isso não é pendência.
+    expect(screen.getByText("Venda anônima.")).toBeTruthy();
+  });
+
+  it("prende o cliente escolhido à venda", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(clientes.listar).mockResolvedValue([umCliente()]);
+    vi.mocked(pdv.identificar).mockResolvedValue(
+      umaVenda({ cliente_id: "cliente-1", cliente_nome: "Maria da Silva" }),
+    );
+
+    abrirCaixa({ podeIdentificar: true });
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.click(screen.getByRole("button", { name: "Identificar cliente" }));
+    await usuario.type(screen.getByLabelText("Cliente"), "maria");
+    await usuario.click(screen.getByRole("button", { name: "Procurar" }));
+    await usuario.click(await screen.findByRole("button", { name: /Maria da Silva/ }));
+
+    await waitFor(() => expect(pdv.identificar).toHaveBeenCalledWith("venda-1", "cliente-1"));
+    expect(await screen.findByText("Maria da Silva")).toBeTruthy();
+  });
+
+  it("deixa tirar o cliente de volta", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(
+      umaVenda({ cliente_id: "cliente-1", cliente_nome: "Maria da Silva" }),
+    );
+    vi.mocked(pdv.desidentificar).mockResolvedValue(umaVenda());
+
+    abrirCaixa({ podeIdentificar: true });
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.click(screen.getByRole("button", { name: "Tirar" }));
+
+    await waitFor(() => expect(pdv.desidentificar).toHaveBeenCalledWith("venda-1"));
+  });
+
+  it("não identifica nada quando a busca não acha ninguém", async () => {
+    const usuario = userEvent.setup();
+
+    abrirCaixa({ podeIdentificar: true });
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.click(screen.getByRole("button", { name: "Identificar cliente" }));
+    await usuario.type(screen.getByLabelText("Cliente"), "ninguem");
+    await usuario.click(screen.getByRole("button", { name: "Procurar" }));
+
+    // A frase manda para o lugar certo em vez de só dizer não.
+    expect(await screen.findByText(/Cadastre em Clientes/)).toBeTruthy();
+    expect(pdv.identificar).not.toHaveBeenCalled();
   });
 });
 
