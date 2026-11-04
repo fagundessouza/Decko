@@ -1,4 +1,11 @@
-# ADR 0004 — Geração do Planejamento Operacional em PDF
+# ADR 0016 — Geração do Planejamento Operacional em PDF
+
+> **Renumerado.** Nasceu como ADR 0004 em `feature/agro-module`, uma branch paralela que
+> ficou fora do tronco por semanas. Enquanto isso a `develop` deu o mesmo 0004 à ativação
+> de módulo por empresa, que é citada em cerca de vinte lugares. Na mesma merge que trouxe
+> este arquivo de volta, em 03/11/2026, o número passou para 0016 — o primeiro livre, já
+> que 0013 a 0015 estão tomados por decisões ainda em revisão. A decisão abaixo não mudou,
+> e a data é a original.
 
 - **Data:** 2026-10-21
 - **Status:** aceito para o MVP

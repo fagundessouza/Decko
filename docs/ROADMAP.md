@@ -215,7 +215,14 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Assinatura gov.br: depende de credenciamento da aplicação na plataforma, que é
       providência do dono do projeto, não código
 - [ ] Módulo de plano recorrente: depende de `clientes`, que já existe, e de uma decisão
-      sobre meio de pagamento. Sem gateway, dá para gerar a cobrança e marcar como paga
+      sobre meio de pagamento. Sem gateway, dá para gerar a cobrança e marcar como paga.
+      O **como** já está decidido em `docs/adr/0017-meios-de-pagamento.md`; o **com quem**,
+      não
+- [ ] Captura de pagamento, em módulo próprio atrás da porta decidida na
+      `docs/adr/0017-meios-de-pagamento.md`. Não está agendado: começa quando houver
+      cliente pedindo. Quatro coisas bloqueiam antes do código — qual agregador, se a
+      captura é pela API ou pela maquininha do balcão, onde guardar a credencial do
+      provedor por empresa, e quem faz a conciliação
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
@@ -295,9 +302,10 @@ mexer torcendo.
 - [ ] **Teste automatizado no frontend — o executor existe desde 03/11/2026, e cobre
       três pontos.** Vitest com jsdom e Testing Library, na esteira junto do lint e dos
       tipos, com o fuso fixado em `America/Sao_Paulo` (sem isso o teste de data local
-      passaria por engano na esteira, que roda em UTC). São 39 testes: o foco do `Modal`,
+      passaria por engano na esteira, que roda em UTC). São 44 testes: o foco do `Modal`,
       as funções de `format.ts`, e o PDV — leitor de código de barras, recebimento,
-      fechamento da venda e os atalhos F1 a F4. O backend tem 579 contra banco real.
+      fechamento da venda, atalhos F1 a F4 e identificação do cliente. O backend tem 579
+      contra banco real.
 
       Cada um nasceu de defeito que aconteceu: o teclado do celular fechava a cada letra
       digitada em qualquer diálogo, o quadro de assinatura travava no meio do traço, e a
