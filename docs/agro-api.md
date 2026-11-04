@@ -95,7 +95,7 @@ Respostas de erro:
 
 `GET /plans/{plan_id}/pdf` devolve `application/pdf` com
 `Content-Disposition: attachment; filename="planejamento-operacional-{numero}.pdf"`.
-Estrutura e motivos em `docs/adr/0004-geracao-do-pdf.md`.
+Estrutura e motivos em `docs/adr/0016-geracao-do-pdf.md`.
 
 ## Conjuntos fechados
 
