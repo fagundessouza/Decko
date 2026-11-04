@@ -51,8 +51,11 @@ label = "Agro"
   e não escondido no código, que é o que impede o sistema de virar um emaranhado conforme os
   segmentos crescem. Ver `docs/adr/0007-dependencia-entre-modulos.md`.
 - Módulo irmão não escreve na tabela de outro módulo: chama o serviço dele.
-- O frontend carrega o bundle do módulo sob demanda (code splitting), então um supermercado não
-  baixa o código do agro. Isso atende o requisito de leveza.
+- O frontend carrega cada tela sob demanda, então um supermercado não baixa o código do agro.
+  Isso atende o requisito de leveza. Até 03/11/2026 esta linha descrevia a intenção e não o
+  código: tudo vinha num arquivo só, e o pacote de abertura carregava as vinte telas. Com a
+  divisão feita, ele caiu de 379 kB para 258 kB — e o que sobra é quase todo React, que é o
+  piso desta escolha de biblioteca.
 
 ### 2.1 Porta invertida: como o host usa conhecimento que é do módulo
 
