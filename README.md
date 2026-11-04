@@ -4,7 +4,8 @@ Modular ERP and POS platform built around installable business modules: a compan
 segment, and the system configures itself for that segment — in the spirit of Odoo, but built on a
 modern, lightweight stack.
 
-Open Core: the platform core is open source; managed hosting and advanced modules are commercial.
+Commercial, sold by subscription. See [`docs/NEGOCIO.md`](docs/NEGOCIO.md) for the model and
+where the product stands.
 
 ## Why
 

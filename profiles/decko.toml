@@ -1,0 +1,17 @@
+# O perfil da própria Decko.
+#
+# "Use, vista e fale": quem vende o produto usa o produto. O dono do projeto passou a
+# vender por assinatura fechada em 30/10/2026, e o controle de quem assina roda aqui
+# dentro — ver docs/NEGOCIO.md, seção 1.
+#
+# Formato e decisão em docs/adr/0005-perfil-de-segmento.md.
+
+[profile]
+name = "decko"
+label = "Software por assinatura"
+description = """
+Para quem vende acesso a um serviço e cobra todo mês: cadastro de quem assina, planos, \
+a cobrança de cada competência, e o aviso de quem está para bloquear. É o perfil que a \
+própria Decko usa para controlar os clientes dela.
+"""
+modules = ["clientes", "assinaturas"]

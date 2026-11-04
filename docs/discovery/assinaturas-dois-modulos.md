@@ -116,13 +116,46 @@ Cobrança que se repete: o cliente assina um plano e paga todo mês.
    cobrança e marcar como paga à mão — útil para quem cobra por boleto ou no balcão, e
    honesto sobre o que faz.
 
+### Atualização de 30/10/2026 — o primeiro assinante é a própria Decko
+
+Duas das quatro perguntas abaixo foram respondidas, e o caso de uso ficou concreto: o
+produto vendido por assinatura **é o próprio Decko**, e o primeiro a usar o módulo é quem o
+escreve.
+
+> *"Eu sou adepto ao use, vista e fale. (…) Preciso ter o controle automático de assinatura
+> dos meus clientes, usar meu próprio sistema também."*
+
+| Pergunta | Resposta |
+|---|---|
+| 1. O que é vendido | **Serviço**: acesso ao próprio Decko, por assinatura fechada |
+| 2. Baixa estoque por ciclo? | **Não.** É só cobrança — não há mercadoria saindo |
+| 3. Gateway | **Em aberto** |
+| 4. O que acontece quando não paga | **Em aberto**, e agora mais pesado: ver abaixo |
+
+**Por que a pergunta 4 ficou mais difícil.** Quando a assinatura é do próprio sistema, "o
+que acontece quando não paga" deixa de ser aviso e vira **suspender o acesso de uma
+empresa** — ato do núcleo, com efeito sobre gente que está trabalhando. Precisa de resposta
+antes do código: avisa e deixa usar, bloqueia telas novas e mantém o que existe, ou corta?
+E depois de quantos dias? E quem pode reverter?
+
+**O que dá para construir sem a pergunta 3.** O `ROADMAP.md` já decidiu: plano, assinante,
+ciclo e cobrança gerada, marcada como paga à mão. É útil para quem cobra por Pix manual ou
+boleto, e honesto sobre o que faz. O gateway entra depois como forma de **confirmar**
+pagamento, sem mudar o resto.
+
 ### Perguntas em aberto
 
-1. O que é vendido por assinatura no seu caso: serviço, entrega recorrente de produto,
-   mensalidade de manutenção?
-2. A assinatura baixa estoque a cada ciclo (cesta mensal) ou é só cobrança (serviço)?
+1. ~~O que é vendido por assinatura~~ — respondido: acesso ao próprio Decko.
+2. ~~A assinatura baixa estoque a cada ciclo~~ — respondido: não, é só cobrança.
 3. Qual gateway? Pix direto no banco, Asaas, Mercado Pago, Pagar.me?
-4. O que acontece quando não paga: suspende, avisa, corta?
+4. ~~O que acontece quando não paga~~ — respondido em 30/10/2026, abaixo.
+5. **Qual o plano, e quanto custa?** Não há preço definido em lugar nenhum — ver as
+   perguntas em aberto do `docs/NEGOCIO.md`.
+6. **A assinatura cobra por empresa, por usuário ou por módulo?** Muda o modelo de dados,
+   não só o preço.
+7. **Quem emite a nota da mensalidade?** Vender assinatura é prestar serviço, e serviço
+   pede **NFS-e**, que é da prefeitura — outro documento, outro caminho, e nenhum dos dois
+   é a NFC-e do balcão.
 
 ---
 
@@ -132,7 +165,59 @@ Cobrança que se repete: o cliente assina um plano e paga todo mês.
    comprador de licitação.
 2. **Assinatura de documento** — o desenho na tela dá para fazer inteiro; a gov.br entra
    quando houver credenciamento.
-3. **Plano recorrente** — depois de clientes, e com a resposta sobre gateway.
+3. **Plano recorrente** — depois de clientes, e com a resposta sobre gateway. **Em
+   andamento desde 30/10/2026**, com o próprio Decko como primeiro assinante.
 
 Regra 6 do `CLAUDE.md` vale para os três: o que não estiver respondido aqui não vira
 código.
+
+
+---
+
+## 5. A regra de inadimplência — respondida em 30/10/2026
+
+> *"Se o cliente não paga ele avisa dando um prazo de uns 5 dias para efetuar o pagamento;
+> se caso ele não efetuar aí sim é bloqueado, igual quando você não paga um Netflix. Porém
+> quero fazer um a mais: pode ser que ele entre em contato via WhatsApp solicitando um
+> 'prazo de confiança' informando que pagará em 24 horas mesmo pós esses 5 dias de aviso."*
+
+### Os três estados, e o que move entre eles
+
+| Estado | Quando | O que acontece |
+|---|---|---|
+| **Em dia** | Não há cobrança vencida | Nada |
+| **Em aviso** | Venceu e ainda está dentro dos 5 dias | Avisa, acesso continua |
+| **Bloqueada** | Passaram os 5 dias sem pagar | Acesso cortado |
+
+O prazo de 5 dias conta do **vencimento**, não do aviso: aviso que não chega — e-mail no
+spam, celular trocado — não pode adiar o relógio para sempre.
+
+### O prazo de confiança
+
+É a parte que não existe num Netflix, e é ela que serve a quem vende para lojista pequeno:
+a pessoa liga, pede mais um dia, e recebe.
+
+Decisões que o pedido não diz e precisam estar escritas:
+
+- **É ato de gente, nunca automático.** Prazo que o sistema concede sozinho não é
+  confiança, é outro prazo fixo — e aí os 5 dias viram 6.
+- **Fica na trilha de auditoria**: quem concedeu, quando, até quando e por quê. Senão
+  "fulano ganhou prazo" vira palavra contra palavra.
+- **Tem data de fim, e vencida ela bloqueia sem pedir licença.** Prazo sem fim é
+  cancelamento de dívida com outro nome.
+- **O motivo é texto livre**, e o pedido veio pelo WhatsApp — fora do sistema. O que se
+  guarda é o que foi decidido aqui, não a conversa.
+
+### O que o módulo **não** faz, e precisa ficar dito
+
+Bloquear a assinatura marca o estado dela. **Não corta o acesso de ninguém**, e isso não é
+descuido:
+
+- O módulo `assinaturas` não escreve em `core.tenant` — ADR 0007. Suspender uma empresa é
+  ato do núcleo.
+- E para a Decko cobrar os próprios clientes de verdade, falta o que o `docs/NEGOCIO.md`
+  lista na seção 5.1: não há cadastro de empresa pela aplicação nem hospedagem. Hoje os
+  clientes dela não existem como empresas num Decko no ar.
+
+Ou seja: o módulo responde **quem deveria estar bloqueado**. Transformar isso em porta
+fechada é trabalho do núcleo, e vem depois.
