@@ -51,6 +51,10 @@ label = "Agro"
   e não escondido no código, que é o que impede o sistema de virar um emaranhado conforme os
   segmentos crescem. Ver `docs/adr/0007-dependencia-entre-modulos.md`.
 - Módulo irmão não escreve na tabela de outro módulo: chama o serviço dele.
+- **Decidido e ainda não construído:** a escrita nasce no aparelho e sincroniza depois, em
+  todo o sistema — não só no caixa. Ver `docs/adr/0019-local-first.md`, que está bloqueada
+  para implementação por seis questões em aberto. Enquanto elas não forem respondidas, toda
+  escrita continua exigindo rede, e esta linha descreve um destino, não o código.
 - O frontend carrega cada tela sob demanda, então um supermercado não baixa o código do agro.
   Isso atende o requisito de leveza. Até 03/11/2026 esta linha descrevia a intenção e não o
   código: tudo vinha num arquivo só, e o pacote de abertura carregava as vinte telas. Com a

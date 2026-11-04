@@ -236,6 +236,12 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
+- [ ] **Local-first.** Escrita nasce no aparelho, identidade vem da origem, fila sincroniza
+      sozinha e a API aceita o mesmo pacote duas vezes sem duplicar — ver
+      `docs/adr/0019-local-first.md`. Atravessa todos os módulos e **não começa** antes de
+      seis respostas: regra de conflito por entidade, estoque negativo, prazo máximo
+      offline, o que fica disponível sem rede, permissão revogada durante a ausência, e
+      para quais telas isto paga o custo
 - [ ] Modelo do documento fiscal, desenhado para atravessar a transição sem reescrita:
       documento é entidade própria e não coluna na venda, tributo é linha e não coluna, e o
       que foi autorizado é guardado como foi e nunca recalculado — ver
