@@ -295,9 +295,9 @@ mexer torcendo.
 - [ ] **Teste automatizado no frontend — o executor existe desde 03/11/2026, e cobre
       três pontos.** Vitest com jsdom e Testing Library, na esteira junto do lint e dos
       tipos, com o fuso fixado em `America/Sao_Paulo` (sem isso o teste de data local
-      passaria por engano na esteira, que roda em UTC). São 27 testes: o foco do `Modal`,
-      as funções de `format.ts`, e o caminho do leitor de código de barras no PDV. O
-      backend tem 579 contra banco real.
+      passaria por engano na esteira, que roda em UTC). São 33 testes: o foco do `Modal`,
+      as funções de `format.ts`, e o PDV — leitor de código de barras, recebimento e
+      fechamento da venda. O backend tem 579 contra banco real.
 
       Cada um nasceu de defeito que aconteceu: o teclado do celular fechava a cada letra
       digitada em qualquer diálogo, o quadro de assinatura travava no meio do traço, e a
@@ -310,7 +310,7 @@ mexer torcendo.
       em que o foco se perde é o do mouse, e é esse que o teste faz agora.
 
       O que ainda pede rede: identificação de produto na entrada por nota, troca de
-      empresa, e o pagamento e fechamento do PDV, que estes testes não alcançam
+      empresa, e a identificação do cliente na venda
 - [ ] **Navegação sem URL.** `App.tsx` é uma máquina de estado escrita à mão: não há link
       direto para um planejamento ou um produto, o botão voltar do navegador sai do
       sistema, e recarregar cai na tela inicial. Num ERP que se usa o dia inteiro isso é
