@@ -116,9 +116,32 @@ difícil de escrever.
   Simples não destacam IBS/CBS em 2026.
 - Há **NT 2026.007**, de agosto de 2026, com campos e validações para contribuinte exclusivo
   de IBS/CBS.
-- As datas de obrigatoriedade **divergem entre as fontes** consultadas, que são em maioria
-  blogs de software fiscal. **Precisam ser confirmadas no Portal Nacional da NF-e e nas
-  notas técnicas oficiais** antes de qualquer decisão.
+### 4.1 As datas, confirmadas na fonte — 03/11/2026
+
+Esta seção começou dizendo que as datas vinham de blogs e precisavam de confirmação
+oficial. Foram confirmadas no **ADCT, com a redação da EC 132/2023**, no texto do Planalto.
+Os blogs divergiam justamente no ponto mais importante — havia fonte dizendo 2028 e fonte
+dizendo 2033 para o fim do PIS/COFINS. As duas estavam erradas.
+
+| Quando | O quê | Onde está |
+|---|---|---|
+| 2026 | IBS estadual a 0,1% e CBS a 0,9%, compensáveis com PIS/COFINS; **dispensável** para quem cumprir as obrigações acessórias | ADCT art. 125, §§ 1º e 4º |
+| **2027** | CBS passa a ser cobrada e **PIS e COFINS são extintos** | ADCT art. 126, I, "a", e II |
+| 2027–2028 | alíquota da contribuição reduzida em 0,1 ponto percentual | ADCT art. 127, parágrafo único |
+| 2029–2032 | ICMS e ISS reduzidos por frações: 9/10, 8/10, 7/10 e 6/10 | ADCT art. 128 |
+| 2033 | ICMS e ISS extintos | ADCT art. 129 |
+
+**A consequência de engenharia não é a data: é a convivência.** De 2026 a 2032 um mesmo
+documento fiscal carrega os dois regimes ao mesmo tempo — ICMS em redução e IBS subindo, no
+mesmo cupom. Não há um dia de virada em que o modelo antigo possa ser apagado. São sete anos
+em que o sistema precisa emitir, guardar e reimprimir documentos dos dois mundos, inclusive
+os já autorizados sob a regra velha. Ver `docs/adr/0018-modelo-fiscal-na-transicao.md`.
+
+Vale registrar também que **a lei está sendo alterada enquanto se lê**: a LC 227/2026,
+publicada em 14/01/2026, traz cerca de 120 alterações à LC 214/2025 e institui o Comitê
+Gestor do IBS. No texto da LC 214 no Planalto já aparecem dispositivos marcados como
+revogados por ela. Qualquer alíquota ou regra copiada para dentro do código tem data de
+validade.
 
 O que isso significa para o Decko, e vale dizer com todas as letras: **um motor de
 determinação tributária escrito hoje contra as regras de hoje nasce com validade conhecida.**
@@ -148,7 +171,68 @@ pré-requisito deste: origem da mercadoria, unidade tributável, CST/CSOSN e CFO
 
 ---
 
-## 6. Perguntas em aberto — não implementar sem resposta
+## 6. Anatomia do cupom e contingência — requisito do dono do projeto, 03/11/2026
+
+Levantado a partir de um cupom real da SEFAZ-GO. **O exemplo é de um estado**: o que é
+exigência da norma nacional e o que é particularidade estadual ainda não foi separado, e
+essa separação é pré-requisito da implementação — ver a questão 2 da seção 7.
+
+### 6.1 O que o cupom precisa carregar
+
+| Parte | Conteúdo |
+|---|---|
+| Cabeçalho | Razão social, nome fantasia, CNPJ, endereço completo |
+| Corpo | Item a item: quantidade, valor unitário, valor total e **desconto por item** destacado |
+| Rodapé — validação | Chave de acesso de 44 dígitos, QR code e a URL de consulta do estado |
+| Rodapé — consumidor | CPF na nota, ou "Consumidor não identificado" |
+| Rodapé — documento | Número da NFC-e, série, data e hora, indicação de via do consumidor |
+| Rodapé — tributos | Total de tributos incidentes, pela **Lei 12.741/2012** ("De olho no imposto") |
+| Rodapé — operação | Identificação do caixa (CX), operador, versão do PDV e mensagem de agradecimento configurável |
+
+### 6.2 Contingência não é extra
+
+Quando a SEFAZ oscila ou a rede cai, **o caixa não pode parar**. A venda sai em contingência,
+com a NFC-e pendente de autorização, e a autorização é buscada depois. Isso já estava na
+seção 7 como questão 8; aqui vira requisito: a fila de pendentes, a retentativa e o que
+acontece com um documento que a SEFAZ acabar rejeitando são parte do desenho, não um
+tratamento de erro acrescentado no fim.
+
+### 6.3 O que o modelo já tem — conferido no banco
+
+Metade do pedido já existe, e vale saber antes de projetar tabela nova:
+
+| Campo | Onde está hoje |
+|---|---|
+| Razão social, CNPJ, IE, endereço | cadastro da empresa (`tenant`) |
+| Número sequencial por empresa | `pdv_contador`, e `pdv_venda.numero` |
+| Quantidade, valor unitário, total | `pdv_venda_item` |
+| **Desconto por item** | `pdv_venda_item.desconto` — já é coluna |
+| Desconto da venda | `pdv_venda.desconto` — coluna existe; **nenhuma tela usa**, ver ROADMAP |
+| **Operador** | `pdv_venda.operador_id` — já é coluna, e o PDV grava |
+| Consumidor identificado | `pdv_venda.cliente_id`, por venda identificada |
+| Data e hora | `aberta_em` e `fechada_em` |
+
+### 6.4 O que falta de verdade
+
+| Falta | Observação |
+|---|---|
+| Série, chave de acesso, protocolo de autorização | Nada disso existe; é o núcleo do documento fiscal |
+| Estado fiscal do documento | Autorizada, pendente, em contingência, rejeitada, cancelada — hoje `status` é da **venda**, não do documento |
+| **CPF na nota sem cadastro** | Hoje identificar é apontar para um `cliente` cadastrado. O balcão pede o CPF de quem não é cliente, e não há onde pôr |
+| Total de tributos da Lei 12.741 | Depende de determinação tributária, que não existe |
+| Identificação do caixa (CX) | Existe operador, **não existe terminal**. Duas máquinas do mesmo operador são indistinguíveis |
+| Versão do PDV no cupom | Não existe |
+| Mensagem de agradecimento | Não existe; é configuração da empresa |
+| QR code | Não existe geração de QR em lugar nenhum do sistema |
+
+Dois desses mudam modelo e não só impressão: **o CPF avulso** (porque identificar deixa de ser
+só uma chave estrangeira) e **o terminal de caixa** (porque passa a existir uma entidade que
+hoje não existe). Os demais são campos novos em algo que já existe, ou dependem da
+determinação tributária.
+
+---
+
+## 7. Perguntas em aberto — não implementar sem resposta
 
 **Escopo e sequência**
 
@@ -179,7 +263,7 @@ pré-requisito deste: origem da mercadoria, unidade tributável, CST/CSOSN e CFO
 
 ---
 
-## 7. Fontes consultadas
+## 8. Fontes consultadas
 
 Pesquisa de 29/10/2026. A maioria dos resultados sobre a reforma são blogs de software
 fiscal, **não fontes oficiais** — estão aqui como indício, e as datas precisam de
