@@ -5,7 +5,7 @@ import { Page, PageHeader } from "../components/AppShell";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { TextField } from "../components/TextField";
-import { brl, todayLocal } from "../lib/format";
+import { brl, num, todayLocal } from "../lib/format";
 import { FORMAS, pdv } from "../lib/pdv";
 import type { Conferencia } from "../lib/pdv";
 
@@ -63,8 +63,9 @@ function Linha({
  * ruído. Se a loja quiser conferir também a maquininha, isso é requisito e está na
  * pergunta 4 do `docs/discovery/pdv-fechamento-de-caixa.md`.
  *
- * Esta tela **não fecha caixa**: ela mostra. Abrir, fechar, sangria e suprimento dependem
- * de regra que varia por loja e que ninguém escreveu ainda.
+ * Esta tela **não fecha caixa**: ela mostra o dia inteiro, somando todos os operadores, e
+ * é do dono. A sessão de quem opera — abrir, sangria, suprimento, fechar contando — está
+ * em `MeuCaixaPage`.
  */
 export function CaixaPage({ onBack }: Props) {
   const [dia, setDia] = useState(todayLocal());
@@ -98,7 +99,9 @@ export function CaixaPage({ onBack }: Props) {
   }
 
   const emEspecie = resultado?.por_forma.find((linha) => linha.forma === "dinheiro");
-  const esperado = Number(emEspecie?.valor ?? 0);
+  // O que saiu da gaveta sai da conta: devolução em espécie vem do mesmo dinheiro que a
+  // venda pôs lá. Sem isto a conferência acusaria falta todo dia que a loja devolve algo.
+  const esperado = Number(emEspecie?.valor ?? 0) - Number(resultado?.devolvido_em_especie ?? 0);
   const diferenca = contadoNaHora === "" ? null : Number(contadoNaHora) - esperado;
 
   return (
@@ -168,8 +171,9 @@ export function CaixaPage({ onBack }: Props) {
                     {/* A divergência é informação, não acusação: dizer o que ela pode ser
                         evita que o operador a esconda na próxima vez. */}
                     <p className="mt-2 text-sm text-ink-muted">
-                      Pode ser troco dado errado, venda não lançada, ou dinheiro retirado da
-                      gaveta durante o dia — retirada ainda não é registrada pelo sistema.
+                      Pode ser troco dado errado, venda não lançada, ou dinheiro que saiu da
+                      gaveta sem passar pelo sistema. Sangria, suprimento e devolução em
+                      espécie já estão descontados desta conta.
                     </p>
                   </>
                 )}
@@ -188,12 +192,46 @@ export function CaixaPage({ onBack }: Props) {
                 )}
                 <Linha rotulo="Total das vendas" valor={brl(resultado.liquido)} destaque />
                 <Linha rotulo="Recebido" valor={brl(resultado.recebido)} />
+                {resultado.devolucoes > 0 && (
+                  <>
+                    <Linha
+                      rotulo={`Devoluções (${resultado.devolucoes})`}
+                      valor={`− ${brl(resultado.devolvido)}`}
+                    />
+                    {Number(resultado.devolvido_em_especie) > 0 && (
+                      <Linha
+                        rotulo="Devolvido em espécie"
+                        valor={`− ${brl(resultado.devolvido_em_especie)}`}
+                      />
+                    )}
+                  </>
+                )}
                 {resultado.canceladas > 0 && (
                   <Linha rotulo="Canceladas" valor={String(resultado.canceladas)} />
                 )}
               </dl>
             </CardBody>
           </Card>
+
+          {resultado.avarias.length > 0 && (
+            <Card>
+              <CardHeader
+                title="Avarias e trocas"
+                description="Voltou com defeito e não entrou no estoque: é a pilha que espera o fornecedor."
+              />
+              <CardBody className="pt-4">
+                <dl className="flex flex-col gap-2.5">
+                  {resultado.avarias.map((linha) => (
+                    <Linha
+                      key={`${linha.produto_id}-${linha.unidade_id}`}
+                      rotulo={linha.descricao}
+                      valor={`${num(linha.quantidade, 6)} ${linha.unidade_simbolo ?? ""}`.trim()}
+                    />
+                  ))}
+                </dl>
+              </CardBody>
+            </Card>
+          )}
 
           {resultado.por_forma.length > 0 && (
             <Card>

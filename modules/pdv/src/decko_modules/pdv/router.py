@@ -12,19 +12,32 @@ from decko.db import get_session
 from decko_modules.comercial import service as comercial
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.pdv import service
-from decko_modules.pdv.models import Caixa, MovimentoCaixa, StatusVenda, Venda
+from decko_modules.pdv.models import (
+    Caixa,
+    Devolucao,
+    MovimentoCaixa,
+    StatusVenda,
+    Venda,
+)
 from decko_modules.pdv.schemas import (
     AberturaIn,
     CaixaOut,
     ConferenciaOut,
     DescontoIn,
+    DevolucaoIn,
+    DevolucaoOut,
+    DevolucoesDaVendaOut,
     FechamentoCaixaIn,
     IdentificarIn,
     ItemIn,
     ItemOut,
+    LinhaDevolverIn,
+    LinhaDevolvivelOut,
     MovimentoCaixaIn,
     PagamentoIn,
     PagamentoOut,
+    PreviaDevolucaoIn,
+    PreviaDevolucaoOut,
     VendaOut,
     VendaResumoOut,
 )
@@ -94,11 +107,15 @@ async def listar_vendas(
     session: SessionDep,
     _: Annotated[object, Depends(require("pdv.venda.read"))],
     status_filtro: Annotated[StatusVenda | None, Query(alias="status")] = None,
+    numero: Annotated[int | None, Query(ge=1, description="O número do cupom.")] = None,
     limite: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[Venda]:
     consulta = select(Venda).order_by(Venda.aberta_em.desc()).limit(limite)
     if status_filtro is not None:
         consulta = consulta.where(Venda.status == status_filtro)
+    if numero is not None:
+        # É por aqui que a devolução acha a venda: o cliente traz o cupom, não o id.
+        consulta = consulta.where(Venda.numero == numero)
     return list((await session.execute(consulta)).scalars().all())
 
 
@@ -400,3 +417,124 @@ async def cancelar_venda(
     except service.PdvError as exc:
         raise _invalido(exc) from exc
     return await _ver(session, venda)
+
+
+# ------------------------------------------------------------------- devolução de venda
+#
+# `pdv.venda.devolver` é permissão própria: devolver dinheiro não é a mesma autoridade que
+# vender. Ver a atualização de 10/11/2026 da docs/adr/0008-ponto-de-venda.md.
+
+
+async def _devolucao_vista(session: AsyncSession, devolucao_id: uuid.UUID) -> Devolucao:
+    """Relê a devolução com as linhas, depois de gravada.
+
+    Reler em vez de confiar no objeto em memória: `created_at` tem valor gerado pelo
+    banco, então fica expirado depois do flush, e lê-lo dispararia uma busca síncrona
+    dentro de função assíncrona — o MissingGreenlet.
+    """
+    devolucao = await session.scalar(
+        select(Devolucao)
+        .where(Devolucao.id == devolucao_id)
+        .options(selectinload(Devolucao.itens))
+        .execution_options(populate_existing=True)
+    )
+    if devolucao is None:  # pragma: no cover - acabou de ser gravada
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Devolução não encontrada."
+        )
+    return devolucao
+
+
+def _linhas(payload: list[LinhaDevolverIn]) -> list[service.LinhaDevolver]:
+    return [
+        service.LinhaDevolver(
+            venda_item_id=linha.venda_item_id,
+            quantidade=linha.quantidade,
+            destino=linha.destino,
+        )
+        for linha in payload
+    ]
+
+
+@router.get("/vendas/{venda_id}/devolucoes", response_model=DevolucoesDaVendaOut)
+async def ver_devolucoes(
+    venda_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("pdv.venda.read"))],
+) -> DevolucoesDaVendaOut:
+    """O que ainda dá para devolver desta venda, e o que já foi devolvido.
+
+    Leitura: quem pode ver a venda pode ver o que voltou dela. Devolver é outra permissão.
+    """
+    venda = await _carregar(session, venda_id)
+    devolucoes = await service.devolucoes_da_venda(session, venda)
+    for devolucao in devolucoes:
+        await session.refresh(devolucao, ["itens"])
+
+    return DevolucoesDaVendaOut(
+        venda_id=venda.id,
+        numero=venda.numero,
+        fechada_em=venda.fechada_em,
+        total=await service.total_a_pagar(session, venda),
+        linhas=[
+            LinhaDevolvivelOut.model_validate(linha)
+            for linha in await service.devolvivel(session, venda)
+        ],
+        devolucoes=[DevolucaoOut.model_validate(d) for d in devolucoes],
+        devolvido=sum((d.total for d in devolucoes), Decimal(0)),
+    )
+
+
+@router.post("/vendas/{venda_id}/devolucoes/previa", response_model=PreviaDevolucaoOut)
+async def prever_devolucao(
+    venda_id: uuid.UUID,
+    payload: PreviaDevolucaoIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("pdv.venda.devolver"))],
+) -> PreviaDevolucaoOut:
+    """Quanto sairia da gaveta, sem gravar nada.
+
+    Existe para o operador ver o valor antes de devolver o dinheiro. Passa pela **mesma**
+    função que a gravação, então a prévia e o que sai não podem divergir.
+    """
+    venda = await _carregar(session, venda_id)
+    try:
+        previa = await service.calcular_devolucao(
+            session, venda=venda, linhas=_linhas(payload.itens)
+        )
+    except service.PdvError as exc:
+        raise _invalido(exc) from exc
+    return PreviaDevolucaoOut(total=previa.total, valores=previa.valores)
+
+
+@router.post(
+    "/vendas/{venda_id}/devolucoes",
+    response_model=DevolucaoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def devolver(
+    venda_id: uuid.UUID,
+    payload: DevolucaoIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("pdv.venda.devolver"))],
+) -> Devolucao:
+    """Registra a devolução e devolve o produto ao estoque na mesma transação.
+
+    O que vem marcado como avaria **não** volta ao estoque: fica na lista de avarias, que
+    é a pilha esperando o fornecedor. Ver `docs/discovery/pdv-devolucao-de-venda.md`.
+    """
+    venda = await _carregar(session, venda_id)
+    try:
+        devolucao = await service.devolver(
+            session,
+            venda=venda,
+            linhas=_linhas(payload.itens),
+            forma=payload.forma,
+            motivo=payload.motivo,
+            operador_id=principal.user_id,
+            registrado_por=principal.user_id,
+        )
+    except (service.PdvError, comercial.ComercialError) as exc:
+        raise _invalido(exc) from exc
+    return await _devolucao_vista(session, devolucao.id)

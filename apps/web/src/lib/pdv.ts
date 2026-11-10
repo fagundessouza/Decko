@@ -110,6 +110,78 @@ export interface Caixa {
   movimentos: MovimentoCaixa[];
 }
 
+export type DestinoDevolucao = "estoque" | "avaria";
+
+export const DESTINOS: { valor: DestinoDevolucao; label: string; ajuda: string }[] = [
+  {
+    valor: "estoque",
+    label: "Volta para vender",
+    ajuda: "Entra de novo no estoque, como entrada na razão.",
+  },
+  {
+    valor: "avaria",
+    label: "Tem defeito",
+    ajuda: "Não volta ao estoque vendável; fica na lista de avarias.",
+  },
+];
+
+export interface ItemDevolucao {
+  id: string;
+  venda_item_id: string;
+  quantidade: string;
+  valor: string;
+  destino: DestinoDevolucao;
+}
+
+export interface Devolucao {
+  id: string;
+  venda_id: string;
+  operador_id: string | null;
+  /** Nulo quando quem registrou não tinha caixa aberto: fica fora de sessão. */
+  caixa_id: string | null;
+  forma: FormaPagamento;
+  motivo: string;
+  total: string;
+  created_at: string;
+  itens: ItemDevolucao[];
+}
+
+/** Uma linha da venda e o que dela ainda dá para devolver. */
+export interface LinhaDevolvivel {
+  venda_item_id: string;
+  descricao: string;
+  unidade_id: string;
+  quantidade: string;
+  devolvida: string;
+  resta: string;
+  /** Quanto sai da gaveta se esta linha voltar inteira. Conta do servidor. */
+  valor_resta: string;
+}
+
+export interface DevolucoesDaVenda {
+  venda_id: string;
+  numero: number | null;
+  fechada_em: string | null;
+  total: string;
+  linhas: LinhaDevolvivel[];
+  devolucoes: Devolucao[];
+  devolvido: string;
+}
+
+/** Quanto sai da gaveta, conferido pelo servidor e sem nada gravado. */
+export interface PreviaDevolucao {
+  total: string;
+  valores: string[];
+}
+
+export interface LinhaDeAvaria {
+  produto_id: string;
+  descricao: string;
+  unidade_id: string;
+  unidade_simbolo: string | null;
+  quantidade: string;
+}
+
 /** O que entrou num período. Leitura do que aconteceu, não fechamento de caixa. */
 export interface Conferencia {
   de: string;
@@ -123,6 +195,11 @@ export interface Conferencia {
   por_forma: LinhaDaForma[];
   por_conta: LinhaDaConta[];
   por_operador: LinhaDoOperador[];
+  /* O que voltou. Sem isto a gaveta não fecha numa loja que devolve. */
+  devolucoes: number;
+  devolvido: string;
+  devolvido_em_especie: string;
+  avarias: LinhaDeAvaria[];
 }
 
 export const pdv = {
@@ -152,6 +229,10 @@ export const pdv = {
 
   listVendas: (status?: StatusVenda): Promise<VendaResumo[]> =>
     authedJson(status ? `/pdv/vendas?status=${status}` : "/pdv/vendas"),
+
+  /** Acha a venda pelo número do cupom, que é o que o cliente traz no balcão. */
+  porNumero: (numero: number): Promise<VendaResumo[]> =>
+    authedJson(`/pdv/vendas?numero=${numero}`),
 
   abrir: (): Promise<Venda> => authedJson("/pdv/vendas", { method: "POST" }),
 
@@ -198,4 +279,28 @@ export const pdv = {
 
   cancelar: (vendaId: string): Promise<Venda> =>
     authedJson(`/pdv/vendas/${vendaId}/cancelar`, { method: "POST" }),
+
+  devolucoesDaVenda: (vendaId: string): Promise<DevolucoesDaVenda> =>
+    authedJson(`/pdv/vendas/${vendaId}/devolucoes`),
+
+  /* A prévia e a devolução passam pela mesma conta no servidor, então o valor que o
+   * operador vê antes é o valor que sai da gaveta depois. */
+  preverDevolucao: (
+    vendaId: string,
+    itens: { venda_item_id: string; quantidade: string; destino: DestinoDevolucao }[],
+  ): Promise<PreviaDevolucao> =>
+    authedJson(`/pdv/vendas/${vendaId}/devolucoes/previa`, {
+      method: "POST",
+      body: { itens },
+    }),
+
+  devolver: (
+    vendaId: string,
+    body: {
+      itens: { venda_item_id: string; quantidade: string; destino: DestinoDevolucao }[];
+      forma: FormaPagamento;
+      motivo: string;
+    },
+  ): Promise<Devolucao> =>
+    authedJson(`/pdv/vendas/${vendaId}/devolucoes`, { method: "POST", body }),
 };

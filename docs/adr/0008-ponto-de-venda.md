@@ -64,6 +64,11 @@ estoque já lançada é **devolução**, que tem regra própria e consequência 
 Enquanto não houver requisito escrito de um cliente real, a operação é recusada com essa
 explicação em vez de inventada — `CLAUDE.md`, regra 6.
 
+> **Atualização de 10/11/2026.** O requisito chegou, e está em
+> `docs/discovery/pdv-devolucao-de-venda.md`. A devolução existe — e **continua não sendo
+> cancelamento**: a venda segue `finalizada` e congelada, e a devolução é documento novo
+> que aponta para ela. Ver a atualização no fim deste documento.
+
 ## O que fica de fora, de propósito
 
 - **Emissão fiscal (NFC-e, SAT, CF-e).** É o que mais se espera de um PDV brasileiro e é
@@ -218,3 +223,83 @@ a contagem até bater — que é exatamente o que a conferência cega existe par
   exatamente o tipo de porta que se abre sem querer.
 - **Sangria para onde.** O dinheiro retirado sai da gaveta; a conta de recebimento que o
   recebe é a ADR 0014, e ligar as duas coisas é trabalho próprio.
+
+## Atualização de 10/11/2026 — devolução de venda
+
+A decisão 6 recusava devolução por falta de requisito. O dono do projeto deu o requisito no
+mesmo dia da sessão de caixa, e ele mudou uma coisa que não estava prevista: **avaria**.
+
+As respostas e as deduções estão em `docs/discovery/pdv-devolucao-de-venda.md`. O que elas
+decidem:
+
+### A devolução é documento novo, nunca edição da venda
+
+A venda permanece `finalizada`, com o mesmo total, os mesmos preços e as mesmas descrições.
+A devolução aponta para ela e para as linhas dela. "Devolvida" não é status: é a soma das
+devoluções daquela venda, calculada na leitura — mesmo princípio da ADR 0013 e do
+`fechado_em` do caixa.
+
+O estoque segue a mesma lógica, e aqui ela já estava escrita no módulo comercial: a razão
+não aceita edição do passado, então a devolução lança **entrada**, e não desfaz a saída. Quem
+auditar vê as duas pernas, com o documento de cada uma.
+
+### Cada linha devolvida tem destino, e é isso que separa avaria
+
+Devolver tem dois destinos possíveis, por linha:
+
+- **`estoque`** — volta vendável, e entra na razão.
+- **`avaria`** — tem defeito, **não entra**, e fica somada na lista de avarias do período.
+
+Nas palavras do dono do projeto: *"o interessante é que volte sem causar complicações e
+transtornos, o problema é quando é RMA, tem que ter algum jeito de informar que é problema,
+defeito ou algo assim"*. Daí os dois destinos, e o padrão ser `estoque`.
+
+O destino é por **linha** porque o caso real é misto: três garrafas voltam e uma quebrou.
+Uma devolução, duas linhas, dois destinos.
+
+**Não existe depósito de avaria**, e de propósito. O módulo comercial não tem entidade de
+local, e criar uma arrastaria transferência entre locais, saldo por local e contagem por
+local — nada disso tem requisito. A separação sai sem entidade nova: o que tem defeito não
+entra no estoque vendável, então o saldo continua dizendo a verdade sobre o que dá para
+vender, e a lista de avarias diz o que está parado.
+
+### Devolução em espécie sai da gaveta; cartão e Pix só registram
+
+A forma da devolução é guardada, e o esperado da sessão passa a ser:
+
+    abertura + espécie recebida + suprimentos − sangrias − devoluções em espécie
+
+Só espécie, pelo mesmo motivo de sempre: só espécie está na gaveta. Estorno em cartão é da
+adquirente — o sistema não manda a maquininha devolver, e fingir que manda seria pior do
+que não ter.
+
+A devolução entra na sessão **do operador que a registrou**, se ele tiver uma aberta. Sem
+caixa aberto ela fica fora de sessão, registrada e visível, pela mesma razão que a venda
+fora de sessão não é absorvida depois.
+
+### O valor a devolver é calculado, não digitado
+
+ADR 0008, decisão 3, aplicada ao contrário: o servidor é que faz a conta. O desconto da
+venda inteira não está nas linhas, então devolver o total da linha devolveria mais do que o
+cliente pagou. O fator é o que a venda custou sobre a soma das linhas:
+
+    fator = venda.total / soma(itens.total)
+    valor = (item.total / item.quantidade) × quantidade × fator
+
+Valor de reembolso digitado à mão é onde a fraude mora, e um reembolso maior que a venda é
+um buraco de caixa com aparência de atendimento.
+
+### Permissão
+
+`pdv.venda.devolver`, separada pelo mesmo motivo que `pdv.venda.finalizar` e
+`pdv.caixa.fechar`: devolver dinheiro não é a mesma autoridade que vender.
+
+### O que esta atualização **não** decide
+
+- **Documento fiscal de devolução.** CFOP próprio, nota de entrada. Não há emissão fiscal no
+  projeto; entra com o módulo fiscal.
+- **RMA junto ao fornecedor.** A lista de avarias mostra o que está parado, e não acompanha
+  o que já voltou ao fornecedor. Fechar o ciclo depende do fornecedor como entidade.
+- **Crédito do cliente.** Oferecido e recusado: é fiado com outro nome, e continua fora.
+- **Prazo e autorização por alçada.** Política de loja. A permissão separada já cobre o caso
+  de só o dono devolver.

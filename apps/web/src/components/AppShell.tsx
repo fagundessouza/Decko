@@ -9,6 +9,8 @@ export interface NavItem {
   description?: string;
   icon: ReactNode;
   onSelect: () => void;
+  /** Telas que pertencem a esta, mostradas aninhadas dentro dela. */
+  children?: NavItem[];
 }
 
 interface Props {
@@ -51,34 +53,57 @@ export function AppShell({
     return () => document.removeEventListener("keydown", onKey);
   }, [drawer]);
 
+  /* Um item do menu. `dentro` é o que o desenha como ramo de outro: recuado, sem ícone
+   * próprio e com o fio que liga ao pai. O ícone do pai bastava para os dois, e repeti-lo
+   * em cada filho é o que fazia quatro telas do ponto de venda parecerem quatro módulos. */
+  const botao = (item: NavItem, dentro = false) => {
+    const active = item.key === activeKey;
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          item.onSelect();
+          setDrawer(false);
+        }}
+        aria-current={active ? "page" : undefined}
+        className={
+          "flex w-full min-h-touch items-center gap-3 rounded-dk text-left " +
+          "transition-colors duration-150 ease-dk " +
+          (dentro ? "px-3 text-[0.9375rem] " : "px-3 text-base ") +
+          (active
+            ? "bg-white/10 font-semibold text-white"
+            : "text-white/70 hover:bg-white/5 hover:text-white")
+        }
+      >
+        {!dentro && (
+          <span aria-hidden="true" className="shrink-0 text-lg">
+            {item.icon}
+          </span>
+        )}
+        {item.label}
+      </button>
+    );
+  };
+
+  /* Lista de verdade, e aninhada de verdade: é assim que um leitor de tela anuncia que
+   * "Meu caixa" está dentro de "Ponto de venda". Recuo só com CSS diria isso a quem
+   * enxerga e a mais ninguém. */
   const nav = (
-    <nav className="flex flex-1 flex-col gap-1 p-3">
-      {items.map((item) => {
-        const active = item.key === activeKey;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => {
-              item.onSelect();
-              setDrawer(false);
-            }}
-            aria-current={active ? "page" : undefined}
-            className={
-              "flex min-h-touch items-center gap-3 rounded-dk px-3 text-left text-base " +
-              "transition-colors duration-150 ease-dk " +
-              (active
-                ? "bg-white/10 font-semibold text-white"
-                : "text-white/70 hover:bg-white/5 hover:text-white")
-            }
-          >
-            <span aria-hidden="true" className="shrink-0 text-lg">
-              {item.icon}
-            </span>
-            {item.label}
-          </button>
-        );
-      })}
+    <nav className="flex-1 p-3">
+      <ul className="flex flex-col gap-1">
+        {items.map((item) => (
+          <li key={item.key}>
+            {botao(item)}
+            {item.children && item.children.length > 0 && (
+              <ul className="mt-1 flex flex-col gap-1 border-l border-white/15 pl-3 ml-5">
+                {item.children.map((filho) => (
+                  <li key={filho.key}>{botao(filho, true)}</li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 

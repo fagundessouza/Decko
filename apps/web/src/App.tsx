@@ -37,6 +37,9 @@ const MeuCaixaPage = lazy(() =>
 const CaixaPage = lazy(() =>
   import("./pages/CaixaPage").then((m) => ({ default: m.CaixaPage })),
 );
+const DevolucaoPage = lazy(() =>
+  import("./pages/DevolucaoPage").then((m) => ({ default: m.DevolucaoPage })),
+);
 const ChooseProfilePage = lazy(() =>
   import("./pages/ChooseProfilePage").then((m) => ({ default: m.ChooseProfilePage })),
 );
@@ -114,6 +117,7 @@ type View =
   | { name: "produtos" }
   | { name: "caixa" }
   | { name: "meu-caixa" }
+  | { name: "devolucao" }
   | { name: "conferencia" }
   | { name: "novoProduto" }
   | { name: "produto"; produto: Produto }
@@ -136,8 +140,9 @@ const SECTION: Record<View["name"], string> = {
   notas: "compras",
   nota: "compras",
   produtos: "comercial",
-  caixa: "pdv",
-  "meu-caixa": "pdv",
+  caixa: "caixa",
+  "meu-caixa": "meu-caixa",
+  devolucao: "devolucao",
   conferencia: "comercial",
   novoProduto: "comercial",
   produto: "comercial",
@@ -271,23 +276,33 @@ export default function App() {
   ];
 
   if (hasPdv) {
+    // Vender é a tela principal; caixa, devolução e conferência são do mesmo módulo e
+    // ficam dentro dela. Quatro itens irmãos com o mesmo ícone pareciam quatro módulos.
     items.push({
       key: "pdv",
       label: "Ponto de venda",
       icon: <ModuleIcon name="register" size={22} />,
       onSelect: () => setView({ name: "pdv" }),
-    });
-    items.push({
-      key: "meu-caixa",
-      label: "Meu caixa",
-      icon: <ModuleIcon name="register" size={22} />,
-      onSelect: () => setView({ name: "meu-caixa" }),
-    });
-    items.push({
-      key: "caixa",
-      label: "Conferência de caixa",
-      icon: <ModuleIcon name="register" size={22} />,
-      onSelect: () => setView({ name: "caixa" }),
+      children: [
+        {
+          key: "meu-caixa",
+          label: "Meu caixa",
+          icon: null,
+          onSelect: () => setView({ name: "meu-caixa" }),
+        },
+        {
+          key: "devolucao",
+          label: "Devolução de venda",
+          icon: null,
+          onSelect: () => setView({ name: "devolucao" }),
+        },
+        {
+          key: "caixa",
+          label: "Conferência de caixa",
+          icon: null,
+          onSelect: () => setView({ name: "caixa" }),
+        },
+      ],
     });
   }
   if (hasClientes) {
@@ -477,6 +492,8 @@ export default function App() {
       {view.name === "meu-caixa" && <MeuCaixaPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "caixa" && <CaixaPage onBack={() => setView({ name: "home" })} />}
+
+      {view.name === "devolucao" && <DevolucaoPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "conferencia" && (
         <ConferenciaPage onBack={() => setView({ name: "home" })} />

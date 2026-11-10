@@ -16,13 +16,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko_modules.clientes.models import Cliente
 from decko_modules.comercial import service as comercial
-from decko_modules.comercial.models import Produto, TipoMovimento
+from decko_modules.comercial.models import Produto, TipoMovimento, Unidade
 from decko_modules.core.models import User
 from decko_modules.financeiro.models import ContaRecebimento
 from decko_modules.pdv.models import (
     Caixa,
     Contador,
+    DestinoDevolucao,
+    Devolucao,
     FormaPagamento,
+    ItemDevolucao,
     ItemVenda,
     MovimentoCaixa,
     Pagamento,
@@ -386,14 +389,13 @@ async def finalizar_venda(
 async def cancelar_venda(session: AsyncSession, *, venda: Venda) -> Venda:
     """Cancela uma venda que ainda não fechou.
 
-    Venda finalizada não é cancelada aqui: desfazer uma saída de estoque já lançada é
-    devolução, que tem regra própria e consequência fiscal. Enquanto não houver requisito
-    escrito, a operação é recusada em vez de inventada — ver ADR 0008.
+    Venda finalizada continua não sendo cancelada: cancelar enquanto aberta é só mudar o
+    status, porque nada foi lançado. Desfazer uma saída de estoque já lançada é
+    **devolução**, que é documento próprio e deixa as duas pernas na razão — ver
+    ``devolver`` e a atualização de 10/11/2026 da ADR 0008.
     """
     if venda.status is StatusVenda.FINALIZADA:
-        raise PdvError(
-            "Venda finalizada não pode ser cancelada. A devolução ainda não está implementada."
-        )
+        raise PdvError("Venda finalizada não é cancelada; registre uma devolução.")
     if venda.status is StatusVenda.CANCELADA:
         return venda
 
@@ -408,8 +410,14 @@ __all__ = [
     "PdvError",
     "abrir_venda",
     "adicionar_item",
+    "avarias",
+    "calcular_devolucao",
     "cancelar_venda",
     "definir_desconto",
+    "devolucoes_da_venda",
+    "devolver",
+    "devolvido_por_item",
+    "devolvivel",
     "finalizar_venda",
     "registrar_pagamento",
     "remover_item",
@@ -443,6 +451,22 @@ class LinhaDoOperador:
 
 
 @dataclass(frozen=True)
+class LinhaDeAvaria:
+    """Um produto parado por defeito, na unidade em que foi vendido.
+
+    Agrupado por produto **e unidade**, sem converter: quem sabe converter embalagem é o
+    módulo comercial, e somar "2 caixas" com "3 unidades" num número só daria um total
+    que não existe — ver ``docs/adr/0007-dependencia-entre-modulos.md``.
+    """
+
+    produto_id: uuid.UUID
+    descricao: str
+    unidade_id: uuid.UUID
+    unidade_simbolo: str | None
+    quantidade: Decimal
+
+
+@dataclass(frozen=True)
 class Conferencia:
     """O que entrou num período, de onde veio e por quem passou."""
 
@@ -457,6 +481,15 @@ class Conferencia:
     por_forma: list[LinhaDaForma]
     por_conta: list[LinhaDaConta]
     por_operador: list[LinhaDoOperador]
+
+    # O que voltou. Sem isto a gaveta nunca fecha numa loja que devolve: a devolução em
+    # espécie sai do mesmo dinheiro que a venda colocou lá.
+    devolucoes: int
+    devolvido: Decimal
+    devolvido_em_especie: Decimal
+    # O que voltou com defeito e **não** entrou no estoque vendável. É a pilha de RMA, e
+    # é por isso que ela aparece aqui e não no saldo do produto.
+    avarias: list[LinhaDeAvaria]
 
 
 async def conferencia(session: AsyncSession, *, de: datetime, ate: datetime) -> Conferencia:
@@ -550,6 +583,26 @@ async def conferencia(session: AsyncSession, *, de: datetime, ate: datetime) -> 
 
     recebido = sum((linha[2] for linha in formas), Decimal(0))
 
+    # A devolução é recortada pelo instante em que foi registrada: ela não tem "fechada
+    # em", e o dinheiro saiu da gaveta na hora em que o operador a lançou.
+    no_periodo = (Devolucao.created_at >= de, Devolucao.created_at <= ate)
+
+    devolucoes, devolvido = (
+        await session.execute(
+            select(func.count(Devolucao.id), func.coalesce(func.sum(Devolucao.total), 0)).where(
+                *no_periodo
+            )
+        )
+    ).one()
+
+    devolvido_em_especie = (
+        await session.execute(
+            select(func.coalesce(func.sum(Devolucao.total), 0)).where(
+                Devolucao.forma == FormaPagamento.DINHEIRO, *no_periodo
+            )
+        )
+    ).scalar_one()
+
     return Conferencia(
         de=de,
         ate=ate,
@@ -562,6 +615,10 @@ async def conferencia(session: AsyncSession, *, de: datetime, ate: datetime) -> 
         por_forma=[LinhaDaForma(f, q, _dinheiro(v)) for f, q, v in formas],
         por_conta=[LinhaDaConta(i, n, _dinheiro(v)) for i, n, v in contas],
         por_operador=[LinhaDoOperador(i, n, q, _dinheiro(v)) for i, n, q, v in operadores],
+        devolucoes=devolucoes,
+        devolvido=_dinheiro(devolvido),
+        devolvido_em_especie=_dinheiro(devolvido_em_especie),
+        avarias=await avarias(session, de=de, ate=ate),
     )
 
 
@@ -632,11 +689,14 @@ async def movimentar_caixa(
 
 
 async def esperado_do_caixa(session: AsyncSession, caixa: Caixa) -> Decimal:
-    """Quanto deveria haver na gaveta: abertura + espécie recebida + suprimentos - sangrias.
+    """Quanto deveria haver na gaveta.
 
-    Só espécie entra, porque só espécie está na gaveta. É conta feita na leitura e não
-    coluna guardada: um total gravado pode divergir das linhas que o compõem, e é a linha
-    que se audita.
+    ``abertura + espécie recebida + suprimentos - sangrias - devoluções em espécie``.
+
+    Só espécie entra e só espécie sai, porque só espécie está na gaveta: devolução no
+    cartão é estorno da adquirente e não tira dinheiro daqui. É conta feita na leitura e
+    não coluna guardada: um total gravado pode divergir das linhas que o compõem, e é a
+    linha que se audita.
     """
     em_especie = (
         await session.execute(
@@ -658,7 +718,16 @@ async def esperado_do_caixa(session: AsyncSession, caixa: Caixa) -> Decimal:
         )
     ).all()
 
-    total = Decimal(caixa.abertura) + Decimal(em_especie)
+    devolvido = (
+        await session.execute(
+            select(func.coalesce(func.sum(Devolucao.total), 0)).where(
+                Devolucao.caixa_id == caixa.id,
+                Devolucao.forma == FormaPagamento.DINHEIRO,
+            )
+        )
+    ).scalar_one()
+
+    total = Decimal(caixa.abertura) + Decimal(em_especie) - Decimal(devolvido)
     for tipo, valor in movimentos:
         total += Decimal(valor) if tipo is TipoMovimentoCaixa.SUPRIMENTO else -Decimal(valor)
     return _dinheiro(total)
@@ -685,3 +754,314 @@ async def fechar_caixa(
     caixa.fechado_em = datetime.now(UTC)
     await session.flush()
     return caixa
+
+
+# ------------------------------------------------------------------- devolução de venda
+#
+# A devolução é documento novo, nunca edição da venda: a venda segue `finalizada` e
+# congelada. No estoque ela lança **entrada**, porque a razão do módulo comercial não
+# aceita edição do passado. Cada linha devolvida tem destino — volta vendável, ou é avaria
+# e não entra. Decisão e motivos: atualização de 10/11/2026 da
+# docs/adr/0008-ponto-de-venda.md e docs/discovery/pdv-devolucao-de-venda.md.
+
+
+@dataclass(frozen=True)
+class LinhaDevolver:
+    """Uma linha da venda voltando. ``destino`` é o que separa avaria de estoque."""
+
+    venda_item_id: uuid.UUID
+    quantidade: Decimal
+    destino: DestinoDevolucao = DestinoDevolucao.ESTOQUE
+
+
+@dataclass(frozen=True)
+class Previa:
+    """Quanto cada linha devolve, e o total — conferido, e sem gravar nada.
+
+    Existe para o operador ver o valor **antes** de abrir a gaveta. Vem do servidor pelo
+    mesmo motivo que o total da venda vem: duas somas do mesmo dinheiro em lugares
+    diferentes divergem, e a que sai do caixa é esta.
+    """
+
+    valores: list[Decimal]
+    total: Decimal
+
+
+@dataclass(frozen=True)
+class LinhaDevolvivel:
+    """Uma linha da venda e o que dela ainda dá para devolver."""
+
+    venda_item_id: uuid.UUID
+    descricao: str
+    unidade_id: uuid.UUID
+    quantidade: Decimal
+    devolvida: Decimal
+    resta: Decimal
+    valor_resta: Decimal
+
+
+async def _itens_da_venda(session: AsyncSession, venda: Venda) -> list[ItemVenda]:
+    result = await session.execute(
+        select(ItemVenda).where(ItemVenda.venda_id == venda.id).order_by(ItemVenda.created_at)
+    )
+    return list(result.scalars())
+
+
+async def _rateio_da_venda(session: AsyncSession, venda: Venda) -> dict[uuid.UUID, Decimal]:
+    """Quanto cada linha da venda custou **ao cliente**, com o desconto da venda rateado.
+
+    A linha não pode ser devolvida pelo seu próprio total: o desconto da venda inteira não
+    está nela, então devolver ``item.total`` devolveria mais do que o cliente pagou.
+
+    A soma deste rateio é **exatamente** ``venda.total``. O resíduo do arredondamento fica
+    na maior linha — e é por isso que devolver mais do que a venda custou é aritmeticamente
+    impossível, em vez de ser uma validação que alguém pode esquecer de chamar.
+    """
+    itens = await _itens_da_venda(session, venda)
+    soma = _dinheiro(sum((item.total for item in itens), Decimal(0)))
+    total = _dinheiro(venda.total if venda.total is not None else soma - venda.desconto)
+
+    if soma <= 0:
+        return {item.id: Decimal("0.00") for item in itens}
+
+    rateio = {item.id: _dinheiro(item.total * total / soma) for item in itens}
+
+    residuo = total - _dinheiro(sum(rateio.values(), Decimal(0)))
+    if residuo != 0:
+        maior = max(itens, key=lambda item: item.total)
+        rateio[maior.id] = _dinheiro(rateio[maior.id] + residuo)
+    return rateio
+
+
+def _fatia(rateio: Decimal, quantidade: Decimal, de: Decimal) -> Decimal:
+    """A parte do rateio que corresponde a ``quantidade`` de um item de ``de`` unidades."""
+    return _dinheiro(rateio * quantidade / de)
+
+
+async def devolvido_por_item(
+    session: AsyncSession, venda: Venda
+) -> dict[uuid.UUID, tuple[Decimal, Decimal]]:
+    """Quanto de cada linha da venda já voltou: ``(quantidade, valor)``.
+
+    Soma **todas** as devoluções daquela venda, porque o limite é a venda e não a
+    devolução: três devoluções parciais não podem passar do que foi vendido.
+    """
+    linhas = (
+        await session.execute(
+            select(
+                ItemDevolucao.venda_item_id,
+                func.coalesce(func.sum(ItemDevolucao.quantidade), 0),
+                func.coalesce(func.sum(ItemDevolucao.valor), 0),
+            )
+            .join(Devolucao, Devolucao.id == ItemDevolucao.devolucao_id)
+            .where(Devolucao.venda_id == venda.id)
+            .group_by(ItemDevolucao.venda_item_id)
+        )
+    ).all()
+    return {item_id: (Decimal(qtd), Decimal(valor)) for item_id, qtd, valor in linhas}
+
+
+async def devolucoes_da_venda(session: AsyncSession, venda: Venda) -> list[Devolucao]:
+    """As devoluções desta venda, da mais antiga para a mais nova."""
+    result = await session.execute(
+        select(Devolucao).where(Devolucao.venda_id == venda.id).order_by(Devolucao.created_at)
+    )
+    return list(result.scalars())
+
+
+async def devolvivel(session: AsyncSession, venda: Venda) -> list[LinhaDevolvivel]:
+    """O que ainda dá para devolver desta venda, linha por linha.
+
+    É o que a tela mostra antes de o operador escolher. ``valor_resta`` é quanto sai da
+    gaveta se aquela linha voltar inteira — número do servidor, não da tela.
+    """
+    rateio = await _rateio_da_venda(session, venda)
+    ja = await devolvido_por_item(session, venda)
+
+    linhas = []
+    for item in await _itens_da_venda(session, venda):
+        devolvida, valor = ja.get(item.id, (Decimal(0), Decimal("0.00")))
+        linhas.append(
+            LinhaDevolvivel(
+                venda_item_id=item.id,
+                descricao=item.descricao,
+                unidade_id=item.unidade_id,
+                quantidade=item.quantidade,
+                devolvida=devolvida,
+                resta=item.quantidade - devolvida,
+                valor_resta=_dinheiro(rateio[item.id] - valor),
+            )
+        )
+    return linhas
+
+
+async def calcular_devolucao(
+    session: AsyncSession, *, venda: Venda, linhas: list[LinhaDevolver]
+) -> Previa:
+    """Confere o que está voltando e diz quanto devolve, sem gravar.
+
+    Toda a recusa mora aqui, e é por isso que a prévia da tela e a gravação não podem
+    divergir: as duas passam por esta função.
+    """
+    if venda.status is not StatusVenda.FINALIZADA:
+        raise PdvError(f"Só venda finalizada tem o que devolver; esta está {venda.status.value}.")
+    if not linhas:
+        raise PdvError("Diga o que está voltando.")
+
+    itens = {item.id: item for item in await _itens_da_venda(session, venda)}
+    rateio = await _rateio_da_venda(session, venda)
+    ja_devolvido = await devolvido_por_item(session, venda)
+
+    # Acumulado **desta** chamada, por linha: duas linhas para o mesmo item são válidas —
+    # três garrafas voltam ao estoque e uma quebrou — e as duas juntas é que têm limite.
+    nesta: dict[uuid.UUID, Decimal] = {}
+
+    valores: list[Decimal] = []
+    for linha in linhas:
+        item = itens.get(linha.venda_item_id)
+        if item is None:
+            raise PdvError("Esta linha não é desta venda.")
+        if linha.quantidade <= 0:
+            raise PdvError("A quantidade a devolver precisa ser maior que zero.")
+
+        devolvida_antes, valor_antes = ja_devolvido.get(item.id, (Decimal(0), Decimal("0.00")))
+        nesta_linha = nesta.get(item.id, Decimal(0))
+        resta = item.quantidade - devolvida_antes - nesta_linha
+
+        if linha.quantidade > resta:
+            if resta <= 0:
+                raise PdvError(f"'{item.descricao}' já foi devolvido por inteiro.")
+            raise PdvError(f"De '{item.descricao}' resta devolver {resta.normalize()}.")
+
+        if linha.quantidade == resta:
+            # Fecha a linha com o que sobra do rateio dela: senão o centavo perdido na
+            # divisão fica preso e nunca volta ao cliente.
+            valor = _dinheiro(
+                rateio[item.id]
+                - valor_antes
+                - _fatia(rateio[item.id], nesta_linha, item.quantidade)
+            )
+        else:
+            valor = _fatia(rateio[item.id], linha.quantidade, item.quantidade)
+
+        valores.append(valor)
+        nesta[item.id] = nesta_linha + linha.quantidade
+
+    return Previa(valores=valores, total=_dinheiro(sum(valores, Decimal(0))))
+
+
+async def devolver(
+    session: AsyncSession,
+    *,
+    venda: Venda,
+    linhas: list[LinhaDevolver],
+    forma: FormaPagamento,
+    motivo: str,
+    operador_id: uuid.UUID | None = None,
+    registrado_por: uuid.UUID | None = None,
+) -> Devolucao:
+    """Registra o que o cliente trouxe de volta e quanto recebeu por isso.
+
+    O que volta ao estoque entra na razão na **mesma transação**, pelo mesmo motivo que a
+    baixa da venda: não existe estado em que o dinheiro voltou e o estoque não.
+
+    A devolução cai na sessão de caixa **de quem a registrou**, se ele tiver uma aberta.
+    Sem caixa aberto ela fica fora de sessão — registrada e visível, pela mesma razão que
+    a venda fora de sessão não é absorvida depois.
+    """
+    if not motivo.strip():
+        raise PdvError("Diga o motivo da devolução.")
+
+    previa = await calcular_devolucao(session, venda=venda, linhas=linhas)
+    itens = {item.id: item for item in await _itens_da_venda(session, venda)}
+
+    devolucao = Devolucao(
+        tenant_id=venda.tenant_id,
+        venda_id=venda.id,
+        operador_id=operador_id,
+        forma=forma,
+        motivo=motivo.strip(),
+        total=previa.total,
+    )
+
+    if operador_id is not None:
+        sessao = await caixa_aberto(session, operador_id=operador_id)
+        devolucao.caixa_id = sessao.id if sessao is not None else None
+
+    session.add(devolucao)
+    await session.flush()
+
+    for linha, valor in zip(linhas, previa.valores, strict=True):
+        item = itens[linha.venda_item_id]
+        session.add(
+            ItemDevolucao(
+                tenant_id=venda.tenant_id,
+                devolucao_id=devolucao.id,
+                venda_item_id=item.id,
+                quantidade=linha.quantidade,
+                valor=valor,
+                destino=linha.destino,
+            )
+        )
+
+        if linha.destino is DestinoDevolucao.ESTOQUE:
+            # Entrada, e não estorno da saída: a razão não aceita edição do passado, e são
+            # as duas pernas que contam a história para quem auditar.
+            await comercial.registrar_movimento(
+                session,
+                tenant_id=venda.tenant_id,
+                produto_id=item.produto_id,
+                tipo=TipoMovimento.ENTRADA,
+                quantidade=linha.quantidade,
+                unidade_id=item.unidade_id,
+                lote_id=item.lote_id,
+                documento=f"Devolução da venda {venda.numero}",
+                motivo=motivo.strip(),
+                registrado_por=registrado_por,
+            )
+
+    await session.flush()
+    return devolucao
+
+
+async def avarias(session: AsyncSession, *, de: datetime, ate: datetime) -> list[LinhaDeAvaria]:
+    """O que voltou com defeito e não entrou no estoque vendável, somado por produto.
+
+    É a pilha que espera o fornecedor. Não é saldo de estoque, de propósito: contar avaria
+    como estoque faria o sistema dizer que dá para vender o que está quebrado.
+
+    O nome vem do cadastro e não da linha da venda, ao contrário do cupom: quem vai
+    conversar com o fornecedor precisa do nome que o produto tem hoje.
+    """
+    linhas = (
+        await session.execute(
+            select(
+                ItemVenda.produto_id,
+                Produto.nome,
+                ItemVenda.unidade_id,
+                Unidade.simbolo,
+                func.coalesce(func.sum(ItemDevolucao.quantidade), 0),
+            )
+            .join(Devolucao, Devolucao.id == ItemDevolucao.devolucao_id)
+            .join(ItemVenda, ItemVenda.id == ItemDevolucao.venda_item_id)
+            .join(Produto, Produto.id == ItemVenda.produto_id)
+            .outerjoin(Unidade, Unidade.id == ItemVenda.unidade_id)
+            .where(
+                ItemDevolucao.destino == DestinoDevolucao.AVARIA,
+                Devolucao.created_at >= de,
+                Devolucao.created_at <= ate,
+            )
+            .group_by(ItemVenda.produto_id, Produto.nome, ItemVenda.unidade_id, Unidade.simbolo)
+            .order_by(func.sum(ItemDevolucao.quantidade).desc())
+        )
+    ).all()
+    return [
+        LinhaDeAvaria(
+            produto_id=produto_id,
+            descricao=nome,
+            unidade_id=unidade_id,
+            unidade_simbolo=simbolo,
+            quantidade=Decimal(quantidade),
+        )
+        for produto_id, nome, unidade_id, simbolo, quantidade in linhas
+    ]

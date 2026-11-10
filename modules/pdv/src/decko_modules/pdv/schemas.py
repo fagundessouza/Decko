@@ -4,7 +4,12 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from decko_modules.pdv.models import FormaPagamento, StatusVenda, TipoMovimentoCaixa
+from decko_modules.pdv.models import (
+    DestinoDevolucao,
+    FormaPagamento,
+    StatusVenda,
+    TipoMovimentoCaixa,
+)
 
 
 class ItemIn(BaseModel):
@@ -127,6 +132,18 @@ class LinhaDoOperadorOut(BaseModel):
     valor: Decimal
 
 
+class LinhaDeAvariaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    produto_id: uuid.UUID
+    descricao: str
+    unidade_id: uuid.UUID
+    # Agrupado por produto **e** unidade, sem converter embalagem: somar "2 caixas" com
+    # "3 unidades" num número só daria um total que não existe.
+    unidade_simbolo: str | None
+    quantidade: Decimal
+
+
 class ConferenciaOut(BaseModel):
     """O que entrou no período. Leitura, não fechamento de caixa."""
 
@@ -143,6 +160,13 @@ class ConferenciaOut(BaseModel):
     por_forma: list[LinhaDaFormaOut]
     por_conta: list[LinhaDaContaOut]
     por_operador: list[LinhaDoOperadorOut]
+
+    # O que voltou. Sem isto a gaveta nunca fecha numa loja que devolve.
+    devolucoes: int
+    devolvido: Decimal
+    devolvido_em_especie: Decimal
+    # O que voltou com defeito e **não** entrou no estoque vendável: a pilha de RMA.
+    avarias: list[LinhaDeAvariaOut]
 
 
 class AberturaIn(BaseModel):
@@ -180,10 +204,104 @@ class CaixaOut(BaseModel):
     aberto_em: datetime
     fechado_em: datetime | None
     abertura: Decimal
-    # Preenchidos só no fechamento. Enquanto o caixa está aberto, o esperado é conta feita
-    # na leitura — ver `esperado_agora`.
+    # Preenchidos só no fechamento, e **não** há campo de esperado enquanto o caixa está
+    # aberto: devolvê-lo bastaria abrir o inspetor para ver o número antes de contar, e a
+    # conferência cega da ADR 0008 vale também na rede.
     contado: Decimal | None
     esperado: Decimal | None
     diferenca: Decimal | None
     observacao: str | None
     movimentos: list[MovimentoCaixaOut]
+
+
+# ------------------------------------------------------------------- devolução de venda
+
+
+class LinhaDevolverIn(BaseModel):
+    """Uma linha da venda voltando.
+
+    ``destino`` tem padrão ``estoque`` porque é o caso comum — o que volta, volta para
+    vender. ``avaria`` é a exceção que precisa ser dita, e é ela que separa a pilha de RMA.
+    """
+
+    venda_item_id: uuid.UUID
+    quantidade: Decimal = Field(gt=0)
+    destino: DestinoDevolucao = DestinoDevolucao.ESTOQUE
+
+
+class DevolucaoIn(BaseModel):
+    itens: list[LinhaDevolverIn] = Field(min_length=1)
+    # Como o dinheiro volta. Só `dinheiro` sai da gaveta; cartão e Pix ficam registrados na
+    # forma original, porque o estorno é da adquirente.
+    forma: FormaPagamento
+    # Obrigatório, pela razão da sangria: devolução que ninguém explica depois é justamente
+    # a que importa explicar.
+    motivo: str = Field(min_length=1, max_length=300)
+
+
+class PreviaDevolucaoIn(BaseModel):
+    """A prévia não pede motivo: ela só diz quanto sai, e nada é gravado."""
+
+    itens: list[LinhaDevolverIn] = Field(min_length=1)
+
+
+class ItemDevolucaoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    venda_item_id: uuid.UUID
+    quantidade: Decimal
+    valor: Decimal
+    destino: DestinoDevolucao
+
+
+class DevolucaoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    venda_id: uuid.UUID
+    operador_id: uuid.UUID | None
+    # Nulo quando quem registrou não tinha caixa aberto: a devolução fica fora de sessão,
+    # registrada e visível, pela mesma razão que a venda fora de sessão.
+    caixa_id: uuid.UUID | None
+    forma: FormaPagamento
+    motivo: str
+    total: Decimal
+    created_at: datetime
+    itens: list[ItemDevolucaoOut]
+
+
+class PreviaDevolucaoOut(BaseModel):
+    """Quanto sai da gaveta, conferido pelo servidor e sem nada gravado.
+
+    O operador vê o valor **antes** de devolver o dinheiro, e o valor vem de onde vem o
+    total da venda: do servidor — ver ADR 0008, decisão 3.
+    """
+
+    total: Decimal
+    valores: list[Decimal]
+
+
+class LinhaDevolvivelOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    venda_item_id: uuid.UUID
+    descricao: str
+    unidade_id: uuid.UUID
+    quantidade: Decimal
+    devolvida: Decimal
+    resta: Decimal
+    # Quanto sai da gaveta se esta linha voltar inteira.
+    valor_resta: Decimal
+
+
+class DevolucoesDaVendaOut(BaseModel):
+    """O que a tela de devolução precisa de uma venda, numa resposta só."""
+
+    venda_id: uuid.UUID
+    numero: int | None
+    fechada_em: datetime | None
+    total: Decimal
+    linhas: list[LinhaDevolvivelOut]
+    devolucoes: list[DevolucaoOut]
+    devolvido: Decimal

@@ -52,6 +52,19 @@ class TipoMovimentoCaixa(StrEnum):
     SUPRIMENTO = "suprimento"
 
 
+class DestinoDevolucao(StrEnum):
+    """Para onde vai o produto que o cliente trouxe de volta.
+
+    São dois e só dois, e a diferença é se aquilo pode ser vendido de novo. Não existe
+    depósito de avaria: o que tem defeito simplesmente **não entra** no estoque vendável,
+    e é isso que mantém o saldo dizendo a verdade sobre o que dá para vender. Ver a
+    atualização de 10/11/2026 da ``docs/adr/0008-ponto-de-venda.md``.
+    """
+
+    ESTOQUE = "estoque"
+    AVARIA = "avaria"
+
+
 def _enum(python_enum: type, name: str) -> Enum:
     return Enum(
         python_enum,
@@ -309,6 +322,102 @@ class MovimentoCaixa(TenantMixin, TimestampMixin, Base):
     __table_args__ = (CheckConstraint("valor > 0", name="ck_pdv_caixa_movimento_valor_positivo"),)
 
 
+class Devolucao(TenantMixin, TimestampMixin, Base):
+    """O que o cliente trouxe de volta, e quanto recebeu por isso.
+
+    É **documento novo**, nunca edição da venda: a venda continua ``finalizada``, com o
+    mesmo total e os mesmos preços, porque o cupom precisa seguir dizendo o que o cliente
+    pagou. "Devolvida" não é status da venda — é a soma das devoluções dela, feita na
+    leitura. Mesmo princípio da ADR 0013.
+
+    O estoque segue a mesma lógica: a razão do módulo comercial não aceita edição do
+    passado, então a devolução lança **entrada** e não desfaz a saída da venda.
+    """
+
+    __tablename__ = "pdv_devolucao"
+    __table_args__ = (
+        Index("ix_pdv_devolucao_venda_id", "venda_id"),
+        Index("ix_pdv_devolucao_tenant_id_created_at", "tenant_id", "created_at"),
+        CheckConstraint("total >= 0", name="ck_pdv_devolucao_total_nao_negativo"),
+    )
+
+    id: Mapped[uuid.UUID] = primary_key()
+
+    # `RESTRICT` e não `CASCADE`: a devolução não é parte da venda, é documento sobre ela.
+    # Apagar a venda por baixo de um reembolso já pago não pode ser silencioso.
+    venda_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("pdv_venda.id", ondelete="RESTRICT"), nullable=False
+    )
+
+    operador_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Em qual sessão de caixa a devolução caiu. Nulo quando quem registrou não tinha caixa
+    # aberto — e continua nulo, pela mesma razão da venda fora de sessão.
+    caixa_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("pdv_caixa.id", ondelete="RESTRICT"), nullable=True
+    )
+
+    # Como o dinheiro voltou. Só `dinheiro` mexe no esperado da gaveta; cartão e Pix ficam
+    # registrados na forma original, porque o estorno é da adquirente e não do sistema.
+    forma: Mapped[FormaPagamento] = mapped_column(
+        _enum(FormaPagamento, "pdv_forma_pagamento"), nullable=False
+    )
+
+    # Obrigatório, pela razão da sangria: devolução que ninguém explica depois é justamente
+    # a que importa explicar.
+    motivo: Mapped[str] = mapped_column(String(300), nullable=False)
+
+    # Soma das linhas, calculada no servidor. Ver a atualização de 10/11/2026 da ADR 0008:
+    # valor de reembolso digitado à mão é onde a fraude mora.
+    total: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+
+    itens: Mapped[list["ItemDevolucao"]] = relationship(
+        back_populates="devolucao",
+        cascade="all, delete-orphan",
+        order_by="ItemDevolucao.created_at",
+    )
+
+
+class ItemDevolucao(TenantMixin, TimestampMixin, Base):
+    """Uma linha da venda voltando, inteira ou em parte.
+
+    Aponta para o item da venda, e não para o produto: é a linha vendida que está sendo
+    desfeita, com o preço e a unidade daquele momento. Duas linhas para o mesmo item da
+    venda são válidas e esperadas — três garrafas voltam ao estoque e uma quebrou.
+    """
+
+    __tablename__ = "pdv_devolucao_item"
+    __table_args__ = (
+        Index("ix_pdv_devolucao_item_devolucao_id", "devolucao_id"),
+        # Usado para somar o que cada linha da venda já devolveu, que é o limite.
+        Index("ix_pdv_devolucao_item_venda_item_id", "venda_item_id"),
+        CheckConstraint("quantidade > 0", name="ck_pdv_devolucao_item_quantidade_positiva"),
+        CheckConstraint("valor >= 0", name="ck_pdv_devolucao_item_valor_nao_negativo"),
+    )
+
+    id: Mapped[uuid.UUID] = primary_key()
+    devolucao_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("pdv_devolucao.id", ondelete="CASCADE"), nullable=False
+    )
+    venda_item_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("pdv_venda_item.id", ondelete="RESTRICT"), nullable=False
+    )
+
+    # Na mesma unidade em que foi vendida: devolver "1 caixa" de uma venda em caixas.
+    quantidade: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
+
+    # Quanto desta linha voltou em dinheiro, já com o fator do desconto da venda.
+    valor: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+
+    destino: Mapped[DestinoDevolucao] = mapped_column(
+        _enum(DestinoDevolucao, "pdv_destino_devolucao"), nullable=False
+    )
+
+    devolucao: Mapped["Devolucao"] = relationship(back_populates="itens")
+
+
 TENANT_SCOPED_TABLES = (
     Contador.__tablename__,
     Venda.__tablename__,
@@ -316,4 +425,6 @@ TENANT_SCOPED_TABLES = (
     Pagamento.__tablename__,
     Caixa.__tablename__,
     MovimentoCaixa.__tablename__,
+    Devolucao.__tablename__,
+    ItemDevolucao.__tablename__,
 )

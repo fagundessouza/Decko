@@ -27,6 +27,9 @@ provides = [
   "pdv.venda.write",
   "pdv.venda.finalizar",
   "pdv.venda.cancelar",
+  # Devolver dinheiro nao e a mesma autoridade que vender: venda finalizada nao e
+  # cancelada, ela ganha uma devolucao, e quem pode fazer isso a loja decide.
+  "pdv.venda.devolver",
   "pdv.venda.identificar",
   "pdv.caixa.abrir",
   # Separada de abrir pelo mesmo motivo que `pdv.venda.finalizar` e de `pdv.venda.write`:

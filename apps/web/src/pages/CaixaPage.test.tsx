@@ -38,6 +38,10 @@ function umaConferencia(sobre: Partial<Conferencia> = {}): Conferencia {
     por_operador: [
       { operador_id: "u-1", operador_nome: "Maria Operadora", vendas: 4, valor: "40.00" },
     ],
+    devolucoes: 0,
+    devolvido: "0.00",
+    devolvido_em_especie: "0.00",
+    avarias: [],
     ...sobre,
   };
 }
@@ -121,5 +125,51 @@ describe("CaixaPage", () => {
     expect(de.getMinutes()).toBe(0);
     expect(ate.getHours()).toBe(23);
     expect(ate.getTime()).toBeGreaterThan(de.getTime());
+  });
+
+  it("desconta da gaveta o que foi devolvido em espécie", async () => {
+    // Vinte em espécie entraram, cinco voltaram ao cliente: a gaveta tem de ter quinze.
+    // Sem este desconto a conferência acusaria falta todo dia em que a loja devolve algo —
+    // e um número que nunca bate deixa de ser conferido na segunda semana.
+    vi.mocked(pdv.conferencia).mockResolvedValue(
+      umaConferencia({ devolucoes: 1, devolvido: "5.00", devolvido_em_especie: "5.00" }),
+    );
+    await contar("15,00");
+
+    expect(await screen.findByText("Bateu certo.")).toBeTruthy();
+    expect(screen.getByText("Devolvido em espécie")).toBeTruthy();
+  });
+
+  it("devolução no cartão não mexe na conta da gaveta", async () => {
+    // O cliente recebeu pela adquirente, não pela gaveta: os vinte em espécie continuam lá.
+    vi.mocked(pdv.conferencia).mockResolvedValue(
+      umaConferencia({ devolucoes: 1, devolvido: "5.00", devolvido_em_especie: "0.00" }),
+    );
+    await contar("20,00");
+
+    expect(await screen.findByText("Bateu certo.")).toBeTruthy();
+    expect(screen.getByText(/Devoluções \(1\)/)).toBeTruthy();
+  });
+
+  it("lista as avarias à parte, porque elas não são estoque", async () => {
+    vi.mocked(pdv.conferencia).mockResolvedValue(
+      umaConferencia({
+        avarias: [
+          {
+            produto_id: "p-1",
+            descricao: "Refrigerante 2L",
+            unidade_id: "un-1",
+            unidade_simbolo: "UN",
+            quantidade: "2.000000",
+          },
+        ],
+      }),
+    );
+    await contar("20,00");
+
+    // Contar avaria como estoque faria o sistema dizer que dá para vender o que quebrou.
+    expect(await screen.findByText("Avarias e trocas")).toBeTruthy();
+    expect(screen.getByText("Refrigerante 2L")).toBeTruthy();
+    expect(screen.getByText("2 UN")).toBeTruthy();
   });
 });

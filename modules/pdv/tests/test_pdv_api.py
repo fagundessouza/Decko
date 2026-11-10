@@ -566,3 +566,197 @@ async def test_cartao_nao_entra_na_conta_da_gaveta(client: AsyncClient) -> None:
 
     # Só espécie está na gaveta. Conferir o que não se conta é ruído.
     assert Decimal(fechado["esperado"]) == Decimal("10.00")
+
+
+# ------------------------------------------------------------------- devolução de venda
+
+
+async def _devolver(
+    client: AsyncClient,
+    loja: Loja,
+    venda: dict,
+    *,
+    quantidade: str = "1",
+    destino: str = "estoque",
+    forma: str = "dinheiro",
+    motivo: str = "Cliente trouxe de volta",
+):
+    return await client.post(
+        f"{PDV}/vendas/{venda['id']}/devolucoes",
+        headers=_auth(loja),
+        json={
+            "itens": [
+                {
+                    "venda_item_id": venda["itens"][0]["id"],
+                    "quantidade": quantidade,
+                    "destino": destino,
+                }
+            ],
+            "forma": forma,
+            "motivo": motivo,
+        },
+    )
+
+
+async def test_devolucao_em_especie_sai_da_gaveta(client: AsyncClient) -> None:
+    """O dinheiro devolvido sai do mesmo lugar em que a venda o pôs."""
+    loja = await _loja(client)
+    caixa = await _abrir_caixa(client, loja, "0.00")
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    venda = await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+    devolvida = await _devolver(client, loja, venda)
+
+    assert devolvida.status_code == 201, devolvida.text
+    assert Decimal(devolvida.json()["total"]) == Decimal("10.00")
+    # A devolução cai na sessão de quem a registrou.
+    assert devolvida.json()["caixa_id"] == caixa["id"]
+
+    fechado = (
+        await client.post(
+            f"{PDV}/caixa/{caixa['id']}/fechar", headers=_auth(loja), json={"contado": "0.00"}
+        )
+    ).json()
+    # Entrou dez e saiu dez: a gaveta volta a zero, e bate.
+    assert Decimal(fechado["esperado"]) == Decimal("0.00")
+    assert Decimal(fechado["diferenca"]) == Decimal("0.00")
+
+
+async def test_devolucao_no_cartao_nao_mexe_na_gaveta(client: AsyncClient) -> None:
+    """Estorno no cartão é da adquirente: não há dinheiro saindo daqui."""
+    loja = await _loja(client)
+    caixa = await _abrir_caixa(client, loja, "0.00")
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    venda = await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+    devolvida = await _devolver(client, loja, venda, forma="credito")
+    assert devolvida.status_code == 201, devolvida.text
+
+    fechado = (
+        await client.post(
+            f"{PDV}/caixa/{caixa['id']}/fechar", headers=_auth(loja), json={"contado": "10.00"}
+        )
+    ).json()
+    # Os dez da venda continuam na gaveta, porque não foi de lá que o cliente recebeu.
+    assert Decimal(fechado["esperado"]) == Decimal("10.00")
+
+
+async def test_devolucao_sem_caixa_aberto_fica_fora_de_sessao(client: AsyncClient) -> None:
+    """Mesma regra da venda: devolver não exige caixa aberto, e não é absorvido depois."""
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    venda = await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+    devolvida = await _devolver(client, loja, venda)
+
+    assert devolvida.status_code == 201, devolvida.text
+    assert devolvida.json()["caixa_id"] is None
+
+    caixa = await _abrir_caixa(client, loja, "0.00")
+    fechado = (
+        await client.post(
+            f"{PDV}/caixa/{caixa['id']}/fechar", headers=_auth(loja), json={"contado": "0.00"}
+        )
+    ).json()
+    assert Decimal(fechado["esperado"]) == Decimal("0.00")
+
+
+async def test_previa_diz_o_valor_e_nao_grava_nada(client: AsyncClient) -> None:
+    """O operador vê quanto sai antes de abrir a gaveta — e ver não é devolver."""
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+    venda = await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+
+    previa = await client.post(
+        f"{PDV}/vendas/{venda['id']}/devolucoes/previa",
+        headers=_auth(loja),
+        json={"itens": [{"venda_item_id": venda["itens"][0]["id"], "quantidade": "1"}]},
+    )
+    assert previa.status_code == 200, previa.text
+    assert Decimal(previa.json()["total"]) == Decimal("10.00")
+
+    depois = (
+        await client.get(f"{PDV}/vendas/{venda['id']}/devolucoes", headers=_auth(loja))
+    ).json()
+    assert depois["devolucoes"] == []
+    assert Decimal(depois["linhas"][0]["resta"]) == Decimal(1)
+
+
+async def test_ver_devolucoes_mostra_o_que_ainda_da_para_devolver(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    venda = await client.post(f"{PDV}/vendas", headers=_auth(loja))
+    venda_id = venda.json()["id"]
+    await client.post(
+        f"{PDV}/vendas/{venda_id}/itens",
+        headers=_auth(loja),
+        json={"produto_id": produto_id, "quantidade": "3"},
+    )
+    await client.post(
+        f"{PDV}/vendas/{venda_id}/pagamentos",
+        headers=_auth(loja),
+        json={"forma": "dinheiro", "valor": "30.00"},
+    )
+    fechada = (await client.post(f"{PDV}/vendas/{venda_id}/finalizar", headers=_auth(loja))).json()
+
+    await _devolver(client, loja, fechada, quantidade="1")
+
+    corpo = (await client.get(f"{PDV}/vendas/{venda_id}/devolucoes", headers=_auth(loja))).json()
+    assert Decimal(corpo["devolvido"]) == Decimal("10.00")
+    assert Decimal(corpo["linhas"][0]["devolvida"]) == Decimal(1)
+    assert Decimal(corpo["linhas"][0]["resta"]) == Decimal(2)
+    assert Decimal(corpo["linhas"][0]["valor_resta"]) == Decimal("20.00")
+
+
+async def test_conferencia_mostra_o_que_voltou_e_as_avarias(client: AsyncClient) -> None:
+    """Sem isto a gaveta não fecha numa loja que devolve: o dinheiro saiu e ninguém viu."""
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    venda = await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+    await _devolver(client, loja, venda, destino="avaria", motivo="Veio trincada")
+
+    corpo = (
+        await client.get(f"{PDV}/conferencia", headers=_auth(loja), params=_periodo_de_hoje())
+    ).json()
+
+    assert corpo["devolucoes"] == 1
+    assert Decimal(corpo["devolvido"]) == Decimal("10.00")
+    assert Decimal(corpo["devolvido_em_especie"]) == Decimal("10.00")
+    # A avaria aparece aqui, e não no saldo do produto: é a pilha que espera o fornecedor.
+    assert corpo["avarias"] == [
+        {
+            "produto_id": produto_id,
+            "descricao": "Pão francês",
+            "unidade_id": await _unidade_base(client, loja),
+            "unidade_simbolo": "UN",
+            "quantidade": "1.000000",
+        }
+    ]
+
+
+async def test_venda_achada_pelo_numero_do_cupom(client: AsyncClient) -> None:
+    """É assim que a tela de devolução acha a venda: o cliente traz o cupom, não o id."""
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    primeira = await _venda_fechada(client, loja, produto_id, forma="pix", valor="10.00")
+    await _venda_fechada(client, loja, produto_id, forma="pix", valor="10.00")
+
+    achadas = (
+        await client.get(
+            f"{PDV}/vendas", headers=_auth(loja), params={"numero": primeira["numero"]}
+        )
+    ).json()
+    assert [v["id"] for v in achadas] == [primeira["id"]]
+
+
+async def test_devolucao_sem_motivo_e_recusada(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+    venda = await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+
+    recusada = await _devolver(client, loja, venda, motivo="")
+    # Recusa do próprio esquema: motivo vazio não chega ao serviço.
+    assert recusada.status_code == 422, recusada.text

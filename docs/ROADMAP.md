@@ -328,7 +328,14 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       porta serial no iOS, e TEF pede agente local no Windows — o que cria um segundo
       executável para instalar e atualizar na casa do cliente. O leitor de código de barras
       **já funciona** sem nada disso, porque se apresenta como teclado
-- [ ] Devolução de venda. Hoje venda finalizada não é cancelada, e a recusa diz por quê
+- [x] **Devolução de venda.** Documento novo que aponta para a venda, que continua
+      `finalizada` e congelada. Parcial por linha, com **destino por linha**: o que volta
+      para vender entra na razão como entrada, o que tem defeito não entra e vira avaria.
+      Devolução em espécie sai da gaveta e o fechamento já conta com ela; cartão e Pix só
+      ficam registrados, porque o estorno é da adquirente. O valor é rateado pelo servidor,
+      com o desconto da venda embutido. Decisão na atualização de 10/11/2026 da
+      `docs/adr/0008-ponto-de-venda.md`; o requisito, em
+      `docs/discovery/pdv-devolucao-de-venda.md`
 - [ ] PDV offline-first
 - [ ] Verticais sobre a base. **Cada uma exige documento real da operação**, como o agro
       exigiu o talão do MAPA. Sem isso vira suposição, que é o defeito que o projeto
