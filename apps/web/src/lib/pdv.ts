@@ -82,6 +82,34 @@ export interface LinhaDoOperador {
   valor: string;
 }
 
+export type TipoMovimentoCaixa = "sangria" | "suprimento";
+
+export interface MovimentoCaixa {
+  id: string;
+  tipo: TipoMovimentoCaixa;
+  valor: string;
+  motivo: string;
+  created_at: string;
+}
+
+/** Uma sessão de caixa: o que passou pelas mãos de um operador, entre abrir e fechar.
+ *
+ * Repare no que **não** vem: o esperado, enquanto a sessão está aberta. É a conferência
+ * cega da ADR 0008 valendo também na rede — devolvê-lo bastaria abrir o inspetor para ver
+ * o número antes de contar. Ele chega na resposta do fechamento. */
+export interface Caixa {
+  id: string;
+  operador_id: string;
+  aberto_em: string;
+  fechado_em: string | null;
+  abertura: string;
+  contado: string | null;
+  esperado: string | null;
+  diferenca: string | null;
+  observacao: string | null;
+  movimentos: MovimentoCaixa[];
+}
+
 /** O que entrou num período. Leitura do que aconteceu, não fechamento de caixa. */
 export interface Conferencia {
   de: string;
@@ -98,6 +126,22 @@ export interface Conferencia {
 }
 
 export const pdv = {
+  caixaAberto: (): Promise<Caixa | null> => authedJson("/pdv/caixa/aberto"),
+
+  abrirCaixa: (abertura: string): Promise<Caixa> =>
+    authedJson("/pdv/caixa", { method: "POST", body: { abertura } }),
+
+  movimentarCaixa: (
+    caixaId: string,
+    body: { tipo: TipoMovimentoCaixa; valor: string; motivo: string },
+  ): Promise<Caixa> =>
+    authedJson(`/pdv/caixa/${caixaId}/movimentos`, { method: "POST", body }),
+
+  fecharCaixa: (
+    caixaId: string,
+    body: { contado: string; observacao?: string | null },
+  ): Promise<Caixa> => authedJson(`/pdv/caixa/${caixaId}/fechar`, { method: "POST", body }),
+
   /* Os instantes vão com fuso, de propósito: o dia que importa é o dia local de quem
    * está no balcão, e o servidor não tem como adivinhar qual é. */
   conferencia: (de: Date, ate: Date): Promise<Conferencia> =>

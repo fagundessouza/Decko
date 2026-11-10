@@ -31,6 +31,9 @@ const AplicativosPage = lazy(() =>
 const AssinaturasPage = lazy(() =>
   import("./pages/AssinaturasPage").then((m) => ({ default: m.AssinaturasPage })),
 );
+const MeuCaixaPage = lazy(() =>
+  import("./pages/MeuCaixaPage").then((m) => ({ default: m.MeuCaixaPage })),
+);
 const CaixaPage = lazy(() =>
   import("./pages/CaixaPage").then((m) => ({ default: m.CaixaPage })),
 );
@@ -110,6 +113,7 @@ type View =
   | { name: "nota"; notaId: string }
   | { name: "produtos" }
   | { name: "caixa" }
+  | { name: "meu-caixa" }
   | { name: "conferencia" }
   | { name: "novoProduto" }
   | { name: "produto"; produto: Produto }
@@ -133,6 +137,7 @@ const SECTION: Record<View["name"], string> = {
   nota: "compras",
   produtos: "comercial",
   caixa: "pdv",
+  "meu-caixa": "pdv",
   conferencia: "comercial",
   novoProduto: "comercial",
   produto: "comercial",
@@ -271,6 +276,12 @@ export default function App() {
       label: "Ponto de venda",
       icon: <ModuleIcon name="register" size={22} />,
       onSelect: () => setView({ name: "pdv" }),
+    });
+    items.push({
+      key: "meu-caixa",
+      label: "Meu caixa",
+      icon: <ModuleIcon name="register" size={22} />,
+      onSelect: () => setView({ name: "meu-caixa" }),
     });
     items.push({
       key: "caixa",
@@ -462,6 +473,8 @@ export default function App() {
       )}
 
       {view.name === "aplicativos" && <AplicativosPage onChanged={reloadSession} />}
+
+      {view.name === "meu-caixa" && <MeuCaixaPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "caixa" && <CaixaPage onBack={() => setView({ name: "home" })} />}
 

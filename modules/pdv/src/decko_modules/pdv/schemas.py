@@ -187,6 +187,3 @@ class CaixaOut(BaseModel):
     diferenca: Decimal | None
     observacao: str | None
     movimentos: list[MovimentoCaixaOut]
-    # O que deveria haver na gaveta neste instante. Some depois de fechado: aí o que vale
-    # é o `esperado`, congelado no momento em que a contagem foi feita.
-    esperado_agora: Decimal | None

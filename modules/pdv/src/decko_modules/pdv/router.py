@@ -115,9 +115,10 @@ async def _caixa_visto(session: SessionDep, caixa) -> dict:
         .scalars()
         .all()
     )
-    esperado_agora = (
-        None if caixa.fechado_em is not None else await service.esperado_do_caixa(session, caixa)
-    )
+    # O esperado NÃO sai enquanto o caixa está aberto, e isso é a conferência cega da
+    # ADR 0008 valendo também na rede: devolvê-lo aqui bastaria abrir o inspetor para ver
+    # o número antes de contar. Ele aparece no fechamento, depois da contagem, e fica
+    # guardado na sessão fechada para quem for auditar.
     # Campo a campo, e não varrendo `__table__.columns`: `updated_at` tem valor gerado
     # pelo banco na atualização, então fica expirado depois do flush do fechamento. Lê-lo
     # dispara uma busca síncrona dentro de função assíncrona, que é o MissingGreenlet.
@@ -133,7 +134,6 @@ async def _caixa_visto(session: SessionDep, caixa) -> dict:
         "diferenca": caixa.diferenca,
         "observacao": caixa.observacao,
         "movimentos": list(movimentos),
-        "esperado_agora": esperado_agora,
     }
 
 
