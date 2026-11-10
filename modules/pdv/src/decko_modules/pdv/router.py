@@ -229,7 +229,10 @@ async def fechar_caixa(
 @router.get("/conferencia", response_model=ConferenciaOut)
 async def conferencia(
     session: SessionDep,
-    _: Annotated[object, Depends(require("pdv.venda.read"))],
+    # Permissão própria, e não `pdv.venda.read`: este relatório soma o dia inteiro entre
+    # operadores e mostra o esperado em espécie. Quem opera precisa ler venda para vender,
+    # e isso lhe entregaria o número antes da contagem — ver ADR 0008 e ADR 0020.
+    _: Annotated[object, Depends(require("pdv.caixa.conferir"))],
     de: Annotated[datetime, Query(description="Início do período, com fuso.")],
     ate: Annotated[datetime, Query(description="Fim do período, com fuso.")],
 ) -> service.Conferencia:

@@ -20,6 +20,18 @@ ALGORITHM = "HS256"
 _hasher = PasswordHasher()
 
 
+# Oito, que é o piso do NIST 800-63B. O valor anterior, 12, era escolha arbitrária e
+# recusava senha que o próprio dono da conta queria usar.
+#
+# Comprimento alto não é o que protege a conta: o que protege é o hash Argon2id, o tempo
+# de resposta igualado no login e a recusa de senha conhecidamente vazada (ADR 0011).
+#
+# Mora aqui, e não no comando de bootstrap, porque o cadastro de usuário pela interface
+# precisa do mesmo piso — dois números diferentes para a mesma coisa é como um deles fica
+# para trás.
+MIN_PASSWORD_LENGTH = 8
+
+
 def hash_password(password: str) -> str:
     return _hasher.hash(password)
 

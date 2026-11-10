@@ -34,6 +34,17 @@ Objetivo: uma pessoa consegue entrar no sistema, e a empresa dela está isolada 
 - [x] `apps/api`: FastAPI com configuração, health check e Alembic
 - [x] Carregador de módulos lendo `module.toml`, com resolução de dependências
 - [x] `modules/core`: empresa, usuário, papéis, permissões e auditoria
+- [x] **Administração da equipe pelo dono da loja.** Até 10/11/2026 as permissões
+      `core.user.*` e `core.role.*` existiam no manifesto e **não tinham rota nenhuma por
+      trás**: só o `decko-admin bootstrap`, na linha de comando do servidor, criava gente.
+      Agora o dono cria a pessoa, escolhe o papel e liga ou desliga o acesso, com tudo na
+      trilha. Papel sugerido é declarado pelo manifesto do módulo (`[[roles]]`), criado na
+      empresa que não o tem e **nunca mais tocado**. Quem é criado entra com senha inicial
+      e é obrigado a trocá-la — sem isso o dono conhece a senha do operador e "quem fez"
+      é contestável. Decisão: `docs/adr/0020-operador-supervisor-e-papeis.md`
+- [ ] Criar e editar papel pela interface (`core.role.write`). Hoje o dono **escolhe**
+      entre os papéis semeados, que é o que o Odoo tem nativamente — montar um do zero é
+      o passo seguinte
 - [x] Autenticação: Argon2id, JWT de acesso e refresh token rotativo e revogável
 - [x] Isolamento multi-tenant com Row Level Security, provado por teste contra banco real
 - [x] Comando `decko-admin bootstrap`: cria a empresa e o administrador, com o papel de

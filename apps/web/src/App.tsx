@@ -40,6 +40,12 @@ const CaixaPage = lazy(() =>
 const DevolucaoPage = lazy(() =>
   import("./pages/DevolucaoPage").then((m) => ({ default: m.DevolucaoPage })),
 );
+const EquipePage = lazy(() =>
+  import("./pages/EquipePage").then((m) => ({ default: m.EquipePage })),
+);
+const TrocarSenhaPage = lazy(() =>
+  import("./pages/TrocarSenhaPage").then((m) => ({ default: m.TrocarSenhaPage })),
+);
 const ChooseProfilePage = lazy(() =>
   import("./pages/ChooseProfilePage").then((m) => ({ default: m.ChooseProfilePage })),
 );
@@ -118,6 +124,7 @@ type View =
   | { name: "caixa" }
   | { name: "meu-caixa" }
   | { name: "devolucao" }
+  | { name: "equipe" }
   | { name: "conferencia" }
   | { name: "novoProduto" }
   | { name: "produto"; produto: Produto }
@@ -143,6 +150,7 @@ const SECTION: Record<View["name"], string> = {
   caixa: "caixa",
   "meu-caixa": "meu-caixa",
   devolucao: "devolucao",
+  equipe: "equipe",
   conferencia: "comercial",
   novoProduto: "comercial",
   produto: "comercial",
@@ -200,11 +208,39 @@ export default function App() {
   const canEditCompany = info.permissions.includes("core.tenant.update");
   const canInstall = info.permissions.includes("core.module.activate");
   const canReadAudit = info.permissions.includes("core.audit.read");
+  const canManageTeam = info.permissions.includes("core.user.read");
+
+  // O menu do PDV passa a esconder por **permissão**, e não só por módulo contratado: o
+  // operador não pode ver porta que o servidor vai fechar na cara dele com 403 — ver
+  // docs/adr/0020-operador-supervisor-e-papeis.md, decisão 5.
+  const podeAbrirCaixa = info.permissions.includes("pdv.caixa.abrir");
+  const podeDevolver = info.permissions.includes("pdv.venda.devolver");
+  const podeConferir = info.permissions.includes("pdv.caixa.conferir");
 
   // A sessão é relida porque o menu depende dos módulos ativos, que acabaram de mudar no
   // servidor. Com token novo, porque instalar um aplicativo também concede permissões —
   // e as do token são as de quando ele foi emitido.
   const reloadSession = () => void renewSession().then(setInfo);
+
+  // Quem entrou com a senha que a loja definiu não passa daqui. Substitui a aplicação em
+  // vez de aparecer dentro dela: enquanto a senha for a do dono, "quem fez" é contestável
+  // e a trilha do caixa não vale nada — ver a decisão 6 da
+  // docs/adr/0020-operador-supervisor-e-papeis.md.
+  if (info.user.must_change_password) {
+    return (
+      <div className="min-h-dvh bg-bg">
+        <Suspense
+          fallback={
+            <Page>
+              <p className="animate-fade text-base text-ink-muted">Carregando…</p>
+            </Page>
+          }
+        >
+          <TrocarSenhaPage onTrocada={reloadSession} />
+        </Suspense>
+      </div>
+    );
+  }
 
   // Empresa recém-criada não tem nada contratado. Em vez de uma tela vazia explicando que
   // está vazia, a primeira coisa é a escolha do ramo — ver ADR 0005.
@@ -284,25 +320,45 @@ export default function App() {
       icon: <ModuleIcon name="register" size={22} />,
       onSelect: () => setView({ name: "pdv" }),
       children: [
-        {
-          key: "meu-caixa",
-          label: "Meu caixa",
-          icon: null,
-          onSelect: () => setView({ name: "meu-caixa" }),
-        },
-        {
-          key: "devolucao",
-          label: "Devolução de venda",
-          icon: null,
-          onSelect: () => setView({ name: "devolucao" }),
-        },
-        {
-          key: "caixa",
-          label: "Conferência de caixa",
-          icon: null,
-          onSelect: () => setView({ name: "caixa" }),
-        },
+        ...(podeAbrirCaixa
+          ? [
+              {
+                key: "meu-caixa",
+                label: "Meu caixa",
+                icon: null,
+                onSelect: () => setView({ name: "meu-caixa" }),
+              },
+            ]
+          : []),
+        ...(podeDevolver
+          ? [
+              {
+                key: "devolucao",
+                label: "Devolução de venda",
+                icon: null,
+                onSelect: () => setView({ name: "devolucao" }),
+              },
+            ]
+          : []),
+        ...(podeConferir
+          ? [
+              {
+                key: "caixa",
+                label: "Conferência de caixa",
+                icon: null,
+                onSelect: () => setView({ name: "caixa" }),
+              },
+            ]
+          : []),
       ],
+    });
+  }
+  if (canManageTeam) {
+    items.push({
+      key: "equipe",
+      label: "Equipe",
+      icon: <ModuleIcon name="people" size={22} />,
+      onSelect: () => setView({ name: "equipe" }),
     });
   }
   if (hasClientes) {
@@ -494,6 +550,10 @@ export default function App() {
       {view.name === "caixa" && <CaixaPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "devolucao" && <DevolucaoPage onBack={() => setView({ name: "home" })} />}
+
+      {view.name === "equipe" && (
+        <EquipePage onBack={() => setView({ name: "home" })} meuId={info.user.id} />
+      )}
 
       {view.name === "conferencia" && (
         <ConferenciaPage onBack={() => setView({ name: "home" })} />

@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field
 
 from decko.documents import pydantic_cpf_cnpj
+from decko_modules.core.security import MIN_PASSWORD_LENGTH
 
 
 def _optional_cnpj(value: str | None) -> str | None:
@@ -163,6 +164,8 @@ class UserOut(BaseModel):
     full_name: str
     is_active: bool
     last_login_at: datetime | None
+    # A tela precisa saber na entrada: quem tem senha inicial não passa da troca.
+    must_change_password: bool = False
 
 
 class SessionOut(BaseModel):
@@ -172,3 +175,57 @@ class SessionOut(BaseModel):
     # Módulos ativos nesta empresa. A interface monta o menu a partir daqui: ter a
     # permissão de um módulo não significa que a empresa o contratou.
     active_modules: list[str]
+
+
+# ----------------------------------------------------------------------- equipe da loja
+
+
+class PapelResumoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    description: str | None
+
+
+class PapelOut(PapelResumoOut):
+    """O papel e o que ele concede.
+
+    As permissões vêm na resposta porque o dono precisa ver o que está dando antes de dar.
+    """
+
+    permissoes: list[str]
+
+
+class MembroOut(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    full_name: str
+    is_active: bool
+    last_login_at: datetime | None
+    # Quem ainda não trocou a senha inicial ainda não é dono da própria credencial.
+    must_change_password: bool
+    papeis: list[PapelResumoOut]
+
+
+class MembroIn(BaseModel):
+    email: EmailStr
+    full_name: str = Field(min_length=1, max_length=200)
+    # Inicial: o sistema obriga a troca na primeira entrada — ADR 0020, decisão 6.
+    senha_inicial: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=256)
+    papeis: list[uuid.UUID] = Field(default_factory=list)
+
+
+class MembroPatchIn(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class PapeisIn(BaseModel):
+    """Substitui o conjunto: a tela mostra tudo, e quem desmarca espera que saia."""
+
+    papeis: list[uuid.UUID] = Field(default_factory=list)
+
+
+class TrocaDeSenhaIn(BaseModel):
+    senha_atual: str = Field(min_length=1, max_length=256)
+    nova_senha: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=256)

@@ -19,6 +19,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -75,6 +76,13 @@ class User(TenantMixin, TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Quem foi criado pelo dono entra com senha inicial e **tem** de trocá-la. Sem isso a
+    # trilha não vale nada: se o dono conhece a senha do operador, "quem fez" é sempre
+    # contestável — ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 6.
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
 
     tenant: Mapped["Tenant"] = relationship(back_populates="users")
     roles: Mapped[list["Role"]] = relationship(secondary="user_role", back_populates="users")

@@ -41,17 +41,10 @@ from decko_modules.core.models import (
     User,
     UserRole,
 )
-from decko_modules.core.security import hash_password
+from decko_modules.core.security import MIN_PASSWORD_LENGTH, hash_password
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
-# Oito, que é o piso do NIST 800-63B. O valor anterior, 12, era escolha arbitrária e
-# recusava senha que o próprio dono da conta queria usar.
-#
-# Comprimento alto não é o que protege esta conta: o que protege é o hash Argon2id e o
-# tempo de resposta igualado no login. O que falta aqui, e vale mais que subir o número,
-# é recusar senha conhecidamente vazada — está no roadmap.
-MIN_PASSWORD_LENGTH = 8
 PASSWORD_ENV_VAR = "DECKO_ADMIN_PASSWORD"  # noqa: S105
 
 

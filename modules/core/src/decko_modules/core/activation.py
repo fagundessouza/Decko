@@ -16,7 +16,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.activation import register_activation_guard, register_permission_reconciler
+from decko.config import get_settings
 from decko.db import SessionFactory, bind_tenant, get_session
+from decko.modules import discover
 from decko.seed import apply_seed
 from decko_modules.core.deps import CurrentPrincipal
 from decko_modules.core.models import Role, RolePermission, Tenant, TenantModule
@@ -87,6 +89,55 @@ async def grant_module_permissions(
     return concedidas
 
 
+async def garantir_papeis_sugeridos(
+    session: AsyncSession, *, tenant_id: uuid.UUID, ativos: Sequence[str]
+) -> list[str]:
+    """Cria os papéis que os módulos ativos sugerem e que a empresa ainda não tem.
+
+    **Cria o que falta e não toca no que existe.** Um papel que a loja já ajustou não pode
+    ser desfeito pela subida seguinte da aplicação — semente é ponto de partida, não
+    configuração imposta para sempre (ADR 0010, e decisão 3 da ADR 0020). É a mesma regra
+    que ``grant_module_permissions`` já segue para papéis do cliente.
+
+    Só concede permissão declarada por módulo que a empresa tem ativo: um papel que cita
+    ``clientes.cliente.read`` numa empresa sem o módulo `clientes` entraria com uma
+    permissão que não leva a lugar nenhum.
+    """
+    manifests = discover(get_settings().modules_dir)
+    # O núcleo entra sempre: ele não aparece em `tenant_module` porque é obrigatório.
+    presentes = {nome for nome in manifests if nome in ativos or nome == "core"}
+
+    declaradas = {permissao for nome in presentes for permissao in manifests[nome].permissions}
+
+    existentes = set(
+        (await session.execute(select(Role.name).where(Role.tenant_id == tenant_id)))
+        .scalars()
+        .all()
+    )
+
+    criados: list[str] = []
+    for nome in sorted(presentes):
+        for papel in manifests[nome].roles:
+            if papel.name in existentes:
+                continue
+
+            role = Role(tenant_id=tenant_id, name=papel.name, description=papel.description or None)
+            session.add(role)
+            await session.flush()
+
+            for permissao in sorted(set(papel.grants) & declaradas):
+                session.add(
+                    RolePermission(tenant_id=tenant_id, role_id=role.id, permission=permissao)
+                )
+
+            existentes.add(papel.name)
+            criados.append(papel.name)
+
+    if criados:
+        await session.flush()
+    return criados
+
+
 async def activate(
     session: AsyncSession,
     *,
@@ -114,6 +165,12 @@ async def activate(
     # A semente é do módulo, escrita pelo serviço dele. O núcleo só dispara — ver
     # docs/adr/0010-dado-semente-com-identidade-estavel.md.
     await apply_seed(session, module_name=module_name, tenant_id=tenant_id)
+
+    # Os papéis que o módulo sugere entram junto, para a empresa não precisar esperar a
+    # próxima subida da aplicação só para ter um papel de operador.
+    await garantir_papeis_sugeridos(
+        session, tenant_id=tenant_id, ativos=await active_modules(session, tenant_id)
+    )
     return True
 
 
@@ -181,6 +238,10 @@ async def reconciliar_permissoes(declaradas: Mapping[str, Sequence[str]]) -> int
             concedidas += len(
                 await grant_module_permissions(session, tenant_id=tenant_id, permissions=permissoes)
             )
+            # Alcança quem já usava o módulo antes de ele passar a sugerir papéis. Pelo
+            # mesmo motivo do reconciliador: conceder só na instalação não alcança
+            # ninguém que já tinha instalado.
+            await garantir_papeis_sugeridos(session, tenant_id=tenant_id, ativos=ativos)
 
     return concedidas
 

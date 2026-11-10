@@ -24,6 +24,23 @@ class ModuleError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class RoleSuggestion:
+    """Um papel que o módulo sugere para a empresa que o contrata.
+
+    Fica no manifesto pelo mesmo motivo que a permissão e a vitrine ficam: senão
+    acrescentar um módulo exigiria lembrar de editar dois lugares, e um deles ficaria para
+    trás. Ver ``docs/adr/0020-operador-supervisor-e-papeis.md``, decisão 2.
+
+    É **sugestão**: criada na empresa que não a tem, e nunca mais tocada depois. O que o
+    operador de caixa pode fazer é decisão da loja, não do fornecedor.
+    """
+
+    name: str
+    description: str
+    grants: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ModuleManifest:
     name: str
     label: str
@@ -33,6 +50,7 @@ class ModuleManifest:
     required: bool = False
     branch_label: str | None = None
     permissions: tuple[str, ...] = ()
+    roles: tuple[RoleSuggestion, ...] = ()
     menu: dict[str, object] = field(default_factory=dict)
 
     # Como o módulo aparece na vitrine. Fica no manifesto, e não numa lista na interface,
@@ -60,6 +78,14 @@ class ModuleManifest:
                 required=bool(module.get("required", False)),
                 branch_label=data.get("migrations", {}).get("branch_label"),
                 permissions=tuple(data.get("permissions", {}).get("provides", [])),
+                roles=tuple(
+                    RoleSuggestion(
+                        name=papel["name"],
+                        description=papel.get("description", ""),
+                        grants=tuple(papel.get("grants", [])),
+                    )
+                    for papel in data.get("roles", [])
+                ),
                 menu=menu,
                 category=module.get("category", "Outros"),
                 summary=module.get("summary", ""),

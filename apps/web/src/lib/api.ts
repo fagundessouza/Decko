@@ -24,6 +24,8 @@ export interface UserSummary {
   full_name: string;
   is_active: boolean;
   last_login_at: string | null;
+  /** Quem entrou com a senha que o dono escolheu ainda não é dono da própria credencial. */
+  must_change_password: boolean;
 }
 
 export interface TenantSummary {
@@ -269,4 +271,53 @@ export const tenant = {
 
   save: (body: Omit<TenantProfile, "id" | "slug">): Promise<TenantProfile> =>
     authedJson("/core/tenant", { method: "PUT", body }),
+};
+
+export interface PapelResumo {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+export interface Papel extends PapelResumo {
+  /** O que o papel concede. O dono precisa ver o que está dando antes de dar. */
+  permissoes: string[];
+}
+
+export interface Membro {
+  id: string;
+  email: string;
+  full_name: string;
+  is_active: boolean;
+  last_login_at: string | null;
+  must_change_password: boolean;
+  papeis: PapelResumo[];
+}
+
+/** A equipe da loja: quem opera, e o que cada um alcança.
+ *
+ * Decisão e motivos: `docs/adr/0020-operador-supervisor-e-papeis.md`. */
+export const equipe = {
+  papeis: (): Promise<Papel[]> => authedJson("/core/papeis"),
+
+  listar: (): Promise<Membro[]> => authedJson("/core/users"),
+
+  criar: (body: {
+    email: string;
+    full_name: string;
+    senha_inicial: string;
+    papeis: string[];
+  }): Promise<Membro> => authedJson("/core/users", { method: "POST", body }),
+
+  renomear: (userId: string, full_name: string): Promise<Membro> =>
+    authedJson(`/core/users/${userId}`, { method: "PATCH", body: { full_name } }),
+
+  definirPapeis: (userId: string, papeis: string[]): Promise<Membro> =>
+    authedJson(`/core/users/${userId}/papeis`, { method: "PUT", body: { papeis } }),
+
+  definirSituacao: (userId: string, ativo: boolean): Promise<Membro> =>
+    authedJson(`/core/users/${userId}/situacao?ativo=${ativo}`, { method: "POST" }),
+
+  trocarSenha: (senha_atual: string, nova_senha: string): Promise<void> =>
+    authedJson("/core/auth/senha", { method: "POST", body: { senha_atual, nova_senha } }),
 };

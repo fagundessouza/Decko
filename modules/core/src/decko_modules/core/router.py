@@ -1,20 +1,29 @@
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from decko.config import get_settings
 from decko.db import get_session
 from decko.modules import ModuleManifest, dependents, with_dependencies
 from decko.profiles import Profile, modules_to_activate
 from decko.seed import apply_seed, has_seed
 from decko_modules.core import activation, audit, service
+from decko_modules.core.breach import SenhaVazadaError
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.core.models import Tenant, User
 from decko_modules.core.schemas import (
     AuditEntryOut,
     AuditPageOut,
     LoginRequest,
+    MembroIn,
+    MembroOut,
+    MembroPatchIn,
     ModuleOut,
+    PapeisIn,
+    PapelOut,
+    PapelResumoOut,
     ProfileOut,
     RefreshRequest,
     SeedResultOut,
@@ -22,6 +31,7 @@ from decko_modules.core.schemas import (
     TenantProfileIn,
     TenantProfileOut,
     TokenResponse,
+    TrocaDeSenhaIn,
 )
 
 router = APIRouter()
@@ -491,3 +501,252 @@ async def update_tenant(
         setattr(tenant, field, value)
     await session.flush()
     return tenant
+
+
+# ----------------------------------------------------------------------- equipe da loja
+#
+# O dono da loja administra a própria equipe. As permissões `core.user.*` e `core.role.*`
+# existiam no manifesto desde a primeira versão e não tinham rota nenhuma por trás: só o
+# comando `decko-admin bootstrap` criava gente, na linha de comando do servidor.
+#
+# Decisão: docs/adr/0020-operador-supervisor-e-papeis.md.
+
+
+def _invalido(exc: Exception) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+
+
+def _membro_visto(membro: service.Membro) -> MembroOut:
+    return MembroOut(
+        id=membro.user.id,
+        email=membro.user.email,
+        full_name=membro.user.full_name,
+        is_active=membro.user.is_active,
+        last_login_at=membro.user.last_login_at,
+        must_change_password=membro.user.must_change_password,
+        papeis=[PapelResumoOut.model_validate(p) for p in membro.papeis],
+    )
+
+
+async def _um_membro(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> MembroOut:
+    """Relê a pessoa com os papéis, depois de mexer.
+
+    Relê em vez de montar do objeto em memória pelo mesmo motivo do caixa: campo com valor
+    gerado pelo banco fica expirado depois do flush, e lê-lo dispara busca síncrona dentro
+    de função assíncrona.
+    """
+    for membro in await service.listar_membros(session, tenant_id):
+        if membro.user.id == user_id:
+            return _membro_visto(membro)
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pessoa não encontrada.")
+
+
+async def _carregar_membro(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> User:
+    user = await session.get(User, user_id)
+    if user is None or user.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pessoa não encontrada.")
+    return user
+
+
+@router.get("/papeis", response_model=list[PapelOut])
+async def listar_papeis(
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.role.read"))],
+) -> list[PapelOut]:
+    """Os papéis da empresa e o que cada um concede."""
+    return [
+        PapelOut(
+            id=linha.papel.id,
+            name=linha.papel.name,
+            description=linha.papel.description,
+            permissoes=linha.permissoes,
+        )
+        for linha in await service.listar_papeis(session, principal.tenant_id)
+    ]
+
+
+@router.get("/users", response_model=list[MembroOut])
+async def listar_usuarios(
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.user.read"))],
+) -> list[MembroOut]:
+    return [
+        _membro_visto(membro)
+        for membro in await service.listar_membros(session, principal.tenant_id)
+    ]
+
+
+@router.post("/users", response_model=MembroOut, status_code=status.HTTP_201_CREATED)
+async def criar_usuario(
+    payload: MembroIn,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.user.create"))],
+) -> MembroOut:
+    """Cria alguém da equipe, com senha inicial que ela será obrigada a trocar."""
+    try:
+        user = await service.criar_membro(
+            session,
+            tenant_id=principal.tenant_id,
+            email=payload.email,
+            full_name=payload.full_name,
+            senha_inicial=payload.senha_inicial,
+            role_ids=payload.papeis,
+            breach_check=get_settings().breach_check_enabled,
+        )
+    except SenhaVazadaError as exc:
+        raise _invalido(exc) from exc
+    except service.EquipeError as exc:
+        raise _invalido(exc) from exc
+
+    # A senha **não** entra na trilha, em forma nenhuma — ver o cabeçalho de `audit.py`.
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="user.create",
+        entity="user_account",
+        entity_id=str(user.id),
+        data={"email": user.email, "papeis": len(payload.papeis)},
+        ip=audit.ip_de(request),
+    )
+    return await _um_membro(session, principal.tenant_id, user.id)
+
+
+@router.patch("/users/{user_id}", response_model=MembroOut)
+async def atualizar_usuario(
+    user_id: uuid.UUID,
+    payload: MembroPatchIn,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.user.update"))],
+) -> MembroOut:
+    user = await _carregar_membro(session, principal.tenant_id, user_id)
+    if payload.full_name is not None:
+        try:
+            await service.renomear_membro(session, user=user, full_name=payload.full_name)
+        except service.EquipeError as exc:
+            raise _invalido(exc) from exc
+
+        audit.registrar(
+            session,
+            tenant_id=principal.tenant_id,
+            user_id=principal.user_id,
+            action="user.update",
+            entity="user_account",
+            entity_id=str(user.id),
+            data={"full_name": user.full_name},
+            ip=audit.ip_de(request),
+        )
+    return await _um_membro(session, principal.tenant_id, user_id)
+
+
+@router.put("/users/{user_id}/papeis", response_model=MembroOut)
+async def definir_papeis(
+    user_id: uuid.UUID,
+    payload: PapeisIn,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.role.assign"))],
+) -> MembroOut:
+    """Troca os papéis da pessoa pelos informados.
+
+    **Ninguém troca os próprios papéis.** Quem tirasse de si a permissão de administrar
+    ficaria trancado do lado de fora da própria empresa, sem caminho de volta pela
+    interface — e o único jeito de voltar seria a linha de comando do servidor.
+    """
+    if user_id == principal.user_id:
+        raise _invalido(
+            ValueError("Você não pode trocar os próprios papéis; peça a outro administrador.")
+        )
+
+    user = await _carregar_membro(session, principal.tenant_id, user_id)
+    try:
+        papeis = await service.definir_papeis(session, user=user, role_ids=payload.papeis)
+    except service.EquipeError as exc:
+        raise _invalido(exc) from exc
+
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="user.roles",
+        entity="user_account",
+        entity_id=str(user.id),
+        data={"papeis": [p.name for p in papeis]},
+        ip=audit.ip_de(request),
+    )
+    return await _um_membro(session, principal.tenant_id, user_id)
+
+
+@router.post("/users/{user_id}/situacao", response_model=MembroOut)
+async def definir_situacao(
+    user_id: uuid.UUID,
+    ativo: Annotated[bool, Query(description="Liga ou desliga o acesso da pessoa.")],
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.user.deactivate"))],
+) -> MembroOut:
+    """Liga ou desliga o acesso. O que a pessoa fez continua no histórico — não se apaga.
+
+    Desligar a si mesmo é recusado pelo mesmo motivo que trocar os próprios papéis.
+    """
+    if user_id == principal.user_id:
+        raise _invalido(ValueError("Você não pode desligar o próprio acesso."))
+
+    user = await _carregar_membro(session, principal.tenant_id, user_id)
+    await service.definir_situacao(session, user=user, ativo=ativo)
+
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="user.activate" if ativo else "user.deactivate",
+        entity="user_account",
+        entity_id=str(user.id),
+        ip=audit.ip_de(request),
+    )
+    return await _um_membro(session, principal.tenant_id, user_id)
+
+
+@router.post("/auth/senha", status_code=status.HTTP_204_NO_CONTENT)
+async def trocar_senha(
+    payload: TrocaDeSenhaIn,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+) -> None:
+    """Troca a própria senha. Não exige permissão: é da própria conta.
+
+    É por aqui que quem foi criado pelo dono deixa de usar a senha que o dono escolheu —
+    e é isso que torna a trilha capaz de dizer quem fez o quê.
+    """
+    user = await _carregar_membro(session, principal.tenant_id, principal.user_id)
+    try:
+        await service.trocar_senha(
+            session,
+            user=user,
+            senha_atual=payload.senha_atual,
+            nova_senha=payload.nova_senha,
+            breach_check=get_settings().breach_check_enabled,
+        )
+    except SenhaVazadaError as exc:
+        raise _invalido(exc) from exc
+    except service.EquipeError as exc:
+        raise _invalido(exc) from exc
+
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="user.password",
+        entity="user_account",
+        entity_id=str(user.id),
+        ip=audit.ip_de(request),
+    )

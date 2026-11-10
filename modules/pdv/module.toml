@@ -35,6 +35,52 @@ provides = [
   # Separada de abrir pelo mesmo motivo que `pdv.venda.finalizar` e de `pdv.venda.write`:
   # a loja decide se quem opera o caixa tambem o fecha.
   "pdv.caixa.fechar",
+  # O relatório do dia inteiro é do dono, e não de quem opera: ele soma todos os
+  # operadores e mostra o esperado em espécie. Exigir só `pdv.venda.read` — que o
+  # operador precisa ter para vender — entregava a ele o número antes da contagem, que é
+  # o mesmo vazamento que a conferência cega existe para impedir.
+  "pdv.caixa.conferir",
+]
+
+# Papéis sugeridos a quem contrata o PDV. Criados na empresa que não os tem, e nunca mais
+# tocados: o que o operador pode fazer é decisão da loja. Ver
+# docs/adr/0020-operador-supervisor-e-papeis.md, decisões 2 e 3.
+#
+# Só concedem permissão de módulo que o PDV declara em `depends` — o operador precisa ler
+# produto para vender, e `comercial` vem junto com o PDV.
+
+[[roles]]
+name = "Operador de caixa"
+description = "Vende no balcão e abre o próprio caixa. Não cancela, não devolve e não fecha."
+grants = [
+  "pdv.venda.read",
+  "pdv.venda.write",
+  "pdv.venda.finalizar",
+  "pdv.caixa.abrir",
+  "comercial.produto.read",
+  "comercial.estoque.read",
+  "comercial.unidade.read",
+  "comercial.lote.read",
+]
+
+[[roles]]
+name = "Supervisor de caixa"
+description = "Tudo do operador, mais o que o operador precisa de autorização para fazer."
+grants = [
+  "pdv.venda.read",
+  "pdv.venda.write",
+  "pdv.venda.finalizar",
+  "pdv.venda.cancelar",
+  "pdv.venda.devolver",
+  "pdv.venda.identificar",
+  "pdv.caixa.abrir",
+  "pdv.caixa.fechar",
+  "pdv.caixa.conferir",
+  "comercial.produto.read",
+  "comercial.estoque.read",
+  "comercial.unidade.read",
+  "comercial.lote.read",
+  "clientes.cliente.read",
 ]
 
 [menu]
