@@ -54,9 +54,11 @@ caixa. **É o que está sendo construído agora.**
 
 A sessão de caixa em si. Cada pergunta abaixo muda o modelo, não a tela:
 
-1. **O caixa é por operador ou por terminal?** Hoje não existe entidade de terminal — duas
-   máquinas do mesmo operador são indistinguíveis. A mesma lacuna já foi registrada no
-   discovery fiscal, porque o cupom precisa identificar o caixa.
+1. ~~**O caixa é por operador ou por terminal?**~~ **Respondida em 10/11/2026: por
+   operador.** O caixa pertence a quem opera, não à máquina. Isso resolve a sessão sem
+   precisar da entidade de terminal, que continua não existindo — e ela continua
+   necessária para o **cupom fiscal**, que precisa identificar o caixa (CX). São duas
+   lacunas diferentes, e só esta fechou.
 2. **Vender exige caixa aberto?** Se exigir, esquecer de abrir trava o balcão na primeira
    venda do dia. Se não exigir, "caixa fechado" vira só um rótulo.
 3. **Quem fecha?** A permissão `pdv.venda.finalizar` existe para separar isso, e ninguém
@@ -71,3 +73,43 @@ A sessão de caixa em si. Cada pergunta abaixo muda o modelo, não a tela:
 
 Nenhuma dessas foi respondida. Até lá, o relatório da seção 3 entrega o valor que a cliente
 descreveu, e a sessão espera.
+
+---
+
+## 5. Proposta derivada — aguardando confirmação
+
+Com o caixa sendo por operador, as outras cinco perguntas deixam de ser independentes:
+quase todas já têm resposta implícita em decisões que este projeto tomou e escreveu. O que
+está abaixo **não é suposição**, é dedução a partir delas — mas segue como proposta até o
+dono do projeto confirmar, porque deduzir não é o mesmo que perguntar.
+
+**Vender não exige caixa aberto.** A ADR 0008 já decidiu o princípio no caso vizinho: *"deixar
+de vender é decisão comercial do dono, não do sistema (...) travar por padrão pararia o
+balcão."* Um caixa esquecido de abrir na segunda-feira de manhã não pode parar a fila. A
+venda sem caixa aberto fica registrada e aparece na conferência como **fora de sessão**, que
+é informação, não bloqueio.
+
+**Quem fecha é quem tem permissão para fechar.** A ADR 0008 já separou `pdv.venda.finalizar`
+de `pdv.venda.write` exatamente para "o caixa poder lançar sem poder fechar". A sessão segue
+o mesmo padrão, com uma permissão própria — `pdv.caixa.fechar` —, e cabe a cada loja dar ou
+não ao operador.
+
+**Sangria e suprimento entram.** Não por completude: sem eles o esperado nunca bate numa
+loja que tira dinheiro durante o dia, e um número que nunca bate deixa de ser conferido na
+segunda semana. São o que torna a conferência utilizável, e já aparecem citados na tela
+atual como a causa provável de uma diferença.
+
+**Não bater nunca impede o fechamento.** É a mesma regra do estoque, que o dono do projeto
+deu em 04/11/2026: *"se não bater a conta é aí que tá o pulo do gato"*. A divergência é
+registrada com o valor contado, o esperado e a diferença, e fica no histórico. Esconder ou
+travar destruiria o único dado que a conferência produz.
+
+**O que se conta continua sendo só o dinheiro.** Já é o comportamento da tela, e a razão não
+mudou: cartão e Pix não estão na gaveta. Fica em aberto apenas se alguma loja quiser
+conferir a maquininha — e isso é requisito de quem pedir, não desenho antecipado.
+
+### O que isso deixa de verdade em aberto
+
+Só uma coisa, e ela é de modelo: **o que acontece com a venda feita fora de sessão** quando
+o operador abre o caixa depois. Ela entra na sessão aberta em seguida, fica fora para
+sempre, ou o fechamento a lista à parte? Nenhuma decisão anterior responde isso.
