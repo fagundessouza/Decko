@@ -31,6 +31,9 @@ const AplicativosPage = lazy(() =>
 const AssinaturasPage = lazy(() =>
   import("./pages/AssinaturasPage").then((m) => ({ default: m.AssinaturasPage })),
 );
+const CaixaPage = lazy(() =>
+  import("./pages/CaixaPage").then((m) => ({ default: m.CaixaPage })),
+);
 const ChooseProfilePage = lazy(() =>
   import("./pages/ChooseProfilePage").then((m) => ({ default: m.ChooseProfilePage })),
 );
@@ -106,6 +109,7 @@ type View =
   | { name: "notas" }
   | { name: "nota"; notaId: string }
   | { name: "produtos" }
+  | { name: "caixa" }
   | { name: "conferencia" }
   | { name: "novoProduto" }
   | { name: "produto"; produto: Produto }
@@ -128,6 +132,7 @@ const SECTION: Record<View["name"], string> = {
   notas: "compras",
   nota: "compras",
   produtos: "comercial",
+  caixa: "pdv",
   conferencia: "comercial",
   novoProduto: "comercial",
   produto: "comercial",
@@ -266,6 +271,12 @@ export default function App() {
       label: "Ponto de venda",
       icon: <ModuleIcon name="register" size={22} />,
       onSelect: () => setView({ name: "pdv" }),
+    });
+    items.push({
+      key: "caixa",
+      label: "Conferência de caixa",
+      icon: <ModuleIcon name="register" size={22} />,
+      onSelect: () => setView({ name: "caixa" }),
     });
   }
   if (hasClientes) {
@@ -451,6 +462,8 @@ export default function App() {
       )}
 
       {view.name === "aplicativos" && <AplicativosPage onChanged={reloadSession} />}
+
+      {view.name === "caixa" && <CaixaPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "conferencia" && (
         <ConferenciaPage onBack={() => setView({ name: "home" })} />

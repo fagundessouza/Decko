@@ -63,7 +63,49 @@ export interface VendaResumo {
   total: string | null;
 }
 
+export interface LinhaDaForma {
+  forma: FormaPagamento;
+  quantidade: number;
+  valor: string;
+}
+
+export interface LinhaDaConta {
+  conta_id: string | null;
+  conta_nome: string | null;
+  valor: string;
+}
+
+export interface LinhaDoOperador {
+  operador_id: string | null;
+  operador_nome: string | null;
+  vendas: number;
+  valor: string;
+}
+
+/** O que entrou num período. Leitura do que aconteceu, não fechamento de caixa. */
+export interface Conferencia {
+  de: string;
+  ate: string;
+  vendas: number;
+  canceladas: number;
+  bruto: string;
+  descontos: string;
+  liquido: string;
+  recebido: string;
+  por_forma: LinhaDaForma[];
+  por_conta: LinhaDaConta[];
+  por_operador: LinhaDoOperador[];
+}
+
 export const pdv = {
+  /* Os instantes vão com fuso, de propósito: o dia que importa é o dia local de quem
+   * está no balcão, e o servidor não tem como adivinhar qual é. */
+  conferencia: (de: Date, ate: Date): Promise<Conferencia> =>
+    authedJson(
+      `/pdv/conferencia?de=${encodeURIComponent(de.toISOString())}` +
+        `&ate=${encodeURIComponent(ate.toISOString())}`,
+    ),
+
   listVendas: (status?: StatusVenda): Promise<VendaResumo[]> =>
     authedJson(status ? `/pdv/vendas?status=${status}` : "/pdv/vendas"),
 

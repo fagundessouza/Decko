@@ -314,8 +314,15 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       um. Dois Pix na mesma venda podem cair em contas diferentes, que era o caso descrito.
       **Opcional de propósito**: o balcão não para para escolher conta. Não é plano de
       contas e não guarda saldo — ver `docs/adr/0014-conta-de-recebimento.md`
-- [ ] Abertura e fechamento de caixa (sangria, suprimento, conferência). Falta requisito,
-      e é o relatório que a cliente da seção 1 daquele discovery queria no fim do dia
+- [x] **Conferência de caixa.** O relatório que a cliente queria: quanto entrou, por forma
+      de pagamento, por conta e por operador, com cancelamentos contados à parte. A
+      contagem vem **antes** do esperado, como a ADR 0008 decidiu — quem conta vendo o
+      número não confere, confirma. Conta-se só o dinheiro em espécie, porque é o que está
+      na gaveta
+- [ ] Abertura e fechamento de caixa como **sessão** (abrir, fechar, sangria, suprimento).
+      Continua sem requisito, e as seis perguntas que mudam o modelo estão em
+      `docs/discovery/pdv-fechamento-de-caixa.md` — a primeira é se o caixa é por operador
+      ou por terminal, e terminal ainda não existe como entidade
 - [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
       porta serial no iOS, e TEF pede agente local no Windows — o que cria um segundo
       executável para instalar e atualizar na casa do cliente. O leitor de código de barras
