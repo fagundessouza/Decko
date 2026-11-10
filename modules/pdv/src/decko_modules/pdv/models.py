@@ -23,6 +23,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -44,6 +45,11 @@ class FormaPagamento(StrEnum):
     # Vale-refeição, convênio, o que a loja aceitar. Existe para a venda não travar por
     # falta de uma opção; a lista fechada vem com o módulo fiscal, que tem a tabela certa.
     OUTRO = "outro"
+
+
+class TipoMovimentoCaixa(StrEnum):
+    SANGRIA = "sangria"
+    SUPRIMENTO = "suprimento"
 
 
 def _enum(python_enum: type, name: str) -> Enum:
@@ -128,6 +134,16 @@ class Venda(TenantMixin, TimestampMixin, Base):
         nullable=True,
     )
     observacao: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+    # Em qual sessão de caixa esta venda foi fechada. Nulo quando o operador não tinha
+    # caixa aberto — e **continua nulo**: abrir o caixa depois não puxa para dentro dele o
+    # que foi vendido antes, senão o fechamento mentiria sobre o próprio período. Ver a
+    # atualização de 10/11/2026 na docs/adr/0008-ponto-de-venda.md.
+    caixa_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("pdv_caixa.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
 
     itens: Mapped[list["ItemVenda"]] = relationship(
         back_populates="venda", cascade="all, delete-orphan", order_by="ItemVenda.created_at"
@@ -220,9 +236,84 @@ class Pagamento(TenantMixin, TimestampMixin, Base):
     venda: Mapped["Venda"] = relationship(back_populates="pagamentos")
 
 
+class Caixa(TenantMixin, TimestampMixin, Base):
+    """Uma sessão de caixa: o que passou pelas mãos de um operador, entre abrir e fechar.
+
+    Pertence ao **operador**, não à máquina — ver a atualização de 10/11/2026 na
+    ``docs/adr/0008-ponto-de-venda.md``. Não existe entidade de terminal, e esta tabela
+    não cria uma.
+
+    Aberto ou fechado é **derivado** de ``fechado_em``, não guardado em coluna: estado que
+    se calcula não diverge do fato que o produziu. Mesmo princípio da ADR 0013.
+    """
+
+    __tablename__ = "pdv_caixa"
+
+    id: Mapped[uuid.UUID] = primary_key()
+    operador_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_account.id", ondelete="RESTRICT"), nullable=False
+    )
+
+    aberto_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    fechado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # O fundo de troco com que a gaveta começou.
+    abertura: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+
+    # Preenchidos no fechamento, e só lá. São fato histórico — o que foi contado, o que se
+    # esperava naquele instante e a diferença —, por isso viram coluna. O esperado de uma
+    # sessão aberta é conta feita na leitura, e não se guarda.
+    contado: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    esperado: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    diferenca: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+
+    observacao: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    __table_args__ = (
+        # Um operador não tem dois caixas abertos ao mesmo tempo. O índice parcial é o que
+        # faz o banco recusar, e não a aplicação: duas abas abertas tentariam as duas.
+        Index(
+            "uq_pdv_caixa_aberto_por_operador",
+            "tenant_id",
+            "operador_id",
+            unique=True,
+            postgresql_where=text("fechado_em IS NULL"),
+        ),
+        CheckConstraint("abertura >= 0", name="ck_pdv_caixa_abertura_nao_negativa"),
+    )
+
+
+class MovimentoCaixa(TenantMixin, TimestampMixin, Base):
+    """Dinheiro que entra ou sai da gaveta fora de venda.
+
+    Sem isto o esperado nunca bate numa loja que faz retirada durante o dia — e um número
+    que nunca bate deixa de ser conferido na segunda semana.
+    """
+
+    __tablename__ = "pdv_caixa_movimento"
+
+    id: Mapped[uuid.UUID] = primary_key()
+    caixa_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("pdv_caixa.id", ondelete="CASCADE"), nullable=False
+    )
+    tipo: Mapped[TipoMovimentoCaixa] = mapped_column(
+        _enum(TipoMovimentoCaixa, "pdv_tipo_movimento_caixa"), nullable=False
+    )
+    valor: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    # Por que o dinheiro saiu. Sangria sem motivo é a linha que ninguém consegue explicar
+    # depois, e é justamente a que importa explicar.
+    motivo: Mapped[str] = mapped_column(String(200), nullable=False)
+
+    __table_args__ = (CheckConstraint("valor > 0", name="ck_pdv_caixa_movimento_valor_positivo"),)
+
+
 TENANT_SCOPED_TABLES = (
     Contador.__tablename__,
     Venda.__tablename__,
     ItemVenda.__tablename__,
     Pagamento.__tablename__,
+    Caixa.__tablename__,
+    MovimentoCaixa.__tablename__,
 )

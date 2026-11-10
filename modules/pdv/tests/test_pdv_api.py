@@ -380,3 +380,166 @@ async def test_conferencia_de_outra_loja_nao_vaza(client: AsyncClient) -> None:
     # vazamento passaria despercebido, porque o número sai somado.
     assert corpo["vendas"] == 0
     assert Decimal(corpo["recebido"]) == Decimal("0.00")
+
+
+async def _abrir_caixa(client: AsyncClient, loja: Loja, abertura: str = "100.00") -> dict:
+    resposta = await client.post(f"{PDV}/caixa", headers=_auth(loja), json={"abertura": abertura})
+    assert resposta.status_code == 201, resposta.text
+    return resposta.json()
+
+
+async def test_caixa_abre_uma_vez_so_por_operador(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    await _abrir_caixa(client, loja)
+
+    segunda = await client.post(f"{PDV}/caixa", headers=_auth(loja), json={"abertura": "50.00"})
+
+    # Quem recusa de verdade é o índice parcial no banco; o serviço só dá a mensagem.
+    # Duas abas abertas tentariam as duas ao mesmo tempo.
+    assert segunda.status_code == 422, segunda.text
+
+
+async def test_venda_fechada_entra_na_sessao_aberta(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    caixa = await _abrir_caixa(client, loja, "0.00")
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+
+    atual = (await client.get(f"{PDV}/caixa/aberto", headers=_auth(loja))).json()
+    assert atual["id"] == caixa["id"]
+    # Abertura zero mais dez em espécie.
+    assert Decimal(atual["esperado_agora"]) == Decimal("10.00")
+
+
+async def test_venda_fora_de_sessao_nao_e_absorvida_depois(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    # Vendida antes de existir caixa: vender não exige caixa aberto.
+    await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+
+    await _abrir_caixa(client, loja, "0.00")
+    atual = (await client.get(f"{PDV}/caixa/aberto", headers=_auth(loja))).json()
+
+    # Abrir o caixa depois não puxa para dentro dele o que foi vendido antes: o
+    # fechamento mentiria sobre o próprio período, e a diferença apareceria num caixa
+    # que não a produziu.
+    assert Decimal(atual["esperado_agora"]) == Decimal("0.00")
+
+
+async def test_sangria_e_suprimento_mudam_o_esperado(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    caixa = await _abrir_caixa(client, loja, "100.00")
+
+    await client.post(
+        f"{PDV}/caixa/{caixa['id']}/movimentos",
+        headers=_auth(loja),
+        json={"tipo": "sangria", "valor": "30.00", "motivo": "Depósito no banco"},
+    )
+    depois = await client.post(
+        f"{PDV}/caixa/{caixa['id']}/movimentos",
+        headers=_auth(loja),
+        json={"tipo": "suprimento", "valor": "5.00", "motivo": "Troco do mercado"},
+    )
+
+    assert depois.status_code == 200, depois.text
+    assert Decimal(depois.json()["esperado_agora"]) == Decimal("75.00")
+    assert len(depois.json()["movimentos"]) == 2
+
+
+async def test_sangria_exige_motivo(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    caixa = await _abrir_caixa(client, loja)
+
+    resposta = await client.post(
+        f"{PDV}/caixa/{caixa['id']}/movimentos",
+        headers=_auth(loja),
+        json={"tipo": "sangria", "valor": "10.00", "motivo": "   "},
+    )
+
+    # Sangria sem motivo é a linha que ninguém consegue explicar depois.
+    assert resposta.status_code == 422, resposta.text
+
+
+async def test_fechar_guarda_contado_esperado_e_diferenca(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    caixa = await _abrir_caixa(client, loja, "100.00")
+    produto_id = await _produto(client, loja, preco="10.00")
+    await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+
+    fechado = await client.post(
+        f"{PDV}/caixa/{caixa['id']}/fechar",
+        headers=_auth(loja),
+        json={"contado": "108.00", "observacao": "Faltaram dois reais"},
+    )
+
+    assert fechado.status_code == 200, fechado.text
+    corpo = fechado.json()
+    assert Decimal(corpo["esperado"]) == Decimal("110.00")
+    assert Decimal(corpo["contado"]) == Decimal("108.00")
+    # Negativa é falta. Guardar os três é o que permite auditar depois sem refazer a conta.
+    assert Decimal(corpo["diferenca"]) == Decimal("-2.00")
+    assert corpo["fechado_em"] is not None
+    # Fechado, o esperado congela: o que vale é o do instante da contagem.
+    assert corpo["esperado_agora"] is None
+
+
+async def test_diferenca_nunca_impede_fechar(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    caixa = await _abrir_caixa(client, loja, "100.00")
+
+    fechado = await client.post(
+        f"{PDV}/caixa/{caixa['id']}/fechar", headers=_auth(loja), json={"contado": "0.00"}
+    )
+
+    # Travar destruiria o único dado que a conferência gera, e ensinaria o operador a
+    # ajustar a contagem até bater — ver ADR 0008, atualização de 10/11/2026.
+    assert fechado.status_code == 200, fechado.text
+    assert Decimal(fechado.json()["diferenca"]) == Decimal("-100.00")
+
+
+async def test_caixa_fechado_nao_recebe_mais_nada(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    caixa = await _abrir_caixa(client, loja)
+    await client.post(
+        f"{PDV}/caixa/{caixa['id']}/fechar", headers=_auth(loja), json={"contado": "100.00"}
+    )
+
+    movimento = await client.post(
+        f"{PDV}/caixa/{caixa['id']}/movimentos",
+        headers=_auth(loja),
+        json={"tipo": "sangria", "valor": "10.00", "motivo": "tarde demais"},
+    )
+    refechar = await client.post(
+        f"{PDV}/caixa/{caixa['id']}/fechar", headers=_auth(loja), json={"contado": "90.00"}
+    )
+
+    assert movimento.status_code == 422, movimento.text
+    assert refechar.status_code == 422, refechar.text
+
+
+async def test_caixa_de_outra_loja_nao_aparece(client: AsyncClient) -> None:
+    uma = await _loja(client)
+    outra = await _loja(client)
+    await _abrir_caixa(client, uma)
+
+    aberto = await client.get(f"{PDV}/caixa/aberto", headers=_auth(outra))
+
+    assert aberto.status_code == 200, aberto.text
+    assert aberto.json() is None
+
+
+async def test_cartao_nao_entra_na_conta_da_gaveta(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    await _abrir_caixa(client, loja, "0.00")
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+    await _venda_fechada(client, loja, produto_id, forma="debito", valor="10.00")
+    await _venda_fechada(client, loja, produto_id, forma="pix", valor="10.00")
+
+    atual = (await client.get(f"{PDV}/caixa/aberto", headers=_auth(loja))).json()
+
+    # Só espécie está na gaveta. Conferir o que não se conta é ruído.
+    assert Decimal(atual["esperado_agora"]) == Decimal("10.00")

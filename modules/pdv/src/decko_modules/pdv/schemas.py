@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from decko_modules.pdv.models import FormaPagamento, StatusVenda
+from decko_modules.pdv.models import FormaPagamento, StatusVenda, TipoMovimentoCaixa
 
 
 class ItemIn(BaseModel):
@@ -143,3 +143,50 @@ class ConferenciaOut(BaseModel):
     por_forma: list[LinhaDaFormaOut]
     por_conta: list[LinhaDaContaOut]
     por_operador: list[LinhaDoOperadorOut]
+
+
+class AberturaIn(BaseModel):
+    # O fundo de troco com que a gaveta começa. Zero é válido: nem toda loja deixa troco.
+    abertura: Decimal = Field(ge=0)
+
+
+class MovimentoCaixaIn(BaseModel):
+    tipo: TipoMovimentoCaixa
+    valor: Decimal = Field(gt=0)
+    # Obrigatório: sangria sem motivo é a linha que ninguém explica depois.
+    motivo: str = Field(min_length=1, max_length=200)
+
+
+class FechamentoCaixaIn(BaseModel):
+    contado: Decimal = Field(ge=0)
+    observacao: str | None = Field(default=None, max_length=500)
+
+
+class MovimentoCaixaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    tipo: TipoMovimentoCaixa
+    valor: Decimal
+    motivo: str
+    created_at: datetime
+
+
+class CaixaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    operador_id: uuid.UUID
+    aberto_em: datetime
+    fechado_em: datetime | None
+    abertura: Decimal
+    # Preenchidos só no fechamento. Enquanto o caixa está aberto, o esperado é conta feita
+    # na leitura — ver `esperado_agora`.
+    contado: Decimal | None
+    esperado: Decimal | None
+    diferenca: Decimal | None
+    observacao: str | None
+    movimentos: list[MovimentoCaixaOut]
+    # O que deveria haver na gaveta neste instante. Some depois de fechado: aí o que vale
+    # é o `esperado`, congelado no momento em que a contagem foi feita.
+    esperado_agora: Decimal | None

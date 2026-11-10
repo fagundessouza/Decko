@@ -148,3 +148,73 @@ Decisões menores, cada uma com o seu motivo:
 **Fiado e crediário.** Identificar quem comprou não é vender a prazo. Cobrança a prazo
 exige limite, vencimento, o que acontece quando atrasa e quem autoriza — e nada disso tem
 requisito escrito. Está dito aqui para ser decisão, e não esquecimento.
+
+---
+
+## Atualização de 10/11/2026 — a sessão de caixa
+
+A lista de fora trazia "abertura e fechamento de caixa (sangria, suprimento, conferência
+cega). A regra varia por loja e por quem confere. Falta requisito." O requisito existe
+agora: as sete perguntas estão respondidas em
+`docs/discovery/pdv-fechamento-de-caixa.md` — duas pelo dono do projeto e cinco deduzidas
+de decisões já escritas aqui, com o de acordo dele em 10/11/2026.
+
+### O caixa pertence ao operador, não à máquina
+
+Um operador tem no máximo uma sessão aberta por vez. Não existe entidade de terminal, e
+esta decisão não cria uma: a sessão responde "o que passou pelas mãos desta pessoa, entre
+abrir e fechar".
+
+**Terminal continua faltando**, e para outra coisa: o cupom fiscal precisa identificar o
+caixa (CX) — ver `docs/discovery/comercial-emissao-fiscal.md`, seção 6.4. São duas lacunas
+diferentes, e esta ADR fecha só a da sessão.
+
+### Vender não exige caixa aberto
+
+Pelo mesmo princípio que esta ADR já aplicou a saldo insuficiente: *"deixar de vender é
+decisão comercial do dono, não do sistema (...) travar por padrão pararia o balcão."*
+
+Esquecer de abrir o caixa numa segunda de manhã não pode parar a fila. A venda sai, fica
+registrada, e aparece **fora de sessão** — com um efeito colateral desejável: um dia cheio
+de vendas fora de sessão é o sintoma de que ninguém está abrindo o caixa, e o relatório
+mostra isso em vez de enterrar dentro da primeira sessão que aparecer.
+
+### Venda fora de sessão não é absorvida depois
+
+Abrir o caixa não puxa para dentro dele o que foi vendido antes. A sessão responde pelo
+seu próprio período; absorver venda anterior faria o fechamento mentir sobre ele, e a
+diferença apareceria num caixa que não a produziu.
+
+### O esperado é uma conta, não um campo
+
+`esperado = abertura + dinheiro recebido na sessão + suprimentos − sangrias`
+
+Só espécie entra, porque só espécie está na gaveta. Cartão e Pix aparecem somados, para
+leitura. A conta é refeita na leitura e **não** guardada como coluna: um total gravado
+pode divergir do que as linhas dizem, e é a linha que se audita.
+
+No fechamento, o que é guardado é o que **aconteceu**: o valor contado, o esperado naquele
+instante e a diferença entre os dois. Isso é fato histórico, não cadastro, e por isso vira
+coluna.
+
+### Não bater nunca impede fechar
+
+A mesma regra que o dono do projeto deu para estoque em 04/11/2026: *"se não bater a conta
+é aí que tá o pulo do gato que o dono quer."* A divergência é o produto da conferência.
+Travar o fechamento destruiria o único dado que ela gera, e ensinaria o operador a ajustar
+a contagem até bater — que é exatamente o que a conferência cega existe para impedir.
+
+### Permissões
+
+- `pdv.caixa.abrir` — abrir o próprio caixa e lançar sangria e suprimento.
+- `pdv.caixa.fechar` — fechar. Separada pelo mesmo motivo que `pdv.venda.finalizar` foi
+  separada de `pdv.venda.write`: a loja decide se quem opera também fecha.
+
+### O que esta atualização **não** decide
+
+- **Conferir a maquininha.** Só espécie é contada. Se alguma loja quiser conciliar cartão,
+  isso é requisito de quem pedir.
+- **Reabrir caixa fechado.** Ninguém pediu, e desfazer um fechamento conferido é
+  exatamente o tipo de porta que se abre sem querer.
+- **Sangria para onde.** O dinheiro retirado sai da gaveta; a conta de recebimento que o
+  recebe é a ADR 0014, e ligar as duas coisas é trabalho próprio.

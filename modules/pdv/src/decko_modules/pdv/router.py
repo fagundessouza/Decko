@@ -12,13 +12,17 @@ from decko.db import get_session
 from decko_modules.comercial import service as comercial
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.pdv import service
-from decko_modules.pdv.models import StatusVenda, Venda
+from decko_modules.pdv.models import Caixa, MovimentoCaixa, StatusVenda, Venda
 from decko_modules.pdv.schemas import (
+    AberturaIn,
+    CaixaOut,
     ConferenciaOut,
     DescontoIn,
+    FechamentoCaixaIn,
     IdentificarIn,
     ItemIn,
     ItemOut,
+    MovimentoCaixaIn,
     PagamentoIn,
     PagamentoOut,
     VendaOut,
@@ -96,6 +100,113 @@ async def listar_vendas(
     if status_filtro is not None:
         consulta = consulta.where(Venda.status == status_filtro)
     return list((await session.execute(consulta)).scalars().all())
+
+
+async def _caixa_visto(session: SessionDep, caixa) -> dict:
+    """Monta a saída do caixa, com o esperado calculado enquanto ele estiver aberto."""
+    movimentos = (
+        (
+            await session.execute(
+                select(MovimentoCaixa)
+                .where(MovimentoCaixa.caixa_id == caixa.id)
+                .order_by(MovimentoCaixa.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    esperado_agora = (
+        None if caixa.fechado_em is not None else await service.esperado_do_caixa(session, caixa)
+    )
+    # Campo a campo, e não varrendo `__table__.columns`: `updated_at` tem valor gerado
+    # pelo banco na atualização, então fica expirado depois do flush do fechamento. Lê-lo
+    # dispara uma busca síncrona dentro de função assíncrona, que é o MissingGreenlet.
+    # A saída não precisa dele.
+    return {
+        "id": caixa.id,
+        "operador_id": caixa.operador_id,
+        "aberto_em": caixa.aberto_em,
+        "fechado_em": caixa.fechado_em,
+        "abertura": caixa.abertura,
+        "contado": caixa.contado,
+        "esperado": caixa.esperado,
+        "diferenca": caixa.diferenca,
+        "observacao": caixa.observacao,
+        "movimentos": list(movimentos),
+        "esperado_agora": esperado_agora,
+    }
+
+
+async def _carregar_caixa(session: SessionDep, caixa_id: uuid.UUID):
+    caixa = await session.get(Caixa, caixa_id)
+    if caixa is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caixa não encontrado.")
+    return caixa
+
+
+@router.get("/caixa/aberto", response_model=CaixaOut | None)
+async def caixa_aberto(
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("pdv.caixa.abrir"))],
+) -> dict | None:
+    """O caixa aberto de quem está pedindo. Nulo quando não há — e isso não é erro."""
+    caixa = await service.caixa_aberto(session, operador_id=principal.user_id)
+    return None if caixa is None else await _caixa_visto(session, caixa)
+
+
+@router.post("/caixa", response_model=CaixaOut, status_code=status.HTTP_201_CREATED)
+async def abrir_caixa(
+    payload: AberturaIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("pdv.caixa.abrir"))],
+) -> dict:
+    try:
+        caixa = await service.abrir_caixa(
+            session,
+            tenant_id=principal.tenant_id,
+            operador_id=principal.user_id,
+            abertura=payload.abertura,
+        )
+    except service.PdvError as exc:
+        raise _invalido(exc) from exc
+    return await _caixa_visto(session, caixa)
+
+
+@router.post("/caixa/{caixa_id}/movimentos", response_model=CaixaOut)
+async def movimentar_caixa(
+    caixa_id: uuid.UUID,
+    payload: MovimentoCaixaIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("pdv.caixa.abrir"))],
+) -> dict:
+    caixa = await _carregar_caixa(session, caixa_id)
+    try:
+        await service.movimentar_caixa(
+            session, caixa=caixa, tipo=payload.tipo, valor=payload.valor, motivo=payload.motivo
+        )
+    except service.PdvError as exc:
+        raise _invalido(exc) from exc
+    return await _caixa_visto(session, caixa)
+
+
+@router.post("/caixa/{caixa_id}/fechar", response_model=CaixaOut)
+async def fechar_caixa(
+    caixa_id: uuid.UUID,
+    payload: FechamentoCaixaIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("pdv.caixa.fechar"))],
+) -> dict:
+    """Fecha com o valor contado. Não bater nunca impede fechar — ver ADR 0008."""
+    caixa = await _carregar_caixa(session, caixa_id)
+    try:
+        await service.fechar_caixa(
+            session, caixa=caixa, contado=payload.contado, observacao=payload.observacao
+        )
+    except service.PdvError as exc:
+        raise _invalido(exc) from exc
+    return await _caixa_visto(session, caixa)
 
 
 @router.get("/conferencia", response_model=ConferenciaOut)

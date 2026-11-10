@@ -319,10 +319,11 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       contagem vem **antes** do esperado, como a ADR 0008 decidiu — quem conta vendo o
       número não confere, confirma. Conta-se só o dinheiro em espécie, porque é o que está
       na gaveta
-- [ ] Abertura e fechamento de caixa como **sessão** (abrir, fechar, sangria, suprimento).
-      Continua sem requisito, e as seis perguntas que mudam o modelo estão em
-      `docs/discovery/pdv-fechamento-de-caixa.md` — a primeira é se o caixa é por operador
-      ou por terminal, e terminal ainda não existe como entidade
+- [ ] Abertura e fechamento de caixa como **sessão**: servidor pronto em 10/11/2026
+      (abrir, sangria, suprimento, fechar, com o esperado calculado na leitura). **Falta a
+      tela.** As sete perguntas estão respondidas em
+      `docs/discovery/pdv-fechamento-de-caixa.md` e a decisão está na atualização de
+      10/11/2026 da `docs/adr/0008-ponto-de-venda.md`
 - [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
       porta serial no iOS, e TEF pede agente local no Windows — o que cria um segundo
       executável para instalar e atualizar na casa do cliente. O leitor de código de barras

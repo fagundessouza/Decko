@@ -28,6 +28,10 @@ provides = [
   "pdv.venda.finalizar",
   "pdv.venda.cancelar",
   "pdv.venda.identificar",
+  "pdv.caixa.abrir",
+  # Separada de abrir pelo mesmo motivo que `pdv.venda.finalizar` e de `pdv.venda.write`:
+  # a loja decide se quem opera o caixa tambem o fecha.
+  "pdv.caixa.fechar",
 ]
 
 [menu]

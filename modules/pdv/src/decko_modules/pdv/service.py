@@ -20,11 +20,14 @@ from decko_modules.comercial.models import Produto, TipoMovimento
 from decko_modules.core.models import User
 from decko_modules.financeiro.models import ContaRecebimento
 from decko_modules.pdv.models import (
+    Caixa,
     Contador,
     FormaPagamento,
     ItemVenda,
+    MovimentoCaixa,
     Pagamento,
     StatusVenda,
+    TipoMovimentoCaixa,
     Venda,
 )
 
@@ -318,8 +321,16 @@ async def finalizar_venda(
 
     A baixa acontece na mesma transação da venda. Se o estoque recusar a saída, a venda
     não fecha — não existe estado em que o cupom saiu e o estoque não baixou.
+
+    A venda entra na sessão de caixa **do operador dela**, se ele tiver uma aberta. Sem
+    caixa aberto ela fecha mesmo assim e fica fora de sessão: vender não exige caixa
+    aberto, e travar por padrão pararia o balcão.
     """
     _exige_aberta(venda)
+
+    if venda.operador_id is not None:
+        sessao = await caixa_aberto(session, operador_id=venda.operador_id)
+        venda.caixa_id = sessao.id if sessao is not None else None
 
     itens = list(
         (await session.execute(select(ItemVenda).where(ItemVenda.venda_id == venda.id))).scalars()
@@ -552,3 +563,125 @@ async def conferencia(session: AsyncSession, *, de: datetime, ate: datetime) -> 
         por_conta=[LinhaDaConta(i, n, _dinheiro(v)) for i, n, v in contas],
         por_operador=[LinhaDoOperador(i, n, q, _dinheiro(v)) for i, n, q, v in operadores],
     )
+
+
+# ---------------------------------------------------------------- sessão de caixa
+#
+# O caixa pertence ao operador, não à máquina, e vender não exige caixa aberto. As duas
+# decisões e o porquê estão na atualização de 10/11/2026 da docs/adr/0008-ponto-de-venda.md.
+
+
+async def caixa_aberto(session: AsyncSession, *, operador_id: uuid.UUID) -> Caixa | None:
+    """A sessão aberta deste operador, se houver. Aberto é derivado de ``fechado_em``."""
+    return (
+        await session.execute(
+            select(Caixa).where(Caixa.operador_id == operador_id, Caixa.fechado_em.is_(None))
+        )
+    ).scalar_one_or_none()
+
+
+async def abrir_caixa(
+    session: AsyncSession, *, tenant_id: uuid.UUID, operador_id: uuid.UUID, abertura: Decimal
+) -> Caixa:
+    """Abre a sessão com o fundo de troco com que a gaveta começa."""
+    if abertura < 0:
+        raise PdvError("O valor de abertura não pode ser negativo.")
+    if await caixa_aberto(session, operador_id=operador_id) is not None:
+        raise PdvError("Este operador já tem um caixa aberto.")
+
+    caixa = Caixa(tenant_id=tenant_id, operador_id=operador_id, abertura=_dinheiro(abertura))
+    session.add(caixa)
+    await session.flush()
+    return caixa
+
+
+def _exige_caixa_aberto(caixa: Caixa) -> None:
+    if caixa.fechado_em is not None:
+        raise PdvError("Este caixa já foi fechado.")
+
+
+async def movimentar_caixa(
+    session: AsyncSession,
+    *,
+    caixa: Caixa,
+    tipo: TipoMovimentoCaixa,
+    valor: Decimal,
+    motivo: str,
+) -> MovimentoCaixa:
+    """Retirada ou entrada de dinheiro fora de venda.
+
+    O motivo é obrigatório: sangria sem motivo é a linha que ninguém consegue explicar
+    depois, e é justamente a que importa explicar.
+    """
+    _exige_caixa_aberto(caixa)
+    if valor <= 0:
+        raise PdvError("O valor precisa ser maior que zero.")
+    if not motivo.strip():
+        raise PdvError("Diga o motivo da sangria ou do suprimento.")
+
+    movimento = MovimentoCaixa(
+        tenant_id=caixa.tenant_id,
+        caixa_id=caixa.id,
+        tipo=tipo,
+        valor=_dinheiro(valor),
+        motivo=motivo.strip(),
+    )
+    session.add(movimento)
+    await session.flush()
+    return movimento
+
+
+async def esperado_do_caixa(session: AsyncSession, caixa: Caixa) -> Decimal:
+    """Quanto deveria haver na gaveta: abertura + espécie recebida + suprimentos - sangrias.
+
+    Só espécie entra, porque só espécie está na gaveta. É conta feita na leitura e não
+    coluna guardada: um total gravado pode divergir das linhas que o compõem, e é a linha
+    que se audita.
+    """
+    em_especie = (
+        await session.execute(
+            select(func.coalesce(func.sum(Pagamento.valor), 0))
+            .join(Venda, Venda.id == Pagamento.venda_id)
+            .where(
+                Venda.caixa_id == caixa.id,
+                Venda.status == StatusVenda.FINALIZADA,
+                Pagamento.forma == FormaPagamento.DINHEIRO,
+            )
+        )
+    ).scalar_one()
+
+    movimentos = (
+        await session.execute(
+            select(MovimentoCaixa.tipo, func.coalesce(func.sum(MovimentoCaixa.valor), 0))
+            .where(MovimentoCaixa.caixa_id == caixa.id)
+            .group_by(MovimentoCaixa.tipo)
+        )
+    ).all()
+
+    total = Decimal(caixa.abertura) + Decimal(em_especie)
+    for tipo, valor in movimentos:
+        total += Decimal(valor) if tipo is TipoMovimentoCaixa.SUPRIMENTO else -Decimal(valor)
+    return _dinheiro(total)
+
+
+async def fechar_caixa(
+    session: AsyncSession, *, caixa: Caixa, contado: Decimal, observacao: str | None = None
+) -> Caixa:
+    """Fecha com o valor contado, e guarda a diferença.
+
+    **Não bater nunca impede fechar.** A divergência é o produto da conferência: travar
+    destruiria o único dado que ela gera, e ensinaria o operador a ajustar a contagem até
+    bater — que é o que a conferência cega existe para impedir.
+    """
+    _exige_caixa_aberto(caixa)
+    if contado < 0:
+        raise PdvError("O valor contado não pode ser negativo.")
+
+    esperado = await esperado_do_caixa(session, caixa)
+    caixa.esperado = esperado
+    caixa.contado = _dinheiro(contado)
+    caixa.diferenca = _dinheiro(Decimal(contado) - esperado)
+    caixa.observacao = (observacao or "").strip() or None
+    caixa.fechado_em = datetime.now(UTC)
+    await session.flush()
+    return caixa
