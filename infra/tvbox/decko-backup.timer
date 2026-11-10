@@ -1,0 +1,8 @@
+[Unit]
+Description=Decko - copia diaria do banco
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=600
+[Install]
+WantedBy=timers.target

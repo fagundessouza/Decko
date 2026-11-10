@@ -1,0 +1,6 @@
+# Script e unidade de systemd vao para Linux: fim de linha do Windows faz o shell
+# recusar o arquivo com "bad interpreter" ou o systemd ignorar a diretiva. Forcar LF
+# aqui impede que uma edicao no Windows quebre a implantacao sem ninguem perceber.
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf

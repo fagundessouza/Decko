@@ -1,0 +1,31 @@
+[Unit]
+Description=Decko API
+Documentation=https://github.com/fagundessouza/Decko
+Requires=postgresql@18-main.service
+After=network-online.target postgresql@18-main.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=decko
+Group=decko
+WorkingDirectory=/srv/decko/app
+Environment=HOME=/srv/decko
+EnvironmentFile=/etc/decko/decko.env
+ExecStart=/usr/local/bin/uv run --frozen --no-dev uvicorn decko.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+# A API so escuta em 127.0.0.1: quem a expoe e o tunel. Nada do Decko fica aberto
+# na rede local sem passar por ele.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/decko
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

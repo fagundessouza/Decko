@@ -1,0 +1,18 @@
+[Unit]
+Description=Decko - tunel Cloudflare
+After=network-online.target decko-api.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:8000 --no-autoupdate --loglevel info
+Restart=always
+RestartSec=10
+DynamicUser=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

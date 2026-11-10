@@ -236,6 +236,11 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] Entrada de nota por QR code: depende de certificado digital A1/A3 e de manifestação
       do destinatário. O QR do cupom não carrega os itens
 - [ ] Entrada de nota por PDF do DANFE: depende do OCR da Fase 6
+- [x] **Implantação em servidor próprio.** `infra/tvbox/` instala o Decko num ARM pequeno
+      com um comando: PostgreSQL 18 da PGDG com os dados em disco externo, dois papéis sem
+      BYPASSRLS, serviços no boot, túnel e cópia diária que se testa restaurando. Feito num
+      TV box Amlogic S912 com 1,7 GB de RAM em 09/11/2026. **O backup ainda não sai da
+      máquina** — enquanto não sair, o item de backup do `NEGOCIO.md` continua aberto
 - [ ] **Pedido do caixa para a cozinha.** Restaurante do setor do dono do projeto: hoje
       entrega ficha de papel e o cliente caminha até o fundo, onde a fila se forma de novo.
       Quer que o pedido apareça lá sozinho. **Não precisa de emissão fiscal** — é dor de

@@ -1,0 +1,5 @@
+[Unit]
+Description=Decko - copia de seguranca do banco
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/decko-backup.sh
