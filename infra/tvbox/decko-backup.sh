@@ -9,7 +9,7 @@
 # incendio levam dado e copia juntos. Ver docs/NEGOCIO.md, secao 5.1.
 set -euo pipefail
 
-DESTINO=/var/backups/decko
+DESTINO=/srv/decko/backups
 DIAS=14
 CARIMBO=$(date +%Y%m%d-%H%M%S)
 ARQUIVO="$DESTINO/decko-$CARIMBO.dump"
@@ -22,7 +22,10 @@ chmod 600 "$ARQUIVO"
 
 # Conferencia imediata: um dump que nao abre nao serve, e descobrir isso no dia da
 # restauracao e tarde.
-if ! su postgres -c "pg_restore --list '$ARQUIVO'" >/dev/null 2>&1; then
+# Como root, e nao como postgres: o diretorio e 700 e postgres nao le nada aqui.
+# Antes isto dizia "nao e legivel" quando o problema era permissao — mensagem errada
+# que mandaria procurar corrupcao onde nao havia.
+if ! pg_restore --list "$ARQUIVO" >/dev/null 2>&1; then
   echo "FALHOU: o dump $ARQUIVO nao e legivel" >&2
   exit 1
 fi

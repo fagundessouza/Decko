@@ -9,8 +9,8 @@ Wants=network-online.target
 Type=exec
 User=decko
 Group=decko
-WorkingDirectory=/srv/decko/app
-Environment=HOME=/srv/decko
+WorkingDirectory=/opt/decko/app
+Environment=HOME=/opt/decko
 EnvironmentFile=/etc/decko/decko.env
 ExecStart=/usr/local/bin/uv run --frozen --no-dev uvicorn decko.main:app --host 127.0.0.1 --port 8000
 Restart=always
@@ -22,7 +22,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/srv/decko
+ReadWritePaths=/opt/decko
 ProtectKernelTunables=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes

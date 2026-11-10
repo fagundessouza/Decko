@@ -5,12 +5,18 @@
 # saber e restaurando de verdade, nao olhando o tamanho do arquivo.
 set -euo pipefail
 
-ULTIMO=$(ls -1t /var/backups/decko/decko-*.dump 2>/dev/null | head -1)
+ULTIMO=$(ls -1t /srv/decko/backups/decko-*.dump 2>/dev/null | head -1)
 [ -z "$ULTIMO" ] && { echo "nenhuma copia encontrada" >&2; exit 1; }
 
 su postgres -c "dropdb --if-exists decko_teste_restauracao"
 su postgres -c "createdb decko_teste_restauracao"
-su postgres -c "pg_restore -d decko_teste_restauracao --no-owner --no-privileges '$ULTIMO'" 2>/dev/null || true
+# O postgres nao le /srv/decko/backups (700, root). Copia temporaria com permissao
+# de leitura, restaura, apaga — o original continua trancado.
+TMP=$(mktemp /tmp/decko-restauracao-XXXXXX.dump)
+cp "$ULTIMO" "$TMP"
+chmod 644 "$TMP"
+su postgres -c "pg_restore -d decko_teste_restauracao --no-owner --no-privileges '$TMP'" 2>/dev/null || true
+rm -f "$TMP"
 
 contar() {
   su postgres -c "psql -tAq -d $1 -c \"SELECT coalesce(sum(n_live_tup),0) FROM pg_stat_user_tables\"" 2>/dev/null | tr -d ' '

@@ -100,9 +100,9 @@ Essa ausência é a razão de este documento existir.
 | Bloqueio | O que há hoje | O que falta |
 |---|---|---|
 | **Cadastro de empresa** | `decko-admin bootstrap`, no terminal de quem mantém o sistema | Ninguém assina sozinho. Para SaaS isso é bloqueio absoluto. A ausência da rota é **deliberada** (`CONTRIBUTING.md`: não deixar cadastro aberto na internet), então o que falta é o fluxo de assinatura com dono responsável, não só a rota |
-| **Implantação** | `infra/compose/` e `infra/observability/` estão vazios | O sistema nunca rodou fora da máquina de desenvolvimento. Falta servidor, domínio, TLS, processo de subida |
-| **Backup e restauração** | Nada | Guardar CPF e dado fiscal de terceiro sem **restauração testada** é risco que não se corre. Backup que nunca foi restaurado não é backup |
-| **Cobrança** | Nada | O módulo de plano recorrente que falta no roadmap é o mesmo que seria usado para cobrar do próprio cliente |
+| **Implantação** | **Resolvido em 09/11/2026.** `infra/tvbox/` instala tudo num comando, e o sistema roda num servidor próprio desde então | Falta **domínio**: sem ele o endereço público muda sozinho quando o túnel reinicia, e a tela publicada quebra em silêncio |
+| **Backup e restauração** | **Parcial, em 10/11/2026.** Cópia diária que recusa dump ilegível, e uma restauração de verdade conferida: 38 tabelas e 92 linhas, idênticas à origem | Falta sair da máquina. Dado e cópia estão em dispositivos diferentes, mas no mesmo aparelho: perder o box leva os dois |
+| **Cobrança** | Módulo `assinaturas` existe: plano, assinante, cobrança mensal e a regra de inadimplência inteira | Falta meio de pagamento. O **como** está decidido na `docs/adr/0017-meios-de-pagamento.md`; o **com quem**, não |
 | **Suporte** | Nada | Canal, horário e o que acontece quando o caixa para às 18h de sábado |
 
 ### 5.2 Bloqueio de produto — só para o lado comércio
