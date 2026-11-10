@@ -108,8 +108,34 @@ travar destruiria o único dado que a conferência produz.
 mudou: cartão e Pix não estão na gaveta. Fica em aberto apenas se alguma loja quiser
 conferir a maquininha — e isso é requisito de quem pedir, não desenho antecipado.
 
-### O que isso deixa de verdade em aberto
+### A última, respondida em 10/11/2026
 
-Só uma coisa, e ela é de modelo: **o que acontece com a venda feita fora de sessão** quando
-o operador abre o caixa depois. Ela entra na sessão aberta em seguida, fica fora para
-sempre, ou o fechamento a lista à parte? Nenhuma decisão anterior responde isso.
+**Venda feita fora de sessão fica listada à parte.** Não é absorvida pela sessão aberta
+depois.
+
+A razão é a mesma que sustenta o resto: a sessão responde "o que passou por este caixa,
+entre abrir e fechar". Puxar para dentro dela uma venda que aconteceu antes de ela existir
+faria o fechamento mentir sobre o próprio período — e a diferença apareceria num caixa que
+não a produziu. Listada à parte, a venda continua contada no dia, visível, e sem
+contaminar a conferência de ninguém.
+
+Tem um efeito colateral desejável: **caixa esquecido aberto vira visível**. Se as vendas
+fora de sessão forem muitas num dia, isso é exatamente o sintoma de que ninguém está
+abrindo o caixa — e o relatório mostra, em vez de esconder dentro de uma sessão qualquer.
+
+---
+
+## 6. Situação
+
+| Pergunta | Estado |
+|---|---|
+| 1. Por operador ou por terminal | **Respondida:** por operador |
+| 2. Vender exige caixa aberto | Deduzida: não exige |
+| 3. Quem fecha | Deduzida: permissão `pdv.caixa.fechar` |
+| 4. O que se conta | Deduzida: só espécie |
+| 5. Sangria e suprimento | Deduzida: entram |
+| 6. O que acontece quando não bate | Deduzida: registra, nunca trava |
+| 7. Venda fora de sessão | **Respondida:** listada à parte |
+
+As deduzidas vêm de decisões escritas da ADR 0008 e do próprio dono do projeto, e esperam
+o **de acordo** dele antes de virarem código.
