@@ -61,6 +61,9 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
   const [valorRecebido, setValorRecebido] = useState("");
   const [concluida, setConcluida] = useState<Venda | null>(null);
 
+  const [descontando, setDescontando] = useState(false);
+  const [valorDesconto, setValorDesconto] = useState("");
+
   const [identificando, setIdentificando] = useState(false);
   const [buscaCliente, setBuscaCliente] = useState("");
   const [achadosCliente, setAchadosCliente] = useState<Cliente[] | null>(null);
@@ -117,7 +120,7 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
    * recusa é um caminho por fora da regra, não uma conveniência. */
   useEffect(() => {
     if (!venda || venda.itens.length === 0 || busy) return;
-    if (cobrando !== null || achados !== null || identificando) return;
+    if (cobrando !== null || achados !== null || identificando || descontando) return;
 
     const aoTeclar = (evento: KeyboardEvent) => {
       if (evento.ctrlKey || evento.altKey || evento.metaKey) return;
@@ -134,7 +137,7 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
 
     document.addEventListener("keydown", aoTeclar);
     return () => document.removeEventListener("keydown", aoTeclar);
-  }, [venda, busy, cobrando, achados, identificando]);
+  }, [venda, busy, cobrando, achados, identificando, descontando]);
 
   async function lancar(produto: Produto) {
     if (!venda) return;
@@ -223,6 +226,18 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
     await operar(
       () => pdv.pagar(venda.id, { forma: cobrando, valor, conta_id: destino }),
       "Não foi possível registrar o pagamento.",
+    );
+  }
+
+  async function aplicarDesconto() {
+    if (!venda) return;
+    // Vírgula para ponto, como no resto da tela: quem está no caixa escreve "1,50".
+    const valor = valorDesconto.replace(",", ".") || "0";
+    setDescontando(false);
+    setValorDesconto("");
+    await operar(
+      () => pdv.definirDesconto(venda.id, valor),
+      "Não foi possível dar o desconto.",
     );
   }
 
@@ -474,6 +489,23 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
                 )}
               </dl>
 
+              {/* O servidor aceita desconto desde o início e nenhuma tela chamava. A regra
+                  é dele: não negativo, não maior que a soma dos itens, e só em venda
+                  aberta — aqui não se repete nada disso, só se oferece o caminho. */}
+              <div className="mt-3">
+                <Button
+                  variant="ghost"
+                  inline
+                  disabled={!temItem || busy}
+                  onClick={() => {
+                    setValorDesconto(Number(venda.desconto) > 0 ? venda.desconto : "");
+                    setDescontando(true);
+                  }}
+                >
+                  {Number(venda.desconto) > 0 ? "Alterar desconto" : "Dar desconto"}
+                </Button>
+              </div>
+
               <div className="mt-5 border-t border-line-subtle pt-5">
                 <p className="text-sm uppercase tracking-wide text-ink-faint">A pagar</p>
                 <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight text-ink">
@@ -678,6 +710,42 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
             </li>
           ))}
         </ul>
+      </Modal>
+
+      <Modal
+        open={descontando}
+        title="Desconto na venda"
+        description="Sobre o total, além do que cada item já tenha."
+        onClose={() => {
+          setDescontando(false);
+          focarCodigo();
+        }}
+        footer={
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Button variant="secondary" inline onClick={() => setDescontando(false)}>
+              Cancelar
+            </Button>
+            <Button inline onClick={() => void aplicarDesconto()}>
+              Aplicar
+            </Button>
+          </div>
+        }
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void aplicarDesconto();
+          }}
+        >
+          <TextField
+            label="Desconto"
+            leading="R$"
+            inputMode="decimal"
+            value={valorDesconto}
+            onChange={(event) => setValorDesconto(event.target.value)}
+            hint={`A venda soma ${brl(venda.soma_dos_itens)}. Zero tira o desconto.`}
+          />
+        </form>
       </Modal>
 
       <Modal

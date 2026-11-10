@@ -692,3 +692,75 @@ describe("PdvPage, desfazendo", () => {
   });
 });
 
+describe("PdvPage, o desconto", () => {
+  /* O servidor aceitava desconto desde o início e nenhuma tela chamava: a rota existia,
+   * `lib/pdv.ts` embrulhava, e o operador não tinha como dar. A regra continua sendo do
+   * servidor — não negativo, não maior que a soma, só em venda aberta — e estes testes
+   * cuidam só do caminho até lá. */
+
+  it("não oferece desconto em venda sem item", async () => {
+    vi.mocked(pdv.abrir).mockResolvedValue(umaVenda());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    // Sem item a soma é zero, e qualquer desconto seria recusado pelo servidor. Oferecer
+    // um caminho que só pode falhar é pior que não oferecer.
+    expect(screen.getByRole("button", { name: "Dar desconto" })).toHaveProperty("disabled", true);
+  });
+
+  it("manda o valor com ponto, mesmo digitado com vírgula", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+    vi.mocked(pdv.definirDesconto).mockResolvedValue(vendaComItem({ desconto: "1.50" }));
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    await usuario.click(screen.getByRole("button", { name: "Dar desconto" }));
+    await usuario.type(await screen.findByLabelText("Desconto"), "1,50");
+    await usuario.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    await waitFor(() => expect(pdv.definirDesconto).toHaveBeenCalledWith("venda-1", "1.50"));
+  });
+
+  it("zero tira o desconto que já existia", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem({ desconto: "2.00" }));
+    vi.mocked(pdv.definirDesconto).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+
+    // Com desconto posto, o botão diz outra coisa — quem olha a tela precisa saber que
+    // já há um, e que vai alterá-lo em vez de somar outro.
+    const botao = screen.getByRole("button", { name: "Alterar desconto" });
+    await usuario.click(botao);
+
+    const campo = await screen.findByLabelText("Desconto");
+    // Já vem preenchido com o que está valendo, para não parecer que zerou sozinho.
+    expect(campo).toHaveProperty("value", "2.00");
+
+    await usuario.clear(campo);
+    await usuario.type(campo, "0");
+    await usuario.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    await waitFor(() => expect(pdv.definirDesconto).toHaveBeenCalledWith("venda-1", "0"));
+  });
+
+  it("os atalhos de pagamento não disparam com o desconto aberto", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+
+    abrirCaixa();
+    await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
+    await usuario.click(screen.getByRole("button", { name: "Dar desconto" }));
+    expect(await screen.findByLabelText("Desconto")).toBeTruthy();
+
+    await usuario.keyboard("{F1}");
+
+    // F1 por cima do diálogo de desconto abriria o recebimento em cima dele.
+    expect(screen.queryByText("Receber em Dinheiro")).toBeNull();
+  });
+});
+

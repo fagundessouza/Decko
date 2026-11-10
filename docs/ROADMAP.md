@@ -274,10 +274,10 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       débito, crédito e pix, troco, e baixa de estoque na mesma transação da venda — ver
       `docs/adr/0008-ponto-de-venda.md`. É também o primeiro módulo a depender de outro
       módulo de negócio, o que exigiu `docs/adr/0007-dependencia-entre-modulos.md`
-- [ ] Desconto na venda pela tela do PDV. O servidor já aceita
-      (`PUT /pdv/vendas/{id}/desconto`) e `lib/pdv.ts` já embrulha a rota, mas nenhuma
-      tela chama: o operador não tem como dar desconto. Achado em 03/11/2026, ao mapear
-      quais operações do PDV os testes exercitavam
+- [x] **Desconto na venda pela tela do PDV.** O servidor aceitava desde sempre e nenhuma
+      tela chamava; agora o caixa dá e altera desconto, e o botão diz qual dos dois faz.
+      A regra continua inteira no servidor — não negativo, não maior que a soma, só em
+      venda aberta —, a tela só oferece o caminho
 - [x] **Venda identificada.** A venda aponta para quem comprou, e o PDV passou a declarar
       `clientes` em `depends` — instalar o ponto de venda traz o cadastro junto, com o
       custo assumido na atualização de 29/10/2026 da `docs/adr/0008-ponto-de-venda.md`.
