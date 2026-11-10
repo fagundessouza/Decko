@@ -16,9 +16,24 @@ journalctl -u decko-tunel | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | t
 
 ## O que o script decide, e por quê
 
-**O banco mora no disco externo, não na memória interna.** PostgreSQL escreve o tempo todo
-e memória flash de aparelho barato tem ciclo de gravação contado. O `--disco` é o que tira
-essa escrita de cima do sistema. Sem ele dá para experimentar, mas não para deixar ligado.
+**O disco externo é medido antes de receber o banco.** A ideia original era simples —
+PostgreSQL escreve o tempo todo e memória flash barata tem ciclo de gravação contado, então
+o banco iria para o disco externo. Na primeira máquina real isso quase deu errado: o
+pendrive de 58 GB não conseguiu escrever 32 MB em seis minutos e meio, menos de 80 kB/s,
+contra 7,7 MB/s da memória interna. Com páginas de 8k, cada venda levaria segundos.
+
+Então o script mede. Se o disco externo for rápido, o banco vai para lá. Se não for, o
+banco fica na memória interna e o disco externo serve só para backup — o que, por acaso,
+é melhor do que o plano original: dado e cópia passam a ficar em dispositivos físicos
+diferentes, sem comprar nada.
+
+**A aplicação e o `venv` ficam sempre na memória interna.** São milhares de arquivos
+pequenos, e é esse padrão — não o volume — que um pendrive ruim não suporta. Instalar as
+dependências no pendrive levou 26 minutos com a máquina em load 10; o gargalo eram
+`usb-storage` e o diário do ext4, não rede nem memória.
+
+**Só zram como swap.** Swap em disco externo lento não é rede de segurança: é o jeito de
+travar a máquina inteira quando a memória apertar.
 
 **PostgreSQL 18 do repositório da PGDG, não o 15 do Debian.** O desenvolvimento e a esteira
 rodam 18; piloto numa major diferente é divergência que só aparece em produção.
@@ -39,9 +54,9 @@ rede local por acidente.
 
 ## Backup, e o que ele ainda não cobre
 
-`decko-backup.timer` roda às 3h30, guarda 14 dias em `/var/backups/decko` e recusa um dump
-que não abra. O destino é a **memória interna**, de propósito: cópia no mesmo dispositivo
-que os dados não é cópia de segurança.
+`decko-backup.timer` roda às 3h30, guarda 14 dias no **disco externo** e recusa um dump que
+não abra. Cópia diária é escrita sequencial de madrugada, então lentidão ali não atrapalha
+ninguém — e o ponto é que os dados ficam num dispositivo e a cópia em outro.
 
 `decko-testar-restauracao.sh` restaura a cópia mais recente num banco descartável e compara
 tabelas e linhas, porque backup que nunca foi restaurado não é backup.

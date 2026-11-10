@@ -15,7 +15,8 @@
 set -euo pipefail
 
 DISCO=""
-MONTAGEM=/srv/decko
+MONTAGEM=/srv/decko      # disco externo: backup, e banco só se for rápido
+APP=/opt/decko           # a aplicação fica SEMPRE na memória interna
 REPO=https://github.com/fagundessouza/Decko.git
 RAMO=main
 PGVER=18
@@ -40,7 +41,8 @@ if systemctl list-unit-files 2>/dev/null | grep -q armbian-zram-config; then
     systemctl enable --now armbian-zram-config >/dev/null 2>&1 || true
 fi
 cat > /etc/sysctl.d/60-decko.conf <<'CONF'
-# Swap como rede de segurança, não como caminho normal.
+# Swap como rede de segurança, não como caminho normal. Só zram: swap em disco
+# externo lento trava a máquina inteira quando a memória aperta.
 vm.swappiness=10
 vm.vfs_cache_pressure=50
 CONF
@@ -65,6 +67,23 @@ if [ -n "$DISCO" ]; then
         mkfs.ext4 -F -L DECKO -m 1 "$DISCO"
     fi
 
+    # Mede antes de confiar. Um pendrive barato, ou falsificado, pode escrever a menos
+    # de 100 kB/s — e com o PostgreSQL gravando páginas de 8k cada venda levaria
+    # segundos. Isto custou uma tarde antes de virar verificação.
+    mkdir -p "$MONTAGEM"
+    mountpoint -q "$MONTAGEM" || mount "$DISCO" "$MONTAGEM" 2>/dev/null || true
+    velocidade=$(timeout 60 dd if=/dev/zero of="$MONTAGEM/.velocidade" bs=1M count=32 conv=fsync 2>&1 | grep -oE '[0-9.]+ [kMG]B/s' | tail -1 || true)
+    rm -f "$MONTAGEM/.velocidade"
+    case "$velocidade" in
+        *GB/s|*MB/s) echo "  disco externo: $velocidade — serve para o banco" ;;
+        "")          echo "  AVISO: o disco não escreveu 32 MB em 60s. Lento demais para o banco."
+                     echo "         O banco fica na memória interna; este disco serve só para backup."
+                     BANCO_INTERNO=1 ;;
+        *)           echo "  AVISO: disco externo a $velocidade — lento demais para o banco."
+                     echo "         O banco fica na memória interna; este disco serve só para backup."
+                     BANCO_INTERNO=1 ;;
+    esac
+
     mkdir -p "$MONTAGEM"
     uuid=$(blkid -s UUID -o value "$DISCO")
     sed -i "\|$MONTAGEM|d" /etc/fstab
@@ -73,13 +92,6 @@ if [ -n "$DISCO" ]; then
     systemctl daemon-reload
     mountpoint -q "$MONTAGEM" || mount "$MONTAGEM"
 
-    if [ ! -f "$MONTAGEM/swapfile" ]; then
-        fallocate -l 2G "$MONTAGEM/swapfile" || dd if=/dev/zero of="$MONTAGEM/swapfile" bs=1M count=2048 status=none
-        chmod 600 "$MONTAGEM/swapfile"
-        mkswap "$MONTAGEM/swapfile" >/dev/null
-    fi
-    swapon "$MONTAGEM/swapfile" 2>/dev/null || true
-    grep -q "$MONTAGEM/swapfile" /etc/fstab || echo "$MONTAGEM/swapfile  none  swap  sw,nofail  0  0" >> /etc/fstab
 else
     mkdir -p "$MONTAGEM"
 fi
@@ -101,7 +113,13 @@ echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] h
 apt-get update -qq
 apt-get install -y -qq "postgresql-$PGVER" "postgresql-client-$PGVER" >/dev/null
 
-PGDATA="$MONTAGEM/pgdata"
+# O banco vai para o disco externo só se ele tiver passado na medição acima.
+if [ -n "$DISCO" ] && [ -z "${BANCO_INTERNO:-}" ]; then
+    PGDATA="$MONTAGEM/pgdata"
+else
+    PGDATA=/var/lib/postgresql/$PGVER/main
+fi
+echo "  banco em: $PGDATA"
 if [ ! -d "$PGDATA/base" ]; then
     locale=$(locale -a 2>/dev/null | grep -iE '^pt_BR.utf-?8$' | head -1 || true)
     [ -z "$locale" ] && locale=C.UTF-8
@@ -182,24 +200,26 @@ fi
 # ---------------------------------------------------------------- 5. aplicação
 
 passo "aplicação"
-id decko >/dev/null 2>&1 || useradd --system --home-dir "$MONTAGEM" --shell /usr/sbin/nologin decko
-mkdir -p "$MONTAGEM/app" "$MONTAGEM/.cache" "$MONTAGEM/.local/share/uv"
-chown -R decko:decko "$MONTAGEM/app" "$MONTAGEM/.cache" "$MONTAGEM/.local"
+# A aplicação e o venv ficam na memória interna, sempre: são milhares de arquivos
+# pequenos, e é esse padrão que um pendrive lento não suporta.
+id decko >/dev/null 2>&1 || useradd --system --home-dir "$APP" --shell /usr/sbin/nologin decko
+mkdir -p "$APP/app" "$APP/.cache" "$APP/.local/share/uv"
+chown -R decko:decko "$APP"
 
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh >/dev/null
 
-if [ -d "$MONTAGEM/app/.git" ]; then
-    su -s /bin/bash decko -c "cd $MONTAGEM/app && git fetch -q origin && git checkout -q $RAMO && git reset -q --hard origin/$RAMO"
+if [ -d "$APP/app/.git" ]; then
+    su -s /bin/bash decko -c "cd $APP/app && git fetch -q origin && git checkout -q $RAMO && git reset -q --hard origin/$RAMO"
 else
-    su -s /bin/bash decko -c "git clone -q --branch $RAMO $REPO $MONTAGEM/app"
+    su -s /bin/bash decko -c "git clone -q --branch $RAMO $REPO $APP/app"
 fi
 
 # O projeto exige Python 3.13 e o Debian 12 traz 3.11 — o uv baixa a versão certa.
-su -s /bin/bash decko -c "cd $MONTAGEM/app && HOME=$MONTAGEM uv sync --frozen --no-dev"
+su -s /bin/bash decko -c "cd $APP/app && HOME=$APP uv sync --frozen --no-dev"
 
 passo "migrações"
 set -a; . /etc/decko/decko.env; set +a
-su -s /bin/bash decko -c "cd $MONTAGEM/app && HOME=$MONTAGEM \
+su -s /bin/bash decko -c "cd $APP/app && HOME=$MONTAGEM \
     DECKO_MIGRATION_DATABASE_URL='$DECKO_MIGRATION_DATABASE_URL' \
     DECKO_DATABASE_URL='$DECKO_DATABASE_URL' \
     DECKO_SECRET_KEY='$DECKO_SECRET_KEY' \
