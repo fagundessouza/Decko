@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -13,6 +14,7 @@ from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.pdv import service
 from decko_modules.pdv.models import StatusVenda, Venda
 from decko_modules.pdv.schemas import (
+    ConferenciaOut,
     DescontoIn,
     IdentificarIn,
     ItemIn,
@@ -94,6 +96,23 @@ async def listar_vendas(
     if status_filtro is not None:
         consulta = consulta.where(Venda.status == status_filtro)
     return list((await session.execute(consulta)).scalars().all())
+
+
+@router.get("/conferencia", response_model=ConferenciaOut)
+async def conferencia(
+    session: SessionDep,
+    _: Annotated[object, Depends(require("pdv.venda.read"))],
+    de: Annotated[datetime, Query(description="Início do período, com fuso.")],
+    ate: Annotated[datetime, Query(description="Fim do período, com fuso.")],
+) -> service.Conferencia:
+    """O que entrou no período: por forma de pagamento, por conta e por operador.
+
+    Vem antes de ``/vendas/{id}`` na ordem das rotas de propósito: ``conferencia`` seria
+    lido como um id de venda se viesse depois.
+    """
+    if ate < de:
+        raise _invalido(ValueError("O fim do período é antes do início."))
+    return await service.conferencia(session, de=de, ate=ate)
 
 
 @router.post("/vendas", response_model=VendaOut, status_code=status.HTTP_201_CREATED)

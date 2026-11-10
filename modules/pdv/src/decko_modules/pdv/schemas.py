@@ -98,3 +98,48 @@ class VendaResumoOut(BaseModel):
     aberta_em: datetime
     fechada_em: datetime | None
     total: Decimal | None
+
+
+class LinhaDaFormaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    forma: FormaPagamento
+    quantidade: int
+    valor: Decimal
+
+
+class LinhaDaContaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    conta_id: uuid.UUID | None
+    # Nulo quando o caixa não escolheu conta, que é o caso normal — ver ADR 0014.
+    conta_nome: str | None
+
+    valor: Decimal
+
+
+class LinhaDoOperadorOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    operador_id: uuid.UUID | None
+    operador_nome: str | None
+    vendas: int
+    valor: Decimal
+
+
+class ConferenciaOut(BaseModel):
+    """O que entrou no período. Leitura, não fechamento de caixa."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    de: datetime
+    ate: datetime
+    vendas: int
+    canceladas: int
+    bruto: Decimal
+    descontos: Decimal
+    liquido: Decimal
+    recebido: Decimal
+    por_forma: list[LinhaDaFormaOut]
+    por_conta: list[LinhaDaContaOut]
+    por_operador: list[LinhaDoOperadorOut]

@@ -10,13 +10,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko_modules.clientes.models import Cliente
 from decko_modules.comercial import service as comercial
 from decko_modules.comercial.models import Produto, TipoMovimento
+from decko_modules.core.models import User
 from decko_modules.financeiro.models import ContaRecebimento
 from decko_modules.pdv.models import (
     Contador,
@@ -406,3 +407,148 @@ __all__ = [
     "total_a_pagar",
     "total_pago",
 ]
+
+
+@dataclass(frozen=True)
+class LinhaDaForma:
+    forma: FormaPagamento
+    quantidade: int
+    valor: Decimal
+
+
+@dataclass(frozen=True)
+class LinhaDaConta:
+    conta_id: uuid.UUID | None
+    conta_nome: str | None
+    valor: Decimal
+
+
+@dataclass(frozen=True)
+class LinhaDoOperador:
+    operador_id: uuid.UUID | None
+    operador_nome: str | None
+    vendas: int
+    valor: Decimal
+
+
+@dataclass(frozen=True)
+class Conferencia:
+    """O que entrou num período, de onde veio e por quem passou."""
+
+    de: datetime
+    ate: datetime
+    vendas: int
+    canceladas: int
+    bruto: Decimal
+    descontos: Decimal
+    liquido: Decimal
+    recebido: Decimal
+    por_forma: list[LinhaDaForma]
+    por_conta: list[LinhaDaConta]
+    por_operador: list[LinhaDoOperador]
+
+
+async def conferencia(session: AsyncSession, *, de: datetime, ate: datetime) -> Conferencia:
+    """Soma o que foi vendido e recebido entre dois instantes.
+
+    O recorte é pelo **fechamento** da venda, não pela abertura: uma venda aberta às 23h55
+    e fechada às 00h10 pertence ao dia em que o dinheiro entrou, que é o dia que a pessoa
+    confere.
+
+    Os instantes vêm prontos de quem chama, com fuso: o dia de quem está no balcão é o dia
+    local dele, e o servidor não tem como adivinhar qual é. Mesma razão do ``todayLocal``
+    no front — ver ``apps/web/src/lib/format.ts``.
+
+    Nada aqui decide regra de caixa. É leitura do que já aconteceu, e é de propósito: a
+    sessão de caixa (abrir, fechar, sangria) depende de requisito que não existe — ver
+    ``docs/discovery/pdv-fechamento-de-caixa.md``.
+    """
+    dentro = (Venda.fechada_em >= de, Venda.fechada_em <= ate)
+    finalizada = Venda.status == StatusVenda.FINALIZADA
+
+    totais = (
+        await session.execute(
+            select(
+                func.count(Venda.id),
+                func.coalesce(func.sum(Venda.total), 0),
+                func.coalesce(func.sum(Venda.desconto), 0),
+            ).where(finalizada, *dentro)
+        )
+    ).one()
+
+    canceladas = (
+        await session.execute(
+            select(func.count(Venda.id)).where(Venda.status == StatusVenda.CANCELADA, *dentro)
+        )
+    ).scalar_one()
+
+    # O bruto é a soma dos itens, antes do desconto da venda. Somar os itens aqui, e não
+    # guardar um campo, evita um total que pode divergir do que as linhas dizem.
+    bruto = (
+        await session.execute(
+            select(func.coalesce(func.sum(ItemVenda.total), 0))
+            .join(Venda, Venda.id == ItemVenda.venda_id)
+            .where(finalizada, *dentro)
+        )
+    ).scalar_one()
+
+    formas = (
+        await session.execute(
+            select(
+                Pagamento.forma,
+                func.count(Pagamento.id),
+                func.coalesce(func.sum(Pagamento.valor), 0),
+            )
+            .join(Venda, Venda.id == Pagamento.venda_id)
+            .where(finalizada, *dentro)
+            .group_by(Pagamento.forma)
+            .order_by(func.sum(Pagamento.valor).desc())
+        )
+    ).all()
+
+    contas = (
+        await session.execute(
+            select(
+                Pagamento.conta_id,
+                ContaRecebimento.nome,
+                func.coalesce(func.sum(Pagamento.valor), 0),
+            )
+            .join(Venda, Venda.id == Pagamento.venda_id)
+            .outerjoin(ContaRecebimento, ContaRecebimento.id == Pagamento.conta_id)
+            .where(finalizada, *dentro)
+            .group_by(Pagamento.conta_id, ContaRecebimento.nome)
+            .order_by(func.sum(Pagamento.valor).desc())
+        )
+    ).all()
+
+    # Nome do operador lido na hora, nunca copiado: mesma razão do nome da conta logo acima.
+    operadores = (
+        await session.execute(
+            select(
+                Venda.operador_id,
+                User.full_name,
+                func.count(Venda.id),
+                func.coalesce(func.sum(Venda.total), 0),
+            )
+            .outerjoin(User, User.id == Venda.operador_id)
+            .where(finalizada, *dentro)
+            .group_by(Venda.operador_id, User.full_name)
+            .order_by(func.sum(Venda.total).desc())
+        )
+    ).all()
+
+    recebido = sum((linha[2] for linha in formas), Decimal(0))
+
+    return Conferencia(
+        de=de,
+        ate=ate,
+        vendas=totais[0],
+        canceladas=canceladas,
+        bruto=_dinheiro(bruto),
+        descontos=_dinheiro(totais[2]),
+        liquido=_dinheiro(totais[1]),
+        recebido=_dinheiro(recebido),
+        por_forma=[LinhaDaForma(f, q, _dinheiro(v)) for f, q, v in formas],
+        por_conta=[LinhaDaConta(i, n, _dinheiro(v)) for i, n, v in contas],
+        por_operador=[LinhaDoOperador(i, n, q, _dinheiro(v)) for i, n, q, v in operadores],
+    )

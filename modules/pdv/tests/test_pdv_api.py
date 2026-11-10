@@ -8,6 +8,7 @@ não de uma soma feita na tela.
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest_asyncio
@@ -218,3 +219,164 @@ async def test_pdv_nao_contratado_nao_existe(client: AsyncClient) -> None:
     token = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
     assert (await client.get(f"{PDV}/vendas", headers=token)).status_code == 404
+
+
+async def _venda_fechada(
+    client: AsyncClient, loja: Loja, produto_id: str, *, forma: str, valor: str
+) -> dict:
+    """Abre, lança um item, recebe e fecha. É o caminho que a conferência soma."""
+    venda = await client.post(f"{PDV}/vendas", headers=_auth(loja))
+    assert venda.status_code == 201, venda.text
+    venda_id = venda.json()["id"]
+
+    item = await client.post(
+        f"{PDV}/vendas/{venda_id}/itens",
+        headers=_auth(loja),
+        json={"produto_id": produto_id, "quantidade": "1"},
+    )
+    assert item.status_code == 200, item.text
+
+    pago = await client.post(
+        f"{PDV}/vendas/{venda_id}/pagamentos",
+        headers=_auth(loja),
+        json={"forma": forma, "valor": valor},
+    )
+    assert pago.status_code == 200, pago.text
+
+    fechada = await client.post(f"{PDV}/vendas/{venda_id}/finalizar", headers=_auth(loja))
+    assert fechada.status_code == 200, fechada.text
+    return fechada.json()
+
+
+def _periodo_de_hoje() -> dict[str, str]:
+    """O dia inteiro, com fuso, como a tela manda.
+
+    O servidor não adivinha o dia de quem está no balcão: quem chama envia os instantes.
+    """
+    agora = datetime.now(UTC)
+    inicio = agora - timedelta(days=1)
+    fim = agora + timedelta(days=1)
+    return {"de": inicio.isoformat(), "ate": fim.isoformat()}
+
+
+async def test_conferencia_soma_o_que_entrou_por_forma(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+    await _venda_fechada(client, loja, produto_id, forma="pix", valor="10.00")
+    await _venda_fechada(client, loja, produto_id, forma="pix", valor="10.00")
+
+    resposta = await client.get(
+        f"{PDV}/conferencia", headers=_auth(loja), params=_periodo_de_hoje()
+    )
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+
+    assert corpo["vendas"] == 3
+    assert Decimal(corpo["recebido"]) == Decimal("30.00")
+
+    por_forma = {linha["forma"]: linha for linha in corpo["por_forma"]}
+    # Pix vem primeiro: a lista é ordenada por valor, porque é isso que se procura.
+    assert corpo["por_forma"][0]["forma"] == "pix"
+    assert por_forma["pix"]["quantidade"] == 2
+    assert Decimal(por_forma["pix"]["valor"]) == Decimal("20.00")
+    assert Decimal(por_forma["dinheiro"]["valor"]) == Decimal("10.00")
+
+
+async def test_conferencia_separa_desconto_do_bruto(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    venda = await client.post(f"{PDV}/vendas", headers=_auth(loja))
+    venda_id = venda.json()["id"]
+    await client.post(
+        f"{PDV}/vendas/{venda_id}/itens",
+        headers=_auth(loja),
+        json={"produto_id": produto_id, "quantidade": "1"},
+    )
+    await client.put(
+        f"{PDV}/vendas/{venda_id}/desconto", headers=_auth(loja), json={"desconto": "2.50"}
+    )
+    await client.post(
+        f"{PDV}/vendas/{venda_id}/pagamentos",
+        headers=_auth(loja),
+        json={"forma": "dinheiro", "valor": "7.50"},
+    )
+    await client.post(f"{PDV}/vendas/{venda_id}/finalizar", headers=_auth(loja))
+
+    corpo = (
+        await client.get(f"{PDV}/conferencia", headers=_auth(loja), params=_periodo_de_hoje())
+    ).json()
+
+    # O bruto é a soma dos itens; o líquido já desconta. Ver os dois separados é o que
+    # mostra quanto desconto foi dado no dia.
+    assert Decimal(corpo["bruto"]) == Decimal("10.00")
+    assert Decimal(corpo["descontos"]) == Decimal("2.50")
+    assert Decimal(corpo["liquido"]) == Decimal("7.50")
+
+
+async def test_conferencia_nao_conta_venda_cancelada_no_total(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+
+    await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+
+    cancelada = await client.post(f"{PDV}/vendas", headers=_auth(loja))
+    await client.post(f"{PDV}/vendas/{cancelada.json()['id']}/cancelar", headers=_auth(loja))
+
+    corpo = (
+        await client.get(f"{PDV}/conferencia", headers=_auth(loja), params=_periodo_de_hoje())
+    ).json()
+
+    # Cancelada não entra no dinheiro, mas aparece contada: sumir com ela esconderia que
+    # houve cancelamento no dia, que é justamente o que o dono quer enxergar.
+    assert corpo["vendas"] == 1
+    assert Decimal(corpo["liquido"]) == Decimal("10.00")
+    assert corpo["canceladas"] == 1
+
+
+async def test_conferencia_diz_quem_operou(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    produto_id = await _produto(client, loja, preco="10.00")
+    await _venda_fechada(client, loja, produto_id, forma="dinheiro", valor="10.00")
+
+    corpo = (
+        await client.get(f"{PDV}/conferencia", headers=_auth(loja), params=_periodo_de_hoje())
+    ).json()
+
+    assert len(corpo["por_operador"]) == 1
+    linha = corpo["por_operador"][0]
+    # O nome é lido na hora, não copiado para dentro da venda: renomear vale para o
+    # histórico também, porque é cadastro e não fato histórico.
+    assert linha["operador_nome"] == "Operador"
+    assert linha["vendas"] == 1
+
+
+async def test_conferencia_recusa_periodo_invertido(client: AsyncClient) -> None:
+    loja = await _loja(client)
+    agora = datetime.now(UTC)
+
+    resposta = await client.get(
+        f"{PDV}/conferencia",
+        headers=_auth(loja),
+        params={"de": agora.isoformat(), "ate": (agora - timedelta(days=1)).isoformat()},
+    )
+
+    assert resposta.status_code == 422, resposta.text
+
+
+async def test_conferencia_de_outra_loja_nao_vaza(client: AsyncClient) -> None:
+    uma = await _loja(client)
+    outra = await _loja(client)
+    produto_id = await _produto(client, uma, preco="10.00")
+    await _venda_fechada(client, uma, produto_id, forma="dinheiro", valor="10.00")
+
+    corpo = (
+        await client.get(f"{PDV}/conferencia", headers=_auth(outra), params=_periodo_de_hoje())
+    ).json()
+
+    # O isolamento é do banco, não da consulta — mas uma agregação é exatamente onde um
+    # vazamento passaria despercebido, porque o número sai somado.
+    assert corpo["vendas"] == 0
+    assert Decimal(corpo["recebido"]) == Decimal("0.00")
