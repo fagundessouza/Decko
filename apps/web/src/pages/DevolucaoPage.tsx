@@ -1,7 +1,9 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { Alert } from "../components/Alert";
 import { Page, PageHeader } from "../components/AppShell";
+import { useAutorizacao } from "../components/Autorizacao";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { Modal } from "../components/Modal";
@@ -10,6 +12,7 @@ import { TextField } from "../components/TextField";
 import { brl, num } from "../lib/format";
 import { DESTINOS, FORMAS, pdv } from "../lib/pdv";
 import type {
+  Credencial,
   DestinoDevolucao,
   Devolucao,
   DevolucoesDaVenda,
@@ -19,7 +22,10 @@ import type {
 } from "../lib/pdv";
 
 interface Props {
-  onBack: () => void;
+  /** Só quando a tela é própria. Embutida no PDV, quem fecha é o diálogo. */
+  onBack?: () => void;
+  /** Dentro do PDV: sem cabeçalho de página, e os diálogos internos empilham. */
+  embutido?: boolean;
 }
 
 function motivoDoErro(cause: unknown, padrao: string): string {
@@ -45,7 +51,7 @@ function ajudaDoDestino(destino: DestinoDevolucao): string {
  *    defeito não entra, e fica na lista de avarias. Não existe depósito de avaria, e o
  *    porquê está em `docs/discovery/pdv-devolucao-de-venda.md`.
  */
-export function DevolucaoPage({ onBack }: Props) {
+export function DevolucaoPage({ onBack, embutido = false }: Props) {
   const [numero, setNumero] = useState("");
   const [venda, setVenda] = useState<DevolucoesDaVenda | null>(null);
 
@@ -59,6 +65,22 @@ export function DevolucaoPage({ onBack }: Props) {
 
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  const autorizacao = useAutorizacao({ nested: embutido });
+
+  /* Página própria ou conteúdo sobreposto, com o mesmo miolo.
+   *
+   * Embutida, o título e o fechar são do diálogo: repeti-los aqui daria dois cabeçalhos
+   * e dois jeitos de sair da mesma coisa. */
+  function moldura(titulo: string, descricao: string | undefined, conteudo: ReactNode) {
+    if (embutido) return <>{conteudo}</>;
+    return (
+      <Page>
+        <PageHeader title={titulo} description={descricao} onBack={onBack} />
+        {conteudo}
+      </Page>
+    );
+  }
 
   function limpar() {
     setQuantidades({});
@@ -135,14 +157,18 @@ export function DevolucaoPage({ onBack }: Props) {
     setBusy(true);
     setErro(null);
     try {
-      const devolucao = await pdv.devolver(venda.venda_id, {
-        itens: escolhidos(),
-        forma,
-        motivo: razao,
+      // Devolver é dinheiro saindo da gaveta sem venda por trás: a loja pode exigir
+      // supervisor. A tela tenta, e só pede a credencial quando o servidor pedir.
+      await autorizacao.executar(async (credencial?: Credencial) => {
+        const devolucao = await pdv.devolver(
+          venda.venda_id,
+          { itens: escolhidos(), forma, motivo: razao },
+          credencial,
+        );
+        setFeita(devolucao);
+        setVenda(null);
+        limpar();
       });
-      setFeita(devolucao);
-      setVenda(null);
-      limpar();
     } catch (cause) {
       setErro(motivoDoErro(cause, "Não foi possível registrar a devolução."));
     } finally {
@@ -152,9 +178,10 @@ export function DevolucaoPage({ onBack }: Props) {
 
   if (feita) {
     const avariados = feita.itens.filter((item) => item.destino === "avaria");
-    return (
-      <Page>
-        <PageHeader title="Devolução registrada" onBack={onBack} />
+    return moldura(
+      "Devolução registrada",
+      undefined,
+      <>
         <Card>
           <CardBody>
             <p className="text-sm uppercase tracking-wide text-ink-faint">Devolvido ao cliente</p>
@@ -186,20 +213,16 @@ export function DevolucaoPage({ onBack }: Props) {
             Outra devolução
           </Button>
         </div>
-      </Page>
+      </>,
     );
   }
 
   const nenhum = escolhidos().length === 0;
 
-  return (
-    <Page>
-      <PageHeader
-        title="Devolução de venda"
-        description="Ache a venda pelo número do cupom e diga o que está voltando."
-        onBack={onBack}
-      />
-
+  return moldura(
+    "Devolução de venda",
+    "Ache a venda pelo número do cupom e diga o que está voltando.",
+    <>
       {erro && (
         <div className="mb-6">
           <Alert tone="danger">{erro}</Alert>
@@ -364,6 +387,7 @@ export function DevolucaoPage({ onBack }: Props) {
 
       <Modal
         open={previa !== null}
+        nested={embutido}
         title="Confirmar a devolução"
         description="Este é o valor conferido pelo servidor. Devolver mexe no estoque e no caixa."
         onClose={() => setPrevia(null)}
@@ -387,6 +411,8 @@ export function DevolucaoPage({ onBack }: Props) {
           {forma === "dinheiro" ? " Sai da gaveta." : " Registrado nesta forma."}
         </p>
       </Modal>
-    </Page>
+
+      {autorizacao.dialogo}
+    </>,
   );
 }

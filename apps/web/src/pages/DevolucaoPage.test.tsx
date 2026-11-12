@@ -194,11 +194,17 @@ describe("DevolucaoPage", () => {
     await usuario.click(screen.getByRole("button", { name: "Confirmar devolução" }));
 
     await waitFor(() =>
-      expect(pdv.devolver).toHaveBeenCalledWith("venda-1", {
-        itens: [{ venda_item_id: "linha-1", quantidade: "1", destino: "estoque" }],
-        forma: "dinheiro",
-        motivo: "Cliente trouxe de volta",
-      }),
+      expect(pdv.devolver).toHaveBeenCalledWith(
+        "venda-1",
+        {
+          itens: [{ venda_item_id: "linha-1", quantidade: "1", destino: "estoque" }],
+          forma: "dinheiro",
+          motivo: "Cliente trouxe de volta",
+        },
+        // Terceiro argumento: a credencial do supervisor, vazia quando o servidor não
+        // pediu liberação — ver ADR 0020, decisão 4.
+        undefined,
+      ),
     );
     expect(await screen.findByText("Devolução registrada")).toBeTruthy();
   });
@@ -233,11 +239,15 @@ describe("DevolucaoPage", () => {
     await usuario.click(await screen.findByRole("button", { name: "Confirmar devolução" }));
 
     await waitFor(() =>
-      expect(pdv.devolver).toHaveBeenCalledWith("venda-1", {
-        itens: [{ venda_item_id: "linha-1", quantidade: "1", destino: "avaria" }],
-        forma: "dinheiro",
-        motivo: "Garrafa trincada",
-      }),
+      expect(pdv.devolver).toHaveBeenCalledWith(
+        "venda-1",
+        {
+          itens: [{ venda_item_id: "linha-1", quantidade: "1", destino: "avaria" }],
+          forma: "dinheiro",
+          motivo: "Garrafa trincada",
+        },
+        undefined,
+      ),
     );
     // E a tela diz que aquilo não voltou ao estoque, em vez de deixar o operador supor.
     expect(await screen.findByText(/não voltou ao estoque/)).toBeTruthy();

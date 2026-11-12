@@ -31,15 +31,6 @@ const AplicativosPage = lazy(() =>
 const AssinaturasPage = lazy(() =>
   import("./pages/AssinaturasPage").then((m) => ({ default: m.AssinaturasPage })),
 );
-const MeuCaixaPage = lazy(() =>
-  import("./pages/MeuCaixaPage").then((m) => ({ default: m.MeuCaixaPage })),
-);
-const CaixaPage = lazy(() =>
-  import("./pages/CaixaPage").then((m) => ({ default: m.CaixaPage })),
-);
-const DevolucaoPage = lazy(() =>
-  import("./pages/DevolucaoPage").then((m) => ({ default: m.DevolucaoPage })),
-);
 const EquipePage = lazy(() =>
   import("./pages/EquipePage").then((m) => ({ default: m.EquipePage })),
 );
@@ -121,9 +112,6 @@ type View =
   | { name: "notas" }
   | { name: "nota"; notaId: string }
   | { name: "produtos" }
-  | { name: "caixa" }
-  | { name: "meu-caixa" }
-  | { name: "devolucao" }
   | { name: "equipe" }
   | { name: "conferencia" }
   | { name: "novoProduto" }
@@ -147,9 +135,6 @@ const SECTION: Record<View["name"], string> = {
   notas: "compras",
   nota: "compras",
   produtos: "comercial",
-  caixa: "caixa",
-  "meu-caixa": "meu-caixa",
-  devolucao: "devolucao",
   equipe: "equipe",
   conferencia: "comercial",
   novoProduto: "comercial",
@@ -319,38 +304,6 @@ export default function App() {
       label: "Ponto de venda",
       icon: <ModuleIcon name="register" size={22} />,
       onSelect: () => setView({ name: "pdv" }),
-      children: [
-        ...(podeAbrirCaixa
-          ? [
-              {
-                key: "meu-caixa",
-                label: "Meu caixa",
-                icon: null,
-                onSelect: () => setView({ name: "meu-caixa" }),
-              },
-            ]
-          : []),
-        ...(podeDevolver
-          ? [
-              {
-                key: "devolucao",
-                label: "Devolução de venda",
-                icon: null,
-                onSelect: () => setView({ name: "devolucao" }),
-              },
-            ]
-          : []),
-        ...(podeConferir
-          ? [
-              {
-                key: "caixa",
-                label: "Conferência de caixa",
-                icon: null,
-                onSelect: () => setView({ name: "caixa" }),
-              },
-            ]
-          : []),
-      ],
     });
   }
   if (canManageTeam) {
@@ -545,11 +498,6 @@ export default function App() {
 
       {view.name === "aplicativos" && <AplicativosPage onChanged={reloadSession} />}
 
-      {view.name === "meu-caixa" && <MeuCaixaPage onBack={() => setView({ name: "home" })} />}
-
-      {view.name === "caixa" && <CaixaPage onBack={() => setView({ name: "home" })} />}
-
-      {view.name === "devolucao" && <DevolucaoPage onBack={() => setView({ name: "home" })} />}
 
       {view.name === "equipe" && (
         <EquipePage onBack={() => setView({ name: "home" })} meuId={info.user.id} />
@@ -564,6 +512,9 @@ export default function App() {
           onBack={() => setView({ name: "home" })}
           empresa={info.tenant.name}
           podeIdentificar={hasClientes && info.permissions.includes("pdv.venda.identificar")}
+          podeAbrirCaixa={podeAbrirCaixa}
+          podeDevolver={podeDevolver}
+          podeConferir={podeConferir}
         />
       )}
 

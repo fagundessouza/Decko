@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { Alert } from "../components/Alert";
+import { useAutorizacao } from "../components/Autorizacao";
 import { Page, PageHeader } from "../components/AppShell";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
@@ -17,7 +18,25 @@ import type { ContaRecebimento } from "../lib/financeiro";
 import type { Produto } from "../lib/comercial";
 import { brl, num } from "../lib/format";
 import { FORMAS, pdv } from "../lib/pdv";
-import type { FormaPagamento, Venda } from "../lib/pdv";
+import type { Credencial, FormaPagamento, Venda } from "../lib/pdv";
+
+/* As operações de caixa vivem **dentro** do ponto de venda, sobrepostas.
+ *
+ * Eram telas irmãs no menu lateral, e isso estava errado por dois motivos: virava uma
+ * lista de itens que pareciam módulos diferentes, e tirava o operador do balcão para
+ * fazer uma sangria. Agora são diálogos que travam a tela de trás enquanto a operação
+ * acontece — ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 5.
+ *
+ * Continuam carregando sob demanda: quem só vende nunca baixa o código delas. */
+const MeuCaixaPage = lazy(() =>
+  import("./MeuCaixaPage").then((m) => ({ default: m.MeuCaixaPage })),
+);
+const DevolucaoPage = lazy(() =>
+  import("./DevolucaoPage").then((m) => ({ default: m.DevolucaoPage })),
+);
+const CaixaPage = lazy(() => import("./CaixaPage").then((m) => ({ default: m.CaixaPage })));
+
+type Operacao = "meu-caixa" | "devolucao" | "conferencia";
 
 interface Props {
   onBack: () => void;
@@ -29,6 +48,10 @@ interface Props {
    *  recebe o módulo sozinha — instalar na empresa dos outros sem pedido é o que a ADR
    *  0010 recusa para a semente. Então a tela simplesmente não oferece. */
   podeIdentificar: boolean;
+  /** Operações que esta pessoa alcança. O que ela não pode nem aparece como botão. */
+  podeAbrirCaixa: boolean;
+  podeDevolver: boolean;
+  podeConferir: boolean;
 }
 
 function motivo(cause: unknown, padrao: string): string {
@@ -43,7 +66,14 @@ function motivo(cause: unknown, padrao: string): string {
  * O campo de código fica com o foco o tempo inteiro, porque o leitor de código de barras
  * digita e dá Enter. Perder o foco depois de cada item faria o operador pegar no mouse a
  * cada produto, que é o que torna um PDV lento. */
-export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
+export function PdvPage({
+  onBack,
+  empresa,
+  podeIdentificar,
+  podeAbrirCaixa,
+  podeDevolver,
+  podeConferir,
+}: Props) {
   const [venda, setVenda] = useState<Venda | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -63,6 +93,12 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
 
   const [descontando, setDescontando] = useState(false);
   const [valorDesconto, setValorDesconto] = useState("");
+
+  // A liberação do supervisor: a tela tenta a ação, e só pede a credencial se o servidor
+  // disser que falta — ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 4.
+  const autorizacao = useAutorizacao();
+
+  const [operacao, setOperacao] = useState<Operacao | null>(null);
 
   const [identificando, setIdentificando] = useState(false);
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -112,24 +148,33 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
    * de pegar no mouse no fim de cada venda quebra o ritmo no ponto que mais se repete.
    * As teclas são as que `FORMAS` já declarava e que até aqui não faziam nada.
    *
-   * O efeito se desliga enquanto há diálogo aberto. Dentro do recebimento, F2 trocaria a
+   * **Enquanto o PDV está na tela, estas teclas são dele**, mesmo quando não há o que
+   * receber. Antes o efeito só se ligava com venda e item, e nos outros momentos — que
+   * é a maior parte do expediente — F1 abria a ajuda do navegador e F3 a busca, por
+   * cima do caixa. Tecla que às vezes faz outra coisa é pior do que tecla que não faz
+   * nada: o operador para de confiar nela e volta ao mouse.
+   *
+   * Agir é outra história, e aí as guardas valem. Dentro do recebimento, F2 trocaria a
    * forma por baixo de quem já está digitando o valor — e o título do diálogo passaria a
    * mentir sobre o que vai ser registrado.
    *
    * As guardas repetem as do botão de propósito: atalho que faz o que o botão desabilitado
    * recusa é um caminho por fora da regra, não uma conveniência. */
   useEffect(() => {
-    if (!venda || venda.itens.length === 0 || busy) return;
-    if (cobrando !== null || achados !== null || identificando || descontando) return;
-
     const aoTeclar = (evento: KeyboardEvent) => {
+      // Com modificador, a combinação é do navegador ou do sistema: Ctrl+F4 fecha aba, e
+      // tomar isso do usuário seria pior do que não ter atalho.
       if (evento.ctrlKey || evento.altKey || evento.metaKey) return;
       const forma = FORMAS.find((item) => item.atalho === evento.key);
       if (!forma) return;
 
-      // F1 abre a ajuda do navegador e F3 a busca: sem isto o caixa perde a tela de vista
-      // no meio do atendimento.
+      // Engolida sempre, antes de qualquer guarda: é isto que impede o navegador de
+      // abrir ajuda, busca ou barra de endereço por cima do atendimento.
       evento.preventDefault();
+
+      if (!venda || venda.itens.length === 0 || busy) return;
+      if (cobrando !== null || achados !== null || identificando || descontando) return;
+
       setCobrando(forma.valor);
       // Mesmo padrão do botão: o caso comum é receber exatamente o que falta.
       setValorRecebido(venda.falta);
@@ -217,6 +262,27 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
     }
   }
 
+  /* Ação que a loja pode exigir supervisor para fazer.
+   *
+   * A tela **tenta primeiro**. Se o servidor responder que falta liberação, o diálogo
+   * abre e a mesma ação é repetida com a credencial. Nenhum botão é destravado antes:
+   * quem decide é o servidor, na requisição que executa. */
+  async function operarComLiberacao(
+    acao: (credencial?: Credencial) => Promise<Venda>,
+    padrao: string,
+  ) {
+    setBusy(true);
+    setErro(null);
+    try {
+      await autorizacao.executar(async (credencial) => setVenda(await acao(credencial)));
+    } catch (cause) {
+      setErro(motivo(cause, padrao));
+    } finally {
+      setBusy(false);
+      focarCodigo();
+    }
+  }
+
   async function cobrar() {
     if (!venda || cobrando === null) return;
     const valor = valorRecebido.replace(",", ".");
@@ -235,10 +301,29 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
     const valor = valorDesconto.replace(",", ".") || "0";
     setDescontando(false);
     setValorDesconto("");
-    await operar(
-      () => pdv.definirDesconto(venda.id, valor),
+    await operarComLiberacao(
+      (credencial) => pdv.definirDesconto(venda.id, valor, credencial),
       "Não foi possível dar o desconto.",
     );
+  }
+
+  async function cancelarVenda() {
+    if (!venda) return;
+    setBusy(true);
+    setErro(null);
+    try {
+      // A venda só sai da tela depois que o servidor cancelou de verdade. Limpar antes
+      // faria o diálogo de liberação abrir sobre uma tela que já esqueceu a venda.
+      await autorizacao.executar(async (credencial) => {
+        await pdv.cancelar(venda.id, credencial);
+        setVenda(null);
+      });
+    } catch (cause) {
+      setErro(motivo(cause, "Não foi possível cancelar."));
+    } finally {
+      setBusy(false);
+      focarCodigo();
+    }
   }
 
   async function finalizar() {
@@ -318,16 +403,77 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
     );
   }
 
+  const operacoes = (
+    <>
+      {(podeAbrirCaixa || podeDevolver || podeConferir) && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          {podeAbrirCaixa && (
+            <Button variant="secondary" inline onClick={() => setOperacao("meu-caixa")}>
+              Meu caixa
+            </Button>
+          )}
+          {podeDevolver && (
+            <Button variant="secondary" inline onClick={() => setOperacao("devolucao")}>
+              Devolução
+            </Button>
+          )}
+          {podeConferir && (
+            <Button variant="secondary" inline onClick={() => setOperacao("conferencia")}>
+              Conferência do dia
+            </Button>
+          )}
+        </div>
+      )}
+
+      <Modal
+        open={operacao === "meu-caixa"}
+        largura="ampla"
+        title="Meu caixa"
+        description="Abra, lance retiradas e entradas, e feche contando a gaveta."
+        onClose={() => setOperacao(null)}
+      >
+        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+          <MeuCaixaPage embutido />
+        </Suspense>
+      </Modal>
+
+      <Modal
+        open={operacao === "devolucao"}
+        largura="ampla"
+        title="Devolução de venda"
+        description="Ache a venda pelo número do cupom e diga o que está voltando."
+        onClose={() => setOperacao(null)}
+      >
+        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+          <DevolucaoPage embutido />
+        </Suspense>
+      </Modal>
+
+      <Modal
+        open={operacao === "conferencia"}
+        largura="ampla"
+        title="Conferência do dia"
+        description="Conte o dinheiro da gaveta antes de ver o que o sistema esperava."
+        onClose={() => setOperacao(null)}
+      >
+        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+          <CaixaPage embutido />
+        </Suspense>
+      </Modal>
+    </>
+  );
+
   if (!venda) {
     return (
       <Page>
         <PageHeader title="Ponto de venda" onBack={onBack} />
         {erro && <Alert tone="danger">{erro}</Alert>}
-        <div className="mt-6">
-          <Button onClick={() => void novaVenda()} loading={busy}>
-            Abrir venda
-          </Button>
-        </div>
+        {/* As operações vêm antes de abrir venda de propósito: o operador abre o caixa
+            dele no começo do expediente, quando ainda não há venda nenhuma. */}
+        <div className="mt-6">{operacoes}</div>
+        <Button onClick={() => void novaVenda()} loading={busy}>
+          Abrir venda
+        </Button>
       </Page>
     );
   }
@@ -348,6 +494,8 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
           <Alert tone="danger">{erro}</Alert>
         </div>
       )}
+
+      {operacoes}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex flex-col gap-6">
@@ -461,8 +609,8 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
                       aria-label={`Retirar ${item.descricao}`}
                       disabled={busy}
                       onClick={() =>
-                        void operar(
-                          () => pdv.removerItem(venda.id, item.id),
+                        void operarComLiberacao(
+                          (credencial) => pdv.removerItem(venda.id, item.id, credencial),
                           "Não foi possível retirar o item.",
                         )
                       }
@@ -592,11 +740,7 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
                 <Button
                   variant="ghost"
                   disabled={busy}
-                  onClick={() =>
-                    void operar(() => pdv.cancelar(venda.id), "Não foi possível cancelar.").then(
-                      () => setVenda(null),
-                    )
-                  }
+                  onClick={() => void cancelarVenda()}
                 >
                   Cancelar venda
                 </Button>
@@ -800,6 +944,8 @@ export function PdvPage({ onBack, empresa, podeIdentificar }: Props) {
         Esta venda registra a saída no estoque. A emissão de cupom fiscal entra com o
         módulo fiscal.
       </p>
+
+      {autorizacao.dialogo}
     </Page>
   );
 }

@@ -5,11 +5,62 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from decko_modules.pdv.models import (
+    AcaoAutorizada,
     DestinoDevolucao,
     FormaPagamento,
     StatusVenda,
     TipoMovimentoCaixa,
 )
+
+
+class CredencialIn(BaseModel):
+    """Quem está liberando, e a senha dele.
+
+    Vai **junto com a ação** de propósito: o servidor confere e executa na mesma
+    requisição. Destravar a tela e confiar nela seria teatro — ver
+    `docs/adr/0020-operador-supervisor-e-papeis.md`, decisão 4.
+    """
+
+    autorizador_id: uuid.UUID
+    senha: str = Field(min_length=1, max_length=256)
+
+
+class AutorizadorOut(BaseModel):
+    """Só o nome sai daqui. A senha é o que libera, não a lista."""
+
+    id: uuid.UUID
+    nome: str
+
+
+class ConfiguracaoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    exige_cancelar_item: bool
+    exige_cancelar_venda: bool
+    exige_sangria: bool
+    exige_devolucao: bool
+    exige_desconto: bool
+    desconto_livre: Decimal
+    exige_diferenca: bool
+    diferenca_livre: Decimal
+
+
+class ConfiguracaoIn(BaseModel):
+    exige_cancelar_item: bool
+    exige_cancelar_venda: bool
+    exige_sangria: bool
+    exige_devolucao: bool
+    exige_desconto: bool
+    desconto_livre: Decimal = Field(ge=0)
+    exige_diferenca: bool
+    diferenca_livre: Decimal = Field(ge=0)
+
+
+class AutorizacaoExigidaOut(BaseModel):
+    """O corpo do 428: diz à tela o que pedir, em vez de mostrar um erro ao operador."""
+
+    detail: str
+    acao: AcaoAutorizada
 
 
 class ItemIn(BaseModel):
@@ -55,6 +106,8 @@ class PagamentoOut(BaseModel):
 
 class DescontoIn(BaseModel):
     desconto: Decimal = Field(ge=0)
+    # Acima do limite da loja, só com supervisor.
+    autorizacao: CredencialIn | None = None
 
 
 class VendaOut(BaseModel):
@@ -179,11 +232,16 @@ class MovimentoCaixaIn(BaseModel):
     valor: Decimal = Field(gt=0)
     # Obrigatório: sangria sem motivo é a linha que ninguém explica depois.
     motivo: str = Field(min_length=1, max_length=200)
+    # Só a sangria pede liberação: dinheiro entrando na gaveta não é o que se desvia.
+    autorizacao: CredencialIn | None = None
 
 
 class FechamentoCaixaIn(BaseModel):
     contado: Decimal = Field(ge=0)
     observacao: str | None = Field(default=None, max_length=500)
+    # Diferença acima do limite da loja só fecha com supervisor. É a única trava deste
+    # tipo que o Odoo tem de fábrica.
+    autorizacao: CredencialIn | None = None
 
 
 class MovimentoCaixaOut(BaseModel):
@@ -231,6 +289,8 @@ class LinhaDevolverIn(BaseModel):
 
 class DevolucaoIn(BaseModel):
     itens: list[LinhaDevolverIn] = Field(min_length=1)
+    # Dinheiro saindo da gaveta sem venda por trás: pede liberação quando a loja exige.
+    autorizacao: CredencialIn | None = None
     # Como o dinheiro volta. Só `dinheiro` sai da gaveta; cartão e Pix ficam registrados na
     # forma original, porque o estorno é da adquirente.
     forma: FormaPagamento
@@ -305,3 +365,17 @@ class DevolucoesDaVendaOut(BaseModel):
     linhas: list[LinhaDevolvivelOut]
     devolucoes: list[DevolucaoOut]
     devolvido: Decimal
+
+
+class RetirarItemIn(BaseModel):
+    """Tirar item de venda em andamento é o caso que o dono do projeto descreveu.
+
+    Virou `POST` com corpo porque a credencial não pode viajar em `DELETE`: corpo em
+    `DELETE` é mal suportado por intermediário, e senha em parâmetro de URL acaba em log.
+    """
+
+    autorizacao: CredencialIn | None = None
+
+
+class CancelarVendaIn(BaseModel):
+    autorizacao: CredencialIn | None = None

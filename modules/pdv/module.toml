@@ -40,6 +40,13 @@ provides = [
   # operador precisa ter para vender — entregava a ele o número antes da contagem, que é
   # o mesmo vazamento que a conferência cega existe para impedir.
   "pdv.caixa.conferir",
+  # Liberar o que o operador não faz sozinho. Uma permissão só, e não uma por ação: é
+  # assim que a loja pensa — "o supervisor libera" —, e seis permissões para a mesma
+  # autoridade seriam seis chances de configurar errado.
+  "pdv.autorizar",
+  # Mexer nas exigências e nos limites da loja. Separada de tudo: quem libera uma sangria
+  # não é necessariamente quem decide que sangria precisa de liberação.
+  "pdv.config.write",
 ]
 
 # Papéis sugeridos a quem contrata o PDV. Criados na empresa que não os tem, e nunca mais
@@ -51,11 +58,16 @@ provides = [
 
 [[roles]]
 name = "Operador de caixa"
-description = "Vende no balcão e abre o próprio caixa. Não cancela, não devolve e não fecha."
+description = "Vende no balcão e abre o próprio caixa. Cancelar pede supervisor; não devolve e não fecha."
 grants = [
   "pdv.venda.read",
   "pdv.venda.write",
   "pdv.venda.finalizar",
+  # Cancelar item e cancelar venda são trabalho do balcão, e por isso ele **pode tentar**.
+  # Quem decide se precisa de supervisor é a configuração da loja, não o papel: o papel
+  # diz o que a pessoa pode tentar, a configuração diz o que precisa de uma segunda
+  # pessoa. Ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 4.
+  "pdv.venda.cancelar",
   "pdv.caixa.abrir",
   "comercial.produto.read",
   "comercial.estoque.read",
@@ -76,6 +88,7 @@ grants = [
   "pdv.caixa.abrir",
   "pdv.caixa.fechar",
   "pdv.caixa.conferir",
+  "pdv.autorizar",
   "comercial.produto.read",
   "comercial.estoque.read",
   "comercial.unidade.read",

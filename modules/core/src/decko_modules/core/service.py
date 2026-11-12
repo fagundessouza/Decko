@@ -53,6 +53,16 @@ class AuthError(Exception):
         self.motivo = motivo
 
 
+async def permissoes_de(session: AsyncSession, user_id: uuid.UUID) -> set[str]:
+    """O que esta pessoa pode, somando os papéis dela.
+
+    Público porque outro módulo precisa: o PDV confere, no ato, se quem está liberando uma
+    ação realmente pode liberá-la — e não dá para confiar no token de quem **pediu** a
+    liberação. Ver ``docs/adr/0020-operador-supervisor-e-papeis.md``, decisão 4.
+    """
+    return set(await _load_permissions(session, user_id))
+
+
 async def _load_permissions(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
     result = await session.execute(
         select(RolePermission.permission)

@@ -95,11 +95,13 @@ describe("MeuCaixaPage, com caixa aberto", () => {
     await usuario.click(screen.getByRole("button", { name: "Lançar movimento" }));
 
     await waitFor(() =>
-      expect(pdv.movimentarCaixa).toHaveBeenCalledWith("caixa-1", {
-        tipo: "sangria",
-        valor: "30.00",
-        motivo: "Depósito no banco",
-      }),
+      expect(pdv.movimentarCaixa).toHaveBeenCalledWith(
+        "caixa-1",
+        { tipo: "sangria", valor: "30.00", motivo: "Depósito no banco" },
+        // A credencial do supervisor vai no terceiro argumento, vazia quando o servidor
+        // não pediu liberação — ver ADR 0020, decisão 4.
+        undefined,
+      ),
     );
   });
 
@@ -141,7 +143,11 @@ describe("MeuCaixaPage, com caixa aberto", () => {
     await usuario.click(screen.getByRole("button", { name: "Confirmar fechamento" }));
 
     await waitFor(() =>
-      expect(pdv.fecharCaixa).toHaveBeenCalledWith("caixa-1", { contado: "98.00" }),
+      expect(pdv.fecharCaixa).toHaveBeenCalledWith(
+        "caixa-1",
+        { contado: "98.00" },
+        undefined,
+      ),
     );
     // Só agora o número aparece — e junto da diferença, que é o produto da conferência.
     expect(await screen.findByText("Esperado pelo sistema")).toBeTruthy();

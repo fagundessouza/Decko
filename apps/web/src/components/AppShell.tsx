@@ -67,9 +67,11 @@ export function AppShell({
         }}
         aria-current={active ? "page" : undefined}
         className={
-          "flex w-full min-h-touch items-center gap-3 rounded-dk text-left " +
+          // `py-2` e não só `min-h-touch`: rótulo de duas linhas, como "Contas de
+          // recebimento", encostava na borda de cima e na de baixo.
+          "flex w-full min-h-touch items-center gap-3 rounded-dk px-3 py-2 text-left " +
           "transition-colors duration-150 ease-dk " +
-          (dentro ? "px-3 text-[0.9375rem] " : "px-3 text-base ") +
+          (dentro ? "text-[0.9375rem] " : "text-base ") +
           (active
             ? "bg-white/10 font-semibold text-white"
             : "text-white/70 hover:bg-white/5 hover:text-white")
@@ -88,8 +90,13 @@ export function AppShell({
   /* Lista de verdade, e aninhada de verdade: é assim que um leitor de tela anuncia que
    * "Meu caixa" está dentro de "Ponto de venda". Recuo só com CSS diria isso a quem
    * enxerga e a mais ninguém. */
+  /* `min-h-0` é o que faz a lista rolar em vez de vazar.
+   *
+   * Em flexbox o item nasce com `min-height: auto` e **não encolhe abaixo do próprio
+   * conteúdo**: com módulos suficientes, a lista empurrava o rodapé para fora da lateral
+   * de altura fixa, e "Sair" aparecia fora do painel. `flex-1` sozinho não resolve. */
   const nav = (
-    <nav className="flex-1 p-3">
+    <nav className="min-h-0 flex-1 overflow-y-auto p-3">
       <ul className="flex flex-col gap-1">
         {items.map((item) => (
           <li key={item.key}>
@@ -108,14 +115,14 @@ export function AppShell({
   );
 
   const identity = (
-    <button type="button" onClick={onHome} className="block w-full px-5 py-5 text-left">
+    <button type="button" onClick={onHome} className="block w-full shrink-0 px-5 py-5 text-left">
       <p className="text-xl font-bold tracking-tight text-white">Decko</p>
       <p className="mt-0.5 truncate text-sm text-white/60">{tenantName}</p>
     </button>
   );
 
   const footer = (
-    <div className="border-t border-white/10 p-3">
+    <div className="shrink-0 border-t border-white/10 p-3">
       <div className="px-3 py-2">
         <p className="truncate text-sm font-medium text-white/90">{userName}</p>
       </div>

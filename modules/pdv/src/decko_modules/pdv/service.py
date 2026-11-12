@@ -17,10 +17,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decko_modules.clientes.models import Cliente
 from decko_modules.comercial import service as comercial
 from decko_modules.comercial.models import Produto, TipoMovimento, Unidade
-from decko_modules.core.models import User
+from decko_modules.core import security
+from decko_modules.core import service as core_service
+from decko_modules.core.models import RolePermission, User, UserRole
 from decko_modules.financeiro.models import ContaRecebimento
 from decko_modules.pdv.models import (
+    AcaoAutorizada,
+    Autorizacao,
     Caixa,
+    ConfiguracaoPdv,
     Contador,
     DestinoDevolucao,
     Devolucao,
@@ -1065,3 +1070,151 @@ async def avarias(session: AsyncSession, *, de: datetime, ate: datetime) -> list
         )
         for produto_id, nome, unidade_id, simbolo, quantidade in linhas
     ]
+
+
+# ------------------------------------------------------- autorização do supervisor
+#
+# O operador não faz sozinho o que a loja decidiu que precisa de supervisor. A credencial
+# de quem libera vai **junto com a ação**, e o servidor confere antes de executar: nunca
+# "destravar a tela". Destravar tela é teatro — quem abre o inspetor passa por cima, e o
+# controle que existe para impedir fraude seria burlável por quem tem mais motivo para
+# burlá-lo. Ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 4.
+
+# A permissão de liberar. Uma só, e não uma por ação: é assim que a loja pensa — "o
+# supervisor libera" —, e seis permissões para a mesma autoridade seriam seis chances de
+# configurar errado.
+PERMISSAO_AUTORIZAR = "pdv.autorizar"
+
+
+@dataclass(frozen=True)
+class Credencial:
+    """Quem está liberando, e a senha dele. Nunca viaja para lugar nenhum além daqui."""
+
+    autorizador_id: uuid.UUID
+    senha: str
+
+
+class AutorizacaoExigidaError(Exception):
+    """A ação precisa de credencial de quem pode liberar, e ela não veio.
+
+    É erro de pré-condição, não de regra: a borda responde 428 para a tela saber que deve
+    pedir a credencial e repetir a ação, em vez de mostrar um erro ao operador.
+    """
+
+    def __init__(self, acao: AcaoAutorizada, mensagem: str) -> None:
+        super().__init__(mensagem)
+        self.acao = acao
+
+
+async def configuracao(session: AsyncSession, tenant_id: uuid.UUID) -> ConfiguracaoPdv:
+    """A configuração desta loja, criada com os padrões na primeira vez que for lida."""
+    atual = await session.get(ConfiguracaoPdv, tenant_id)
+    if atual is not None:
+        return atual
+
+    atual = ConfiguracaoPdv(tenant_id=tenant_id)
+    session.add(atual)
+    await session.flush()
+    return atual
+
+
+def _exige(config: ConfiguracaoPdv, acao: AcaoAutorizada, valor: Decimal | None) -> bool:
+    """Se esta loja exige supervisor para esta ação, com este valor."""
+    match acao:
+        case AcaoAutorizada.CANCELAR_ITEM:
+            return config.exige_cancelar_item
+        case AcaoAutorizada.CANCELAR_VENDA:
+            return config.exige_cancelar_venda
+        case AcaoAutorizada.SANGRIA:
+            return config.exige_sangria
+        case AcaoAutorizada.DEVOLUCAO:
+            return config.exige_devolucao
+        case AcaoAutorizada.DESCONTO:
+            return config.exige_desconto and (valor or Decimal(0)) > config.desconto_livre
+        case AcaoAutorizada.FECHAR_CAIXA:
+            return config.exige_diferenca and abs(valor or Decimal(0)) > config.diferenca_livre
+    return False  # pragma: no cover - o enum acima é exaustivo
+
+
+async def exigir_autorizacao(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    acao: AcaoAutorizada,
+    solicitante_id: uuid.UUID | None,
+    solicitante_autoriza: bool,
+    credencial: Credencial | None = None,
+    referencia: str | None = None,
+    valor: Decimal | None = None,
+    motivo: str | None = None,
+) -> Autorizacao | None:
+    """Confere a liberação antes da ação, e a registra. Devolve ``None`` quando não cabia.
+
+    ``solicitante_autoriza`` dispensa a pergunta: o supervisor que opera o próprio caixa
+    não precisa chamar a si mesmo. Quem fez continua registrado na ação.
+
+    A conferência da permissão do autorizador é feita **no banco**, e não a partir de
+    token: quem pede a liberação não pode ser a fonte do que o liberador pode.
+    """
+    config = await configuracao(session, tenant_id)
+    if solicitante_autoriza or not _exige(config, acao, valor):
+        return None
+
+    if credencial is None:
+        raise AutorizacaoExigidaError(acao, "Esta ação precisa da liberação de um supervisor.")
+
+    autorizador = await session.get(User, credencial.autorizador_id)
+    if autorizador is None or autorizador.tenant_id != tenant_id or not autorizador.is_active:
+        raise PdvError("Supervisor não encontrado.")
+
+    if PERMISSAO_AUTORIZAR not in await core_service.permissoes_de(session, autorizador.id):
+        raise PdvError(f"{autorizador.full_name} não pode liberar esta ação.")
+
+    if not security.verify_password(credencial.senha, autorizador.password_hash):
+        # Mensagem igual à do supervisor inexistente seria pior aqui do que no login: o
+        # operador sabe quem escolheu na lista, e "senha não confere" é o que ele precisa
+        # para chamar a pessoa de novo.
+        raise PdvError("A senha do supervisor não confere.")
+
+    autorizacao = Autorizacao(
+        tenant_id=tenant_id,
+        acao=acao,
+        solicitante_id=solicitante_id,
+        autorizador_id=autorizador.id,
+        referencia=referencia,
+        valor=None if valor is None else _dinheiro(valor),
+        motivo=(motivo or "").strip() or None,
+    )
+    session.add(autorizacao)
+    await session.flush()
+    return autorizacao
+
+
+@dataclass(frozen=True)
+class Autorizador:
+    id: uuid.UUID
+    nome: str
+
+
+async def autorizadores(session: AsyncSession, tenant_id: uuid.UUID) -> list[Autorizador]:
+    """Quem pode liberar, para o operador escolher pelo nome e só pedir a senha.
+
+    Só o nome sai daqui. Dentro de uma loja, saber quem é o supervisor não é segredo — é
+    a pessoa ao lado —, e obrigar o operador a digitar o e-mail do chefe a cada
+    cancelamento transformaria uma trava em fila.
+    """
+    linhas = (
+        await session.execute(
+            select(User.id, User.full_name)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(RolePermission, RolePermission.role_id == UserRole.role_id)
+            .where(
+                User.tenant_id == tenant_id,
+                User.is_active.is_(True),
+                RolePermission.permission == PERMISSAO_AUTORIZAR,
+            )
+            .distinct()
+            .order_by(User.full_name)
+        )
+    ).all()
+    return [Autorizador(id=user_id, nome=nome) for user_id, nome in linhas]

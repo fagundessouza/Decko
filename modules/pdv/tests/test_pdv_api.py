@@ -187,7 +187,11 @@ async def test_item_removido_sai_do_total(client: AsyncClient) -> None:
     )
     item_id = com_item.json()["itens"][0]["id"]
 
-    sem_item = await client.delete(f"{PDV}/vendas/{venda_id}/itens/{item_id}", headers=_auth(loja))
+    # `POST .../retirar` e não `DELETE`: a credencial do supervisor viaja no corpo, e
+    # corpo em `DELETE` é mal suportado — ver ADR 0020.
+    sem_item = await client.post(
+        f"{PDV}/vendas/{venda_id}/itens/{item_id}/retirar", headers=_auth(loja)
+    )
 
     assert sem_item.status_code == 200, sem_item.text
     assert sem_item.json()["itens"] == []

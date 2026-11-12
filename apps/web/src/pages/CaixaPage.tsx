@@ -10,7 +10,10 @@ import { FORMAS, pdv } from "../lib/pdv";
 import type { Conferencia } from "../lib/pdv";
 
 interface Props {
-  onBack: () => void;
+  /** Só quando a tela é própria. Embutida no PDV, quem fecha é o diálogo. */
+  onBack?: () => void;
+  /** Dentro do PDV: sem cabeçalho de página. */
+  embutido?: boolean;
 }
 
 function motivo(cause: unknown, padrao: string): string {
@@ -67,7 +70,7 @@ function Linha({
  * é do dono. A sessão de quem opera — abrir, sangria, suprimento, fechar contando — está
  * em `MeuCaixaPage`.
  */
-export function CaixaPage({ onBack }: Props) {
+export function CaixaPage({ onBack, embutido = false }: Props) {
   const [dia, setDia] = useState(todayLocal());
   const [contado, setContado] = useState("");
   const [resultado, setResultado] = useState<Conferencia | null>(null);
@@ -104,14 +107,8 @@ export function CaixaPage({ onBack }: Props) {
   const esperado = Number(emEspecie?.valor ?? 0) - Number(resultado?.devolvido_em_especie ?? 0);
   const diferenca = contadoNaHora === "" ? null : Number(contadoNaHora) - esperado;
 
-  return (
-    <Page>
-      <PageHeader
-        title="Conferência de caixa"
-        description="Conte o dinheiro da gaveta antes de ver o que o sistema esperava."
-        onBack={onBack}
-      />
-
+  const miolo = (
+    <>
       {erro && (
         <div className="mb-6">
           <Alert tone="danger">{erro}</Alert>
@@ -289,6 +286,19 @@ export function CaixaPage({ onBack }: Props) {
           </Button>
         </div>
       )}
+    </>
+  );
+
+  if (embutido) return miolo;
+
+  return (
+    <Page>
+      <PageHeader
+        title="Conferência de caixa"
+        description="Conte o dinheiro da gaveta antes de ver o que o sistema esperava."
+        onBack={onBack}
+      />
+      {miolo}
     </Page>
   );
 }

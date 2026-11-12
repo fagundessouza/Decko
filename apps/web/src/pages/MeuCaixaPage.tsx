@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import { Alert } from "../components/Alert";
 import { Page, PageHeader } from "../components/AppShell";
+import { useAutorizacao } from "../components/Autorizacao";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { Modal } from "../components/Modal";
@@ -9,13 +11,16 @@ import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { brl } from "../lib/format";
 import { pdv } from "../lib/pdv";
-import type { Caixa, TipoMovimentoCaixa } from "../lib/pdv";
+import type { Caixa, Credencial, TipoMovimentoCaixa } from "../lib/pdv";
 
 interface Props {
-  onBack: () => void;
+  /** Só quando a tela é própria. Embutida no PDV, quem fecha é o diálogo. */
+  onBack?: () => void;
+  /** Dentro do PDV: sem cabeçalho de página, e os diálogos internos empilham. */
+  embutido?: boolean;
 }
 
-function motivo(cause: unknown, padrao: string): string {
+function motivoDoErro(cause: unknown, padrao: string): string {
   return cause instanceof Error && cause.message ? cause.message : padrao;
 }
 
@@ -30,10 +35,14 @@ function horaDe(iso: string): string {
  * quem conta vendo o número que deveria dar não confere, confirma. O número só surge
  * depois que a contagem foi enviada.
  *
- * Esta tela é do operador. O relatório do dia, que soma todos os caixas e é do dono, está
- * em `CaixaPage`.
+ * Sangria e fechamento podem exigir a liberação de um supervisor, conforme a loja — ver
+ * `docs/adr/0020-operador-supervisor-e-papeis.md`, decisão 4. A tela tenta primeiro e só
+ * pede a credencial quando o servidor diz que falta.
+ *
+ * Vive **dentro do ponto de venda**, como operação sobreposta. O relatório do dia, que
+ * soma todos os caixas e é do dono, está em `CaixaPage`.
  */
-export function MeuCaixaPage({ onBack }: Props) {
+export function MeuCaixaPage({ onBack, embutido = false }: Props) {
   const [caixa, setCaixa] = useState<Caixa | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -50,11 +59,13 @@ export function MeuCaixaPage({ onBack }: Props) {
   const [contado, setContado] = useState("");
   const [fechado, setFechado] = useState<Caixa | null>(null);
 
+  const autorizacao = useAutorizacao({ nested: embutido });
+
   useEffect(() => {
     pdv
       .caixaAberto()
       .then(setCaixa)
-      .catch((cause) => setErro(motivo(cause, "Não foi possível ver o caixa.")))
+      .catch((cause) => setErro(motivoDoErro(cause, "Não foi possível ver o caixa.")))
       .finally(() => setCarregando(false));
   }, []);
 
@@ -64,7 +75,7 @@ export function MeuCaixaPage({ onBack }: Props) {
     try {
       setCaixa(await acao());
     } catch (cause) {
-      setErro(motivo(cause, padrao));
+      setErro(motivoDoErro(cause, padrao));
     } finally {
       setBusy(false);
     }
@@ -83,10 +94,19 @@ export function MeuCaixaPage({ onBack }: Props) {
     setMovimentando(false);
     setValor("");
     setRazao("");
-    await operar(
-      () => pdv.movimentarCaixa(caixa.id, corpo),
-      "Não foi possível lançar o movimento.",
-    );
+    setBusy(true);
+    setErro(null);
+    try {
+      // Retirada pode precisar de supervisor; entrada de troco, não. Quem decide é o
+      // servidor, e a tela só repete a ação com a credencial quando ele pedir.
+      await autorizacao.executar(async (credencial?: Credencial) =>
+        setCaixa(await pdv.movimentarCaixa(caixa.id, corpo, credencial)),
+      );
+    } catch (cause) {
+      setErro(motivoDoErro(cause, "Não foi possível lançar o movimento."));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function fechar() {
@@ -97,30 +117,46 @@ export function MeuCaixaPage({ onBack }: Props) {
     setBusy(true);
     setErro(null);
     try {
-      const resultado = await pdv.fecharCaixa(caixa.id, corpo);
-      setFechado(resultado);
-      setCaixa(null);
+      await autorizacao.executar(async (credencial?: Credencial) => {
+        const resultado = await pdv.fecharCaixa(caixa.id, corpo, credencial);
+        setFechado(resultado);
+        setCaixa(null);
+      });
     } catch (cause) {
-      setErro(motivo(cause, "Não foi possível fechar o caixa."));
+      setErro(motivoDoErro(cause, "Não foi possível fechar o caixa."));
     } finally {
       setBusy(false);
     }
   }
 
-  if (carregando) {
+  /* Página própria ou conteúdo sobreposto, com o mesmo miolo.
+   *
+   * Embutida, o título e o fechar são do diálogo: repeti-los aqui daria dois cabeçalhos
+   * e dois jeitos de sair da mesma coisa. */
+  function moldura(titulo: string, descricao: string | undefined, conteudo: ReactNode) {
+    if (embutido) return <>{conteudo}</>;
     return (
       <Page>
-        <PageHeader title="Meu caixa" onBack={onBack} />
-        <p className="animate-fade text-base text-ink-muted">Carregando…</p>
+        <PageHeader title={titulo} description={descricao} onBack={onBack} />
+        {conteudo}
       </Page>
+    );
+  }
+
+  if (carregando) {
+    return moldura(
+      "Meu caixa",
+      undefined,
+      <p className="animate-fade text-base text-ink-muted">Carregando…</p>,
     );
   }
 
   if (fechado) {
     const diferenca = Number(fechado.diferenca ?? 0);
-    return (
-      <Page>
-        <PageHeader title="Caixa fechado" onBack={onBack} />
+    return moldura(
+      "Caixa fechado",
+      undefined,
+      <>
         <Card>
           <CardBody>
             <dl className="flex flex-col gap-2.5">
@@ -157,22 +193,12 @@ export function MeuCaixaPage({ onBack }: Props) {
             Abrir outro caixa
           </Button>
         </div>
-      </Page>
+      </>,
     );
   }
 
-  return (
-    <Page>
-      <PageHeader
-        title="Meu caixa"
-        description={
-          caixa
-            ? "Lance retiradas e entradas de dinheiro, e feche contando a gaveta."
-            : "Abra o caixa com o fundo de troco. Vender não depende disso."
-        }
-        onBack={onBack}
-      />
-
+  const miolo = (
+    <>
       {erro && (
         <div className="mb-6">
           <Alert tone="danger">{erro}</Alert>
@@ -229,9 +255,7 @@ export function MeuCaixaPage({ onBack }: Props) {
             <CardHeader
               title="Retiradas e entradas"
               description={
-                caixa.movimentos.length === 0
-                  ? "Nada lançado fora de venda ainda."
-                  : undefined
+                caixa.movimentos.length === 0 ? "Nada lançado fora de venda ainda." : undefined
               }
               action={
                 <Button
@@ -278,6 +302,7 @@ export function MeuCaixaPage({ onBack }: Props) {
 
       <Modal
         open={movimentando}
+        nested={embutido}
         title="Retirada ou entrada"
         description="Dinheiro que sai ou entra na gaveta fora de venda."
         onClose={() => setMovimentando(false)}
@@ -326,6 +351,7 @@ export function MeuCaixaPage({ onBack }: Props) {
 
       <Modal
         open={fechando}
+        nested={embutido}
         title="Fechar o caixa"
         description="Conte o dinheiro da gaveta e digite o quanto encontrou."
         onClose={() => setFechando(false)}
@@ -356,6 +382,16 @@ export function MeuCaixaPage({ onBack }: Props) {
           />
         </form>
       </Modal>
-    </Page>
+
+      {autorizacao.dialogo}
+    </>
+  );
+
+  return moldura(
+    "Meu caixa",
+    caixa
+      ? "Lance retiradas e entradas de dinheiro, e feche contando a gaveta."
+      : "Abra o caixa com o fundo de troco. Vender não depende disso.",
+    miolo,
   );
 }

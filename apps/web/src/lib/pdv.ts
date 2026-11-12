@@ -1,5 +1,33 @@
 import { authedJson } from "./api";
 
+/** Quem está liberando, e a senha dele.
+ *
+ * Viaja **junto com a ação**: o servidor confere e executa na mesma requisição. Destravar
+ * a tela e confiar nela seria teatro — quem abre o inspetor passa por cima. Ver
+ * `docs/adr/0020-operador-supervisor-e-papeis.md`, decisão 4. */
+export interface Credencial {
+  autorizador_id: string;
+  senha: string;
+}
+
+/** Quem pode liberar. Só o nome vem: a senha é o que libera, não a lista. */
+export interface Autorizador {
+  id: string;
+  nome: string;
+}
+
+/** O que esta loja exige supervisor para fazer, e a partir de quanto. */
+export interface ConfiguracaoPdv {
+  exige_cancelar_item: boolean;
+  exige_cancelar_venda: boolean;
+  exige_sangria: boolean;
+  exige_devolucao: boolean;
+  exige_desconto: boolean;
+  desconto_livre: string;
+  exige_diferenca: boolean;
+  diferenca_livre: string;
+}
+
 export type StatusVenda = "aberta" | "finalizada" | "cancelada";
 
 export type FormaPagamento = "dinheiro" | "debito" | "credito" | "pix" | "outro";
@@ -211,13 +239,22 @@ export const pdv = {
   movimentarCaixa: (
     caixaId: string,
     body: { tipo: TipoMovimentoCaixa; valor: string; motivo: string },
+    autorizacao?: Credencial,
   ): Promise<Caixa> =>
-    authedJson(`/pdv/caixa/${caixaId}/movimentos`, { method: "POST", body }),
+    authedJson(`/pdv/caixa/${caixaId}/movimentos`, {
+      method: "POST",
+      body: { ...body, autorizacao: autorizacao ?? null },
+    }),
 
   fecharCaixa: (
     caixaId: string,
     body: { contado: string; observacao?: string | null },
-  ): Promise<Caixa> => authedJson(`/pdv/caixa/${caixaId}/fechar`, { method: "POST", body }),
+    autorizacao?: Credencial,
+  ): Promise<Caixa> =>
+    authedJson(`/pdv/caixa/${caixaId}/fechar`, {
+      method: "POST",
+      body: { ...body, autorizacao: autorizacao ?? null },
+    }),
 
   /* Os instantes vão com fuso, de propósito: o dia que importa é o dia local de quem
    * está no balcão, e o servidor não tem como adivinhar qual é. */
@@ -250,11 +287,23 @@ export const pdv = {
     },
   ): Promise<Venda> => authedJson(`/pdv/vendas/${vendaId}/itens`, { method: "POST", body }),
 
-  removerItem: (vendaId: string, itemId: string): Promise<Venda> =>
-    authedJson(`/pdv/vendas/${vendaId}/itens/${itemId}`, { method: "DELETE" }),
+  /* `POST .../retirar` e não `DELETE`: a credencial do supervisor viaja no corpo, e
+   * corpo em `DELETE` é mal suportado por intermediário — ver ADR 0020. */
+  removerItem: (vendaId: string, itemId: string, autorizacao?: Credencial): Promise<Venda> =>
+    authedJson(`/pdv/vendas/${vendaId}/itens/${itemId}/retirar`, {
+      method: "POST",
+      body: { autorizacao: autorizacao ?? null },
+    }),
 
-  definirDesconto: (vendaId: string, desconto: string): Promise<Venda> =>
-    authedJson(`/pdv/vendas/${vendaId}/desconto`, { method: "PUT", body: { desconto } }),
+  definirDesconto: (
+    vendaId: string,
+    desconto: string,
+    autorizacao?: Credencial,
+  ): Promise<Venda> =>
+    authedJson(`/pdv/vendas/${vendaId}/desconto`, {
+      method: "PUT",
+      body: { desconto, autorizacao: autorizacao ?? null },
+    }),
 
   pagar: (
     vendaId: string,
@@ -277,8 +326,11 @@ export const pdv = {
   finalizar: (vendaId: string): Promise<Venda> =>
     authedJson(`/pdv/vendas/${vendaId}/finalizar`, { method: "POST" }),
 
-  cancelar: (vendaId: string): Promise<Venda> =>
-    authedJson(`/pdv/vendas/${vendaId}/cancelar`, { method: "POST" }),
+  cancelar: (vendaId: string, autorizacao?: Credencial): Promise<Venda> =>
+    authedJson(`/pdv/vendas/${vendaId}/cancelar`, {
+      method: "POST",
+      body: { autorizacao: autorizacao ?? null },
+    }),
 
   devolucoesDaVenda: (vendaId: string): Promise<DevolucoesDaVenda> =>
     authedJson(`/pdv/vendas/${vendaId}/devolucoes`),
@@ -301,6 +353,18 @@ export const pdv = {
       forma: FormaPagamento;
       motivo: string;
     },
+    autorizacao?: Credencial,
   ): Promise<Devolucao> =>
-    authedJson(`/pdv/vendas/${vendaId}/devolucoes`, { method: "POST", body }),
+    authedJson(`/pdv/vendas/${vendaId}/devolucoes`, {
+      method: "POST",
+      body: { ...body, autorizacao: autorizacao ?? null },
+    }),
+
+  /** Quem pode liberar o que o operador não faz sozinho. */
+  autorizadores: (): Promise<Autorizador[]> => authedJson("/pdv/autorizadores"),
+
+  configuracao: (): Promise<ConfiguracaoPdv> => authedJson("/pdv/configuracao"),
+
+  salvarConfiguracao: (body: ConfiguracaoPdv): Promise<ConfiguracaoPdv> =>
+    authedJson("/pdv/configuracao", { method: "PUT", body }),
 };

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -40,6 +40,10 @@ vi.mock("../lib/pdv", async (importar) => {
       desidentificar: vi.fn(),
       finalizar: vi.fn(),
       cancelar: vi.fn(),
+      // As operações embutidas (caixa, devolução, conferência) chamam o servidor assim
+      // que o diálogo abre.
+      caixaAberto: vi.fn(),
+      autorizadores: vi.fn(),
     },
   };
 });
@@ -150,9 +154,21 @@ function umCliente(sobre: Partial<Cliente> = {}): Cliente {
   };
 }
 
-function abrirCaixa({ podeIdentificar = false } = {}) {
+function abrirCaixa({
+  podeIdentificar = false,
+  podeAbrirCaixa = false,
+  podeDevolver = false,
+  podeConferir = false,
+} = {}) {
   return render(
-    <PdvPage onBack={() => {}} empresa="Mercado do Teste" podeIdentificar={podeIdentificar} />,
+    <PdvPage
+      onBack={() => {}}
+      empresa="Mercado do Teste"
+      podeIdentificar={podeIdentificar}
+      podeAbrirCaixa={podeAbrirCaixa}
+      podeDevolver={podeDevolver}
+      podeConferir={podeConferir}
+    />,
   );
 }
 
@@ -170,6 +186,8 @@ beforeEach(() => {
   vi.mocked(clientes.listar).mockResolvedValue([]);
   // Empresa sem o módulo `financeiro` é o padrão: a escolha de conta nem aparece.
   vi.mocked(financeiro.listarContas).mockResolvedValue([]);
+  vi.mocked(pdv.caixaAberto).mockResolvedValue(null);
+  vi.mocked(pdv.autorizadores).mockResolvedValue([]);
 });
 
 describe("PdvPage, ao abrir", () => {
@@ -621,7 +639,7 @@ describe("PdvPage, desfazendo", () => {
     // sai — e é o que o leitor de tela anuncia.
     await usuario.click(screen.getByRole("button", { name: "Retirar Café torrado 500g" }));
 
-    await waitFor(() => expect(pdv.removerItem).toHaveBeenCalledWith("venda-1", "item-1"));
+    await waitFor(() => expect(pdv.removerItem).toHaveBeenCalledWith("venda-1", "item-1", undefined));
   });
 
   it("retira um pagamento já lançado", async () => {
@@ -664,7 +682,7 @@ describe("PdvPage, desfazendo", () => {
     await waitFor(() => expect(pdv.abrir).toHaveBeenCalled());
 
     await usuario.click(screen.getByRole("button", { name: "Cancelar venda" }));
-    await waitFor(() => expect(pdv.cancelar).toHaveBeenCalledWith("venda-1"));
+    await waitFor(() => expect(pdv.cancelar).toHaveBeenCalledWith("venda-1", undefined));
 
     /* Cancelar não pode deixar a tela apontando para uma venda que não existe mais. O
      * caixa fica sem venda aberta, e a única coisa oferecida é abrir outra. */
@@ -721,7 +739,7 @@ describe("PdvPage, o desconto", () => {
     await usuario.type(await screen.findByLabelText("Desconto"), "1,50");
     await usuario.click(screen.getByRole("button", { name: "Aplicar" }));
 
-    await waitFor(() => expect(pdv.definirDesconto).toHaveBeenCalledWith("venda-1", "1.50"));
+    await waitFor(() => expect(pdv.definirDesconto).toHaveBeenCalledWith("venda-1", "1.50", undefined));
   });
 
   it("zero tira o desconto que já existia", async () => {
@@ -745,7 +763,7 @@ describe("PdvPage, o desconto", () => {
     await usuario.type(campo, "0");
     await usuario.click(screen.getByRole("button", { name: "Aplicar" }));
 
-    await waitFor(() => expect(pdv.definirDesconto).toHaveBeenCalledWith("venda-1", "0"));
+    await waitFor(() => expect(pdv.definirDesconto).toHaveBeenCalledWith("venda-1", "0", undefined));
   });
 
   it("os atalhos de pagamento não disparam com o desconto aberto", async () => {
@@ -764,3 +782,75 @@ describe("PdvPage, o desconto", () => {
   });
 });
 
+describe("PdvPage, as teclas de função", () => {
+  it("engole F1 a F4 mesmo sem venda aberta", async () => {
+    // O defeito que isto guarda: o efeito só se ligava com venda e item, então na tela
+    // parada — a maior parte do expediente — F1 abria a ajuda do navegador e F3 a busca,
+    // por cima do caixa. Tecla que às vezes faz outra coisa é pior do que tecla que não
+    // faz nada.
+    abrirCaixa();
+    // O PDV abre a venda sozinho quando não há pendente: esperar pelo campo de código
+    // é esperar pela tela pronta.
+    await screen.findByLabelText("Código, código de barras ou nome");
+
+    for (const tecla of ["F1", "F2", "F3", "F4"]) {
+      // `fireEvent` devolve false quando o evento foi cancelado.
+      expect(fireEvent.keyDown(document, { key: tecla })).toBe(false);
+    }
+  });
+
+  it("não toma a tecla quando há modificador", async () => {
+    // Ctrl+F4 fecha a aba, e tomar isso do usuário seria pior do que não ter atalho.
+    abrirCaixa();
+    // O PDV abre a venda sozinho quando não há pendente: esperar pelo campo de código
+    // é esperar pela tela pronta.
+    await screen.findByLabelText("Código, código de barras ou nome");
+
+    expect(fireEvent.keyDown(document, { key: "F4", ctrlKey: true })).toBe(true);
+  });
+});
+
+describe("PdvPage, as operações de caixa", () => {
+  it("não oferece o que a pessoa não alcança", async () => {
+    abrirCaixa();
+    // O PDV abre a venda sozinho quando não há pendente: esperar pelo campo de código
+    // é esperar pela tela pronta.
+    await screen.findByLabelText("Código, código de barras ou nome");
+
+    expect(screen.queryByRole("button", { name: "Meu caixa" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Devolução" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Conferência do dia" })).toBeNull();
+  });
+
+  it("abre o caixa do operador sobreposto, sem sair do balcão", async () => {
+    const usuario = userEvent.setup();
+    abrirCaixa({ podeAbrirCaixa: true });
+
+    await usuario.click(await screen.findByRole("button", { name: "Meu caixa" }));
+
+    // Diálogo de verdade: trava o que está atrás e fecha no Esc — é o que o torna
+    // operação sobreposta, e não outra tela.
+    const dialogo = await screen.findByRole("dialog");
+    expect(dialogo).toBeTruthy();
+    expect(await screen.findByLabelText("Fundo de troco")).toBeTruthy();
+  });
+
+  it("oferece a conferência do dia a quem pode conferir", async () => {
+    const usuario = userEvent.setup();
+    abrirCaixa({ podeConferir: true });
+
+    await usuario.click(await screen.findByRole("button", { name: "Conferência do dia" }));
+
+    expect(await screen.findByLabelText("Quanto há na gaveta")).toBeTruthy();
+  });
+
+  it("cada botão depende da sua própria permissão", async () => {
+    // Afirmar só "sem permissão nenhuma, nada aparece" não guarda nada: cada guarda
+    // esconderia o erro da outra. Aqui uma permissão está ligada e as demais não.
+    abrirCaixa({ podeConferir: true });
+    await screen.findByRole("button", { name: "Conferência do dia" });
+
+    expect(screen.queryByRole("button", { name: "Meu caixa" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Devolução" })).toBeNull();
+  });
+});

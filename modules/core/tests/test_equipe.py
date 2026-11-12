@@ -116,8 +116,13 @@ async def test_contratar_o_pdv_semeia_os_papeis(client: AsyncClient, loja: Loja)
     assert {OPERADOR, SUPERVISOR} <= nomes
 
 
-async def test_operador_vende_mas_nao_cancela_nem_fecha(client: AsyncClient, loja: Loja) -> None:
-    """O papel é a fronteira: o que o operador não pode nem chega no token dele."""
+async def test_operador_vende_mas_nao_devolve_nem_fecha(client: AsyncClient, loja: Loja) -> None:
+    """O papel diz o que a pessoa pode **tentar**; a configuração diz o que precisa de dois.
+
+    Cancelar item e cancelar venda são trabalho do balcão, então o operador os tem — e é a
+    exigência de supervisor que os segura (ADR 0020, decisão 4). Devolver dinheiro e
+    fechar o caixa não são dele de jeito nenhum, e aí quem recusa é o papel.
+    """
     operador = await _papel(client, loja, OPERADOR)
     concede = set(operador["permissoes"])
 
@@ -125,9 +130,11 @@ async def test_operador_vende_mas_nao_cancela_nem_fecha(client: AsyncClient, loj
     assert "pdv.caixa.abrir" in concede
     # Ler produto vem junto: sem isso ele não bipa nada.
     assert "comercial.produto.read" in concede
+    # Pode tentar cancelar; sozinho não conclui, porque a loja exige liberação.
+    assert "pdv.venda.cancelar" in concede
+    # E não pode liberar nada, nem para si mesmo.
+    assert "pdv.autorizar" not in concede
 
-    # O que exige supervisor, ele não tem.
-    assert "pdv.venda.cancelar" not in concede
     assert "pdv.venda.devolver" not in concede
     assert "pdv.caixa.fechar" not in concede
     # Nem o relatório do dia: ele soma todos os operadores e mostra o esperado em
@@ -142,6 +149,7 @@ async def test_operador_vende_mas_nao_cancela_nem_fecha(client: AsyncClient, loj
         "pdv.venda.devolver",
         "pdv.caixa.fechar",
         "pdv.caixa.conferir",
+        "pdv.autorizar",
     } <= supervisor
 
 

@@ -13,6 +13,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
@@ -50,6 +51,20 @@ class FormaPagamento(StrEnum):
 class TipoMovimentoCaixa(StrEnum):
     SANGRIA = "sangria"
     SUPRIMENTO = "suprimento"
+
+
+class AcaoAutorizada(StrEnum):
+    """O que o operador não faz sozinho quando a loja exige supervisor.
+
+    Decisão e motivos: ``docs/adr/0020-operador-supervisor-e-papeis.md``, decisão 4.
+    """
+
+    CANCELAR_ITEM = "cancelar_item"
+    CANCELAR_VENDA = "cancelar_venda"
+    SANGRIA = "sangria"
+    DEVOLUCAO = "devolucao"
+    DESCONTO = "desconto"
+    FECHAR_CAIXA = "fechar_caixa"
 
 
 class DestinoDevolucao(StrEnum):
@@ -418,6 +433,93 @@ class ItemDevolucao(TenantMixin, TimestampMixin, Base):
     devolucao: Mapped["Devolucao"] = relationship(back_populates="itens")
 
 
+class ConfiguracaoPdv(Base):
+    """O que esta loja exige autorização para fazer, e a partir de quanto.
+
+    Uma linha por empresa, com a empresa como chave primária — mesmo motivo do
+    ``Contador``: uma identidade artificial permitiria duas linhas para a mesma loja, que
+    é exatamente o que não pode existir.
+
+    **As quatro exigências que o dono do projeto escolheu nascem ligadas.** As duas que
+    dependem de um número — desconto e diferença no fechamento — nascem **desligadas**,
+    porque ligá-las exige escolher o limite, e inventar esse limite seria inventar regra
+    de negócio (``CLAUDE.md``, regra 6).
+    """
+
+    __tablename__ = "pdv_configuracao"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    exige_cancelar_item: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    exige_cancelar_venda: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    exige_sangria: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    exige_devolucao: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    exige_desconto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Até quanto o operador desconta sozinho. Zero com a exigência ligada quer dizer
+    # "qualquer desconto precisa de supervisor".
+    desconto_livre: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), nullable=False, default=Decimal(0)
+    )
+
+    exige_diferenca: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Quanto de diferença o fechamento aceita sem supervisor, para mais ou para menos.
+    # É a única trava deste tipo que o Odoo tem de fábrica (*Set Maximum Difference*).
+    diferenca_livre: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), nullable=False, default=Decimal(0)
+    )
+
+    __table_args__ = (
+        CheckConstraint("desconto_livre >= 0", name="ck_pdv_configuracao_desconto_livre"),
+        CheckConstraint("diferenca_livre >= 0", name="ck_pdv_configuracao_diferenca_livre"),
+    )
+
+
+class Autorizacao(TenantMixin, TimestampMixin, Base):
+    """Uma liberação dada por quem podia, para alguém que não podia sozinho.
+
+    Guarda **as duas pessoas**: uma linha que diz só "sangria de R$ 200" não responde nada
+    numa investigação, e é por causa dessa pergunta que esta tabela existe.
+
+    Só existe linha quando a autorização foi **concedida**. Não há coluna de estado: o
+    pedido que o chefe libera à distância precisa de um canal de notificação que o projeto
+    não tem, e uma coluna com um valor só seria ruído — ``CLAUDE.md``, "não crie abstração
+    para caso hipotético". Ver ``docs/adr/0020-operador-supervisor-e-papeis.md``.
+    """
+
+    __tablename__ = "pdv_autorizacao"
+
+    id: Mapped[uuid.UUID] = primary_key()
+    acao: Mapped[AcaoAutorizada] = mapped_column(
+        _enum(AcaoAutorizada, "pdv_acao_autorizada"), nullable=False
+    )
+
+    # Quem pediu. `SET NULL` porque a linha é histórico e não pode sumir com a pessoa.
+    solicitante_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
+    )
+    # Quem liberou. Também `SET NULL`, pelo mesmo motivo — e o nome de quem liberou é lido
+    # do cadastro na hora de mostrar, não copiado.
+    autorizador_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # A que a liberação se refere: id da venda, do caixa, do que for. Texto, e não chave
+    # estrangeira, porque uma só coluna aponta para tabelas diferentes conforme a ação.
+    referencia: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    valor: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    motivo: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    __table_args__ = (
+        Index("ix_pdv_autorizacao_tenant_id_created_at", "tenant_id", "created_at"),
+        Index("ix_pdv_autorizacao_autorizador_id", "autorizador_id"),
+    )
+
+
 TENANT_SCOPED_TABLES = (
     Contador.__tablename__,
     Venda.__tablename__,
@@ -427,4 +529,6 @@ TENANT_SCOPED_TABLES = (
     MovimentoCaixa.__tablename__,
     Devolucao.__tablename__,
     ItemDevolucao.__tablename__,
+    Autorizacao.__tablename__,
+    ConfiguracaoPdv.__tablename__,
 )

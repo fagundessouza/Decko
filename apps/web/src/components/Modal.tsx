@@ -10,6 +10,9 @@ interface Props {
   footer?: ReactNode;
   /** Submodal: empilha acima de outro e some o fundo um pouco mais. */
   nested?: boolean;
+  /** "ampla" para operação inteira dentro do diálogo — caixa, devolução, conferência.
+   *  O padrão continua estreito, que é o certo para confirmar ou preencher três campos. */
+  largura?: "normal" | "ampla";
 }
 
 /* Sobreposição focada, para tarefa curta que não merece sair da tela.
@@ -25,6 +28,7 @@ export function Modal({
   children,
   footer,
   nested = false,
+  largura = "normal",
 }: Props) {
   const painel = useRef<HTMLDivElement>(null);
   const anterior = useRef<HTMLElement | null>(null);
@@ -92,9 +96,12 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="relative m-0 flex max-h-[92dvh] w-full animate-rise flex-col overflow-hidden
-                   rounded-t-xl bg-surface shadow-lg ring-1 ring-line-subtle outline-none
-                   sm:m-6 sm:max-w-lg sm:rounded-xl"
+        className={
+          "relative m-0 flex max-h-[92dvh] w-full animate-rise flex-col overflow-hidden " +
+          "rounded-t-xl bg-surface shadow-lg ring-1 ring-line-subtle outline-none " +
+          "sm:m-6 sm:rounded-xl " +
+          (largura === "ampla" ? "sm:max-w-3xl" : "sm:max-w-lg")
+        }
       >
         <header className="flex items-start justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6">
           <div className="min-w-0">

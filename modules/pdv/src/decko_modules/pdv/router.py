@@ -13,16 +13,24 @@ from decko_modules.comercial import service as comercial
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.pdv import service
 from decko_modules.pdv.models import (
+    AcaoAutorizada,
     Caixa,
+    ConfiguracaoPdv,
     Devolucao,
     MovimentoCaixa,
     StatusVenda,
+    TipoMovimentoCaixa,
     Venda,
 )
 from decko_modules.pdv.schemas import (
     AberturaIn,
+    AutorizadorOut,
     CaixaOut,
+    CancelarVendaIn,
     ConferenciaOut,
+    ConfiguracaoIn,
+    ConfiguracaoOut,
+    CredencialIn,
     DescontoIn,
     DevolucaoIn,
     DevolucaoOut,
@@ -38,6 +46,7 @@ from decko_modules.pdv.schemas import (
     PagamentoOut,
     PreviaDevolucaoIn,
     PreviaDevolucaoOut,
+    RetirarItemIn,
     VendaOut,
     VendaResumoOut,
 )
@@ -196,13 +205,30 @@ async def movimentar_caixa(
     caixa_id: uuid.UUID,
     payload: MovimentoCaixaIn,
     session: SessionDep,
+    principal: CurrentPrincipal,
     _: Annotated[object, Depends(require("pdv.caixa.abrir"))],
 ) -> dict:
     caixa = await _carregar_caixa(session, caixa_id)
     try:
+        if payload.tipo is TipoMovimentoCaixa.SANGRIA:
+            # Só a retirada pede liberação: dinheiro **entrando** na gaveta não é o que
+            # se desvia, e pedir supervisor para repor troco pararia o balcão à toa.
+            await service.exigir_autorizacao(
+                session,
+                tenant_id=principal.tenant_id,
+                acao=AcaoAutorizada.SANGRIA,
+                solicitante_id=principal.user_id,
+                solicitante_autoriza=principal.can(service.PERMISSAO_AUTORIZAR),
+                credencial=_credencial(payload.autorizacao),
+                referencia=str(caixa.id),
+                valor=payload.valor,
+                motivo=payload.motivo,
+            )
         await service.movimentar_caixa(
             session, caixa=caixa, tipo=payload.tipo, valor=payload.valor, motivo=payload.motivo
         )
+    except service.AutorizacaoExigidaError as exc:
+        raise _pedir_autorizacao(exc) from exc
     except service.PdvError as exc:
         raise _invalido(exc) from exc
     return await _caixa_visto(session, caixa)
@@ -213,14 +239,36 @@ async def fechar_caixa(
     caixa_id: uuid.UUID,
     payload: FechamentoCaixaIn,
     session: SessionDep,
+    principal: CurrentPrincipal,
     _: Annotated[object, Depends(require("pdv.caixa.fechar"))],
 ) -> dict:
-    """Fecha com o valor contado. Não bater nunca impede fechar — ver ADR 0008."""
+    """Fecha com o valor contado. Não bater nunca impede fechar — ver ADR 0008.
+
+    Diferença grande pode exigir supervisor, se a loja ligar isso: é a única trava deste
+    tipo que o Odoo tem de fábrica. **Continua não impedindo fechar** — exige uma segunda
+    pessoa, que é coisa diferente de travar.
+    """
     caixa = await _carregar_caixa(session, caixa_id)
     try:
+        # O esperado é recalculado aqui só para medir a diferença. Ele **não** entra na
+        # resposta do 428: a tela precisa saber que falta supervisor, não quanto deveria
+        # haver na gaveta — isso continua aparecendo só depois da contagem enviada.
+        esperado = await service.esperado_do_caixa(session, caixa)
+        await service.exigir_autorizacao(
+            session,
+            tenant_id=principal.tenant_id,
+            acao=AcaoAutorizada.FECHAR_CAIXA,
+            solicitante_id=principal.user_id,
+            solicitante_autoriza=principal.can(service.PERMISSAO_AUTORIZAR),
+            credencial=_credencial(payload.autorizacao),
+            referencia=str(caixa.id),
+            valor=payload.contado - esperado,
+        )
         await service.fechar_caixa(
             session, caixa=caixa, contado=payload.contado, observacao=payload.observacao
         )
+    except service.AutorizacaoExigidaError as exc:
+        raise _pedir_autorizacao(exc) from exc
     except service.PdvError as exc:
         raise _invalido(exc) from exc
     return await _caixa_visto(session, caixa)
@@ -291,16 +339,34 @@ async def adicionar_item(
     return await _ver(session, venda)
 
 
-@router.delete("/vendas/{venda_id}/itens/{item_id}", response_model=VendaOut)
-async def remover_item(
+@router.post("/vendas/{venda_id}/itens/{item_id}/retirar", response_model=VendaOut)
+async def retirar_item(
     venda_id: uuid.UUID,
     item_id: uuid.UUID,
     session: SessionDep,
+    principal: CurrentPrincipal,
     _: Annotated[object, Depends(require("pdv.venda.write"))],
+    payload: RetirarItemIn | None = None,
 ) -> VendaOut:
+    """Tira um item da venda em andamento.
+
+    `POST` e não `DELETE`: a credencial do supervisor precisa viajar no corpo, e corpo em
+    `DELETE` é mal suportado por intermediário — senha em parâmetro de URL acaba em log.
+    """
     venda = await _carregar(session, venda_id)
     try:
+        await service.exigir_autorizacao(
+            session,
+            tenant_id=principal.tenant_id,
+            acao=AcaoAutorizada.CANCELAR_ITEM,
+            solicitante_id=principal.user_id,
+            solicitante_autoriza=principal.can(service.PERMISSAO_AUTORIZAR),
+            credencial=_credencial(payload.autorizacao if payload else None),
+            referencia=str(venda.id),
+        )
         await service.remover_item(session, venda=venda, item_id=item_id)
+    except service.AutorizacaoExigidaError as exc:
+        raise _pedir_autorizacao(exc) from exc
     except service.PdvError as exc:
         raise _invalido(exc) from exc
     return await _ver(session, venda)
@@ -311,11 +377,24 @@ async def definir_desconto(
     venda_id: uuid.UUID,
     payload: DescontoIn,
     session: SessionDep,
+    principal: CurrentPrincipal,
     _: Annotated[object, Depends(require("pdv.venda.write"))],
 ) -> VendaOut:
     venda = await _carregar(session, venda_id)
     try:
+        await service.exigir_autorizacao(
+            session,
+            tenant_id=principal.tenant_id,
+            acao=AcaoAutorizada.DESCONTO,
+            solicitante_id=principal.user_id,
+            solicitante_autoriza=principal.can(service.PERMISSAO_AUTORIZAR),
+            credencial=_credencial(payload.autorizacao),
+            referencia=str(venda.id),
+            valor=payload.desconto,
+        )
         await service.definir_desconto(session, venda=venda, desconto=payload.desconto)
+    except service.AutorizacaoExigidaError as exc:
+        raise _pedir_autorizacao(exc) from exc
     except service.PdvError as exc:
         raise _invalido(exc) from exc
     return await _ver(session, venda)
@@ -412,11 +491,24 @@ async def finalizar_venda(
 async def cancelar_venda(
     venda_id: uuid.UUID,
     session: SessionDep,
+    principal: CurrentPrincipal,
     _: Annotated[object, Depends(require("pdv.venda.cancelar"))],
+    payload: CancelarVendaIn | None = None,
 ) -> VendaOut:
     venda = await _carregar(session, venda_id)
     try:
+        await service.exigir_autorizacao(
+            session,
+            tenant_id=principal.tenant_id,
+            acao=AcaoAutorizada.CANCELAR_VENDA,
+            solicitante_id=principal.user_id,
+            solicitante_autoriza=principal.can(service.PERMISSAO_AUTORIZAR),
+            credencial=_credencial(payload.autorizacao if payload else None),
+            referencia=str(venda.id),
+        )
         await service.cancelar_venda(session, venda=venda)
+    except service.AutorizacaoExigidaError as exc:
+        raise _pedir_autorizacao(exc) from exc
     except service.PdvError as exc:
         raise _invalido(exc) from exc
     return await _ver(session, venda)
@@ -529,6 +621,20 @@ async def devolver(
     """
     venda = await _carregar(session, venda_id)
     try:
+        previa = await service.calcular_devolucao(
+            session, venda=venda, linhas=_linhas(payload.itens)
+        )
+        await service.exigir_autorizacao(
+            session,
+            tenant_id=principal.tenant_id,
+            acao=AcaoAutorizada.DEVOLUCAO,
+            solicitante_id=principal.user_id,
+            solicitante_autoriza=principal.can(service.PERMISSAO_AUTORIZAR),
+            credencial=_credencial(payload.autorizacao),
+            referencia=str(venda.id),
+            valor=previa.total,
+            motivo=payload.motivo,
+        )
         devolucao = await service.devolver(
             session,
             venda=venda,
@@ -538,6 +644,77 @@ async def devolver(
             operador_id=principal.user_id,
             registrado_por=principal.user_id,
         )
+    except service.AutorizacaoExigidaError as exc:
+        raise _pedir_autorizacao(exc) from exc
     except (service.PdvError, comercial.ComercialError) as exc:
         raise _invalido(exc) from exc
     return await _devolucao_vista(session, devolucao.id)
+
+
+# ------------------------------------------------------- autorização do supervisor
+#
+# A credencial de quem libera viaja junto com a ação, e a conferência acontece no servidor
+# antes de executar. Ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 4.
+
+
+def _credencial(payload: CredencialIn | None) -> service.Credencial | None:
+    if payload is None:
+        return None
+    return service.Credencial(autorizador_id=payload.autorizador_id, senha=payload.senha)
+
+
+def _pedir_autorizacao(exc: service.AutorizacaoExigidaError) -> HTTPException:
+    """428, e não 403: a tela deve **pedir a credencial e repetir**, não mostrar erro.
+
+    403 diria ao operador que ele não pode — e ele pode, com a liberação de alguém. A
+    distinção precisa chegar na tela, e o código de estado é como ela chega.
+    """
+    return HTTPException(
+        status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+        detail={"detail": str(exc), "acao": exc.acao.value},
+    )
+
+
+@router.get("/autorizadores", response_model=list[AutorizadorOut])
+async def listar_autorizadores(
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("pdv.venda.write"))],
+) -> list[AutorizadorOut]:
+    """Quem pode liberar, para o operador escolher pelo nome e a pessoa só digitar a senha.
+
+    Quem opera precisa desta lista para chamar alguém; por isso a permissão é a de operar,
+    e não a de administrar. Só o nome sai daqui.
+    """
+    return [
+        AutorizadorOut(id=linha.id, nome=linha.nome)
+        for linha in await service.autorizadores(session, principal.tenant_id)
+    ]
+
+
+@router.get("/configuracao", response_model=ConfiguracaoOut)
+async def ver_configuracao(
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("pdv.venda.read"))],
+) -> ConfiguracaoPdv:
+    """O que esta loja exige, e a partir de quanto.
+
+    Leitura liberada a quem opera de propósito: a tela precisa saber o que vai pedir antes
+    de pedir, e nada aqui é segredo — a trava não depende de o operador desconhecê-la.
+    """
+    return await service.configuracao(session, principal.tenant_id)
+
+
+@router.put("/configuracao", response_model=ConfiguracaoOut)
+async def salvar_configuracao(
+    payload: ConfiguracaoIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("pdv.config.write"))],
+) -> ConfiguracaoPdv:
+    config = await service.configuracao(session, principal.tenant_id)
+    for campo, valor in payload.model_dump().items():
+        setattr(config, campo, valor)
+    await session.flush()
+    return config

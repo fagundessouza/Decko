@@ -84,6 +84,24 @@ quem tem mais motivo para burlá-lo.
 A trilha registra **as duas pessoas**: quem pediu e quem autorizou. Uma linha que diz só
 "sangria de R$ 200" não responde nada numa investigação.
 
+> **Decidido ao implementar, em 12/11/2026.** Três coisas que só apareceram no código:
+>
+> - **O papel diz o que a pessoa pode *tentar*; a configuração diz o que precisa de duas
+>   pessoas.** O operador recebeu `pdv.venda.cancelar`, senão levaria 403 e nunca chegaria
+>   a pedir o supervisor. Devolver e fechar continuam fora do papel dele.
+> - **Uma permissão só para liberar**, `pdv.autorizar`, e não uma por ação: é assim que a
+>   loja pensa — "o supervisor libera" —, e seis permissões para a mesma autoridade seriam
+>   seis chances de configurar errado.
+> - **Quem já pode liberar não é perguntado.** O supervisor que opera o próprio caixa não
+>   chama a si mesmo; quem fez continua registrado na ação.
+>
+> A recusa é **428**, e não 403: 403 diria ao operador que ele não pode, e ele pode — com
+> alguém junto. A distinção precisa chegar na tela, e o código de estado é como ela chega.
+>
+> Retirar item virou `POST .../retirar`: a credencial não pode viajar em `DELETE`, porque
+> corpo em `DELETE` é mal suportado por intermediário e senha em parâmetro de URL acaba
+> em log.
+
 ### 5. O PDV é a casca do operador, e o menu esconde por permissão
 
 Quem só tem permissão de operar entra direto no PDV, sem menu lateral. Abrir caixa,
@@ -95,6 +113,19 @@ operadores, e é relatório, não operação.
 
 O menu passa a esconder por **permissão**, e não só por módulo ativo.
 
+> **Feito em 12/11/2026, e o dono do projeto estava certo.** "Meu caixa", "Devolução de
+> venda" e "Conferência de caixa" eram itens irmãos do PDV no menu lateral, e isso tinha
+> dois defeitos: virava uma lista de entradas que pareciam módulos diferentes, e tirava o
+> operador do balcão para fazer uma sangria.
+>
+> As três passaram a ser **diálogos sobrepostos dentro do PDV**, que travam a tela de trás
+> enquanto a operação acontece — e empilham, porque sangria e fechamento abrem o seu
+> próprio diálogo em cima. A liberação do supervisor é uma terceira camada. Cada uma
+> continua carregando sob demanda: quem só vende nunca baixa o código delas.
+>
+> Os botões aparecem **antes de haver venda aberta**, de propósito: o operador abre o
+> caixa dele no começo do expediente, quando ainda não bipou nada.
+>
 > **Achado ao percorrer a tela do operador, em 10/11/2026.** A conferência do dia exigia
 > `pdv.venda.read` — que o operador **precisa ter para vender**. Ela lhe entregava o
 > relatório do dia inteiro, por operador, com o esperado em espécie: o mesmo vazamento que

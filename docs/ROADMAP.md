@@ -335,6 +335,16 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       enquanto o caixa está aberto. Diferença nunca impede fechar. Decisão na atualização
       de 10/11/2026 da `docs/adr/0008-ponto-de-venda.md`; as sete perguntas que a
       destravaram estão em `docs/discovery/pdv-fechamento-de-caixa.md`
+- [x] **Autorização do supervisor.** Seis ações podem exigir a credencial de quem pode
+      liberar: cancelar item, cancelar venda, sangria, devolução, desconto acima do limite
+      e fechamento com diferença acima do limite. A credencial vai **junto com a ação** e é
+      conferida no servidor — destravar a tela seria teatro. A trilha guarda as duas
+      pessoas. Cada loja liga o que quiser; as que dependem de um número nascem desligadas,
+      porque o limite é dela. Decisão: `docs/adr/0020-operador-supervisor-e-papeis.md`
+- [x] **As operações de caixa vivem dentro do PDV**, como diálogos sobrepostos, e não como
+      telas irmãs no menu. As teclas F1–F4 passaram a ser do PDV o tempo inteiro: antes só
+      valiam com venda e item na tela, e no resto do expediente F1 abria a ajuda do
+      navegador por cima do caixa
 - [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
       porta serial no iOS, e TEF pede agente local no Windows — o que cria um segundo
       executável para instalar e atualizar na casa do cliente. O leitor de código de barras
