@@ -11,7 +11,9 @@ import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
 import { comercial } from "./lib/comercial";
 import type { Alertas, Produto } from "./lib/comercial";
+import { MeuPin } from "./components/MeuPin";
 import { TrocarEmpresa } from "./components/TrocarEmpresa";
+import { TrocarOperador } from "./components/TrocarOperador";
 import { LoginPage } from "./pages/LoginPage";
 
 /* Cada tela entra sob demanda, e não no pacote de abertura.
@@ -152,6 +154,10 @@ export default function App() {
    * por aplicativo troca para a vitrine aqui mesmo, antes de existir menu. */
   const [montandoNaMao, setMontandoNaMao] = useState(false);
   const [trocando, setTrocando] = useState(false);
+  // Troca de operador e PIN próprio vivem no rodapé da lateral, ao lado da troca de
+  // empresa: é a mesma natureza de ação, e estão à mão de dentro do PDV também.
+  const [trocandoOperador, setTrocandoOperador] = useState(false);
+  const [definindoPin, setDefinindoPin] = useState(false);
 
   useEffect(() => {
     restoreSession()
@@ -395,6 +401,8 @@ export default function App() {
       activeKey={SECTION[view.name]}
       onHome={() => setView({ name: "home" })}
       onSwitchCompany={() => setTrocando(true)}
+      onSwitchOperator={() => setTrocandoOperador(true)}
+      onDefinePin={() => setDefinindoPin(true)}
       onSignOut={() => {
         void logout().then(() => {
           setInfo(null);
@@ -599,6 +607,23 @@ export default function App() {
       {view.name === "unidades" && (
         <UnidadesPage onBack={() => setView({ name: "produtos" })} />
       )}
+
+      <TrocarOperador
+        open={trocandoOperador}
+        onClose={() => setTrocandoOperador(false)}
+        onTrocado={(nova) => {
+          setInfo(nova);
+          // Fica no PDV se é de lá que o turno está passando; caso contrário volta ao
+          // início, porque a pessoa que assumiu pode não alcançar a tela aberta.
+          setView((atual) => (atual.name === "pdv" ? atual : { name: "home" }));
+        }}
+      />
+
+      <MeuPin
+        open={definindoPin}
+        onClose={() => setDefinindoPin(false)}
+        jaTem={info.user.tem_pin}
+      />
 
       <TrocarEmpresa
         open={trocando}

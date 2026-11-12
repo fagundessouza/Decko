@@ -166,6 +166,8 @@ class UserOut(BaseModel):
     last_login_at: datetime | None
     # A tela precisa saber na entrada: quem tem senha inicial não passa da troca.
     must_change_password: bool = False
+    # Para a tela dizer "trocar o PIN" em vez de "definir", e nada além disso.
+    tem_pin: bool = False
 
 
 class SessionOut(BaseModel):
@@ -205,6 +207,12 @@ class MembroOut(BaseModel):
     last_login_at: datetime | None
     # Quem ainda não trocou a senha inicial ainda não é dono da própria credencial.
     must_change_password: bool
+    # Se tem PIN, não qual é. O dono precisa saber quem já consegue trocar de operador no
+    # balcão; o segredo continua sendo só da pessoa.
+    tem_pin: bool
+    # O crachá não é segredo: é um cartão que a loja emite e que identifica, sozinho não
+    # entra. Aparece para o dono poder conferir e reemitir.
+    cracha: str | None
     papeis: list[PapelResumoOut]
 
 
@@ -229,3 +237,35 @@ class PapeisIn(BaseModel):
 class TrocaDeSenhaIn(BaseModel):
     senha_atual: str = Field(min_length=1, max_length=256)
     nova_senha: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=256)
+
+
+# ------------------------------------------------------------------- entrada rápida
+
+
+class EntrarPorPinIn(BaseModel):
+    """Troca de operador na estação. Um dos dois identifica; o PIN autentica."""
+
+    pin: str = Field(min_length=1, max_length=16)
+    user_id: uuid.UUID | None = None
+    # Código impresso no cartão, lido pelo mesmo leitor de código de barras das vendas.
+    cracha: str | None = Field(default=None, max_length=60)
+
+
+class DefinirPinIn(BaseModel):
+    """A pessoa define o próprio PIN, confirmando com a senha dela."""
+
+    senha: str = Field(min_length=1, max_length=256)
+    pin: str = Field(min_length=1, max_length=16)
+
+
+class CrachaIn(BaseModel):
+    """Vazio apaga o crachá."""
+
+    cracha: str | None = Field(default=None, max_length=60)
+
+
+class OperadorOut(BaseModel):
+    """Quem dá para escolher na troca de operador. Só o nome sai daqui."""
+
+    id: uuid.UUID
+    nome: str

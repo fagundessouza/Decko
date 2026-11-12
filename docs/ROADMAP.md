@@ -345,6 +345,14 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       telas irmãs no menu. As teclas F1–F4 passaram a ser do PDV o tempo inteiro: antes só
       valiam com venda e item na tela, e no resto do expediente F1 abria a ajuda do
       navegador por cima do caixa
+- [x] **Entrada rápida por PIN e crachá.** Troca de operador no balcão sem digitar
+      empresa, e-mail e senha — só a partir de uma estação já autenticada, que é o que
+      sustenta quatro dígitos. O crachá é lido pelo leitor de código de barras, que já
+      funciona como teclado, e identifica; quem autentica é o PIN. Cinco erros bloqueiam
+      por cinco minutos, com contagem única entre a troca de operador e a liberação do
+      supervisor. Decisão: `docs/adr/0020-operador-supervisor-e-papeis.md`
+- [ ] Biometria (Digital Persona, facial) para o mesmo fim. **Depende da ADR de
+      periféricos**: o navegador não alcança o leitor, e isso exige agente local
 - [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
       porta serial no iOS, e TEF pede agente local no Windows — o que cria um segundo
       executável para instalar e atualizar na casa do cliente. O leitor de código de barras

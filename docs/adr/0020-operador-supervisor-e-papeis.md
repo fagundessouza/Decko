@@ -39,6 +39,32 @@ apresenta como teclado (ADR 0008), então o crachá é um código lido num campo
 Quando o módulo de RH existir, o funcionário passa a apontar para este usuário. O lugar
 fica reservado agora para o RH não nascer com uma identidade competindo com a primeira.
 
+> **Feito em 12/11/2026, com três decisões que só apareceram no código.**
+>
+> **O crachá identifica; o PIN autentica.** Não é preciosismo: com hash forte não há como
+> descobrir de quem é um PIN sem testar o de todo mundo, e dez Argon2 por tentativa seriam
+> um segundo de espera por troca de operador. Então o nome escolhido — ou o crachá lido —
+> diz **quem**, e o PIN diz **que é ele**. Crachá sozinho não entra: cartão perdido não
+> pode ser a conta de ninguém. É também o que o Odoo faz, e lá o crachá entra sozinho.
+>
+> **O PIN só vale a partir de uma estação já autenticada na empresa.** É esta âncora que
+> sustenta quatro dígitos: o login completo diz "este aparelho é da loja", e o PIN diz
+> apenas quem está nele agora. Sem ela, um PIN seria a porta da frente.
+>
+> **Cinco erros bloqueiam por cinco minutos**, e a contagem é **uma só** — a mesma função
+> confere o PIN na troca de operador e na liberação do supervisor. Duas contagens
+> separadas para o mesmo segredo dariam a quem adivinha o dobro de tentativas. O contador
+> é gravado em transação própria, senão o desfazimento da requisição que recusa levaria o
+> bloqueio junto, e cinco tentativas virariam infinitas.
+>
+> O PIN é **da pessoa**: gravá-lo exige a senha dela, e o dono consegue apenas **apagá-lo**
+> — nunca escolhê-lo. A senha continua valendo quando o PIN está bloqueado: o bloqueio é
+> do atalho, não da conta.
+>
+> A liberação do supervisor passou a aceitar PIN **ou** senha, nunca os dois: é no balcão
+> que ela acontece, com fila esperando, e era disso que o pedido falava — "a credencial
+> sendo batida".
+
 ### 2. O manifesto do módulo declara os papéis que ele sugere
 
 Permissão já é declarada pelo manifesto — *"quem declara as permissões existentes é o

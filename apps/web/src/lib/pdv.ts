@@ -7,7 +7,9 @@ import { authedJson } from "./api";
  * `docs/adr/0020-operador-supervisor-e-papeis.md`, decisão 4. */
 export interface Credencial {
   autorizador_id: string;
-  senha: string;
+  /** Um dos dois, nunca os dois: o servidor recusa a dúvida sobre qual vale. */
+  senha?: string;
+  pin?: string;
 }
 
 /** Quem pode liberar. Só o nome vem: a senha é o que libera, não a lista. */

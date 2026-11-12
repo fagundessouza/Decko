@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from decko_modules.pdv.models import (
     AcaoAutorizada,
@@ -14,15 +14,25 @@ from decko_modules.pdv.models import (
 
 
 class CredencialIn(BaseModel):
-    """Quem está liberando, e a senha dele.
+    """Quem está liberando, e o segredo dele: a senha **ou** o PIN.
 
     Vai **junto com a ação** de propósito: o servidor confere e executa na mesma
     requisição. Destravar a tela e confiar nela seria teatro — ver
     `docs/adr/0020-operador-supervisor-e-papeis.md`, decisão 4.
+
+    O PIN existe aqui porque é no balcão que isto acontece: o supervisor chamado para
+    liberar um cancelamento não digita uma senha longa com a fila esperando.
     """
 
     autorizador_id: uuid.UUID
-    senha: str = Field(min_length=1, max_length=256)
+    senha: str | None = Field(default=None, min_length=1, max_length=256)
+    pin: str | None = Field(default=None, min_length=1, max_length=16)
+
+    @model_validator(mode="after")
+    def _um_segredo_so(self) -> "CredencialIn":
+        if (self.senha is None) == (self.pin is None):
+            raise ValueError("Informe a senha ou o PIN de quem libera, um dos dois.")
+        return self
 
 
 class AutorizadorOut(BaseModel):

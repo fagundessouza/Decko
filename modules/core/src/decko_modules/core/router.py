@@ -2,6 +2,8 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.config import get_settings
@@ -16,11 +18,15 @@ from decko_modules.core.models import Tenant, User
 from decko_modules.core.schemas import (
     AuditEntryOut,
     AuditPageOut,
+    CrachaIn,
+    DefinirPinIn,
+    EntrarPorPinIn,
     LoginRequest,
     MembroIn,
     MembroOut,
     MembroPatchIn,
     ModuleOut,
+    OperadorOut,
     PapeisIn,
     PapelOut,
     PapelResumoOut,
@@ -524,6 +530,9 @@ def _membro_visto(membro: service.Membro) -> MembroOut:
         is_active=membro.user.is_active,
         last_login_at=membro.user.last_login_at,
         must_change_password=membro.user.must_change_password,
+        # Se tem PIN, nunca qual é.
+        tem_pin=membro.user.tem_pin,
+        cracha=membro.user.cracha,
         papeis=[PapelResumoOut.model_validate(p) for p in membro.papeis],
     )
 
@@ -750,3 +759,175 @@ async def trocar_senha(
         entity_id=str(user.id),
         ip=audit.ip_de(request),
     )
+
+
+# ------------------------------------------------------------------- entrada rápida
+
+
+@router.get("/operadores", response_model=list[OperadorOut])
+async def listar_operadores(session: SessionDep, principal: CurrentPrincipal) -> list[OperadorOut]:
+    """Quem dá para escolher na troca de operador: só quem já tem PIN.
+
+    Pede apenas estar autenticado, e não uma permissão de administração: quem precisa
+    desta lista é quem está no balcão querendo passar o turno. Dentro de uma loja, saber
+    o nome de quem trabalha ali não é segredo — e o que entra é o PIN.
+    """
+    linhas = (
+        await session.execute(
+            select(User.id, User.full_name)
+            .where(
+                User.tenant_id == principal.tenant_id,
+                User.is_active.is_(True),
+                User.pin_hash.is_not(None),
+            )
+            .order_by(User.full_name)
+        )
+    ).all()
+    return [OperadorOut(id=user_id, nome=nome) for user_id, nome in linhas]
+
+
+@router.post("/auth/pin", response_model=TokenResponse)
+async def entrar_por_pin(
+    payload: EntrarPorPinIn,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+) -> TokenResponse:
+    """Troca de operador na estação, sem digitar empresa, e-mail e senha.
+
+    **Exige uma estação já autenticada nesta empresa**, e é isso que sustenta um PIN de
+    quatro dígitos: o login completo diz "este aparelho é da loja", e o PIN diz apenas
+    qual pessoa está nele agora. Sem essa âncora, o PIN seria a porta da frente.
+
+    A sessão anterior não é revogada aqui: ela expira sozinha, e o token novo é o que a
+    estação passa a usar. Ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 1.
+    """
+    ip = audit.ip_de(request)
+    try:
+        user, tenant, permissions = await service.entrar_por_pin(
+            session,
+            tenant_id=principal.tenant_id,
+            pin=payload.pin,
+            user_id=payload.user_id,
+            cracha=payload.cracha,
+        )
+    except service.EquipeError as exc:
+        raise _invalido(exc) from exc
+    except service.AuthError as exc:
+        # Em transação própria: a requisição vai levantar, e com ela a trilha iria embora
+        # — e o que se investiga depois é justamente a sequência de tentativas.
+        await audit.registrar_a_parte(
+            tenant_id=exc.tenant_id or principal.tenant_id,
+            user_id=exc.user_id,
+            action="auth.pin.failed",
+            entity="user_account",
+            entity_id=str(exc.user_id) if exc.user_id else None,
+            data={"motivo": exc.motivo},
+            ip=ip,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    access_token, refresh_token, expires_in = await service.issue_tokens(
+        session, user=user, tenant=tenant, permissions=permissions
+    )
+    audit.registrar(
+        session,
+        tenant_id=tenant.id,
+        user_id=user.id,
+        action="auth.pin",
+        entity="user_account",
+        entity_id=str(user.id),
+        # Quem estava na estação antes: é o que liga uma troca de operador à anterior.
+        data={"estacao_de": str(principal.user_id)},
+        ip=ip,
+    )
+    return TokenResponse(
+        access_token=access_token, refresh_token=refresh_token, expires_in=expires_in
+    )
+
+
+@router.put("/auth/pin", status_code=status.HTTP_204_NO_CONTENT)
+async def definir_pin(
+    payload: DefinirPinIn,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+) -> None:
+    """Define o próprio PIN. Não exige permissão: é da própria conta."""
+    user = await _carregar_membro(session, principal.tenant_id, principal.user_id)
+    try:
+        await service.definir_pin(session, user=user, senha=payload.senha, pin=payload.pin)
+    except service.EquipeError as exc:
+        raise _invalido(exc) from exc
+
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="user.pin",
+        entity="user_account",
+        entity_id=str(user.id),
+        ip=audit.ip_de(request),
+    )
+
+
+@router.delete("/users/{user_id}/pin", response_model=MembroOut)
+async def remover_pin(
+    user_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.user.update"))],
+) -> MembroOut:
+    """Tira o PIN de quem esqueceu. A senha continua valendo, e um PIN novo é só definir."""
+    user = await _carregar_membro(session, principal.tenant_id, user_id)
+    await service.remover_pin(session, user=user)
+
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="user.pin.remove",
+        entity="user_account",
+        entity_id=str(user.id),
+        ip=audit.ip_de(request),
+    )
+    return await _um_membro(session, principal.tenant_id, user_id)
+
+
+@router.put("/users/{user_id}/cracha", response_model=MembroOut)
+async def definir_cracha(
+    user_id: uuid.UUID,
+    payload: CrachaIn,
+    request: Request,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("core.user.update"))],
+) -> MembroOut:
+    """O dono emite o crachá: é cartão da loja, não escolha de quem o usa."""
+    user = await _carregar_membro(session, principal.tenant_id, user_id)
+    try:
+        await service.definir_cracha(session, user=user, cracha=payload.cracha)
+        await session.flush()
+    except service.EquipeError as exc:
+        raise _invalido(exc) from exc
+    except IntegrityError as exc:
+        # Quem recusa dois crachás iguais é o banco: validar só aqui deixaria passar duas
+        # emissões simultâneas.
+        raise _invalido(ValueError("Já existe alguém com este crachá nesta empresa.")) from exc
+
+    audit.registrar(
+        session,
+        tenant_id=principal.tenant_id,
+        user_id=principal.user_id,
+        action="user.cracha",
+        entity="user_account",
+        entity_id=str(user.id),
+        data={"emitido": user.cracha is not None},
+        ip=audit.ip_de(request),
+    )
+    return await _um_membro(session, principal.tenant_id, user_id)

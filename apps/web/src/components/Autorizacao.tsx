@@ -32,6 +32,10 @@ export function useAutorizacao(opcoes: { nested?: boolean } = {}): {
   const [quem, setQuem] = useState<Autorizador[]>([]);
   const [escolhido, setEscolhido] = useState("");
   const [senha, setSenha] = useState("");
+  /* PIN é o padrão porque isto acontece no balcão, com fila esperando: o supervisor
+   * chamado para liberar um cancelamento digita quatro dígitos, não uma senha longa.
+   * A senha continua à mão para quem ainda não definiu PIN, ou está bloqueado. */
+  const [comSenha, setComSenha] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -63,7 +67,11 @@ export function useAutorizacao(opcoes: { nested?: boolean } = {}): {
     setBusy(true);
     setErro(null);
     try {
-      await pendente.acao({ autorizador_id: escolhido, senha });
+      await pendente.acao(
+        comSenha
+          ? { autorizador_id: escolhido, senha }
+          : { autorizador_id: escolhido, pin: senha },
+      );
       fechar();
     } catch (cause) {
       // O erro fica **dentro** do diálogo e ele continua aberto: senha errada no balcão
@@ -113,13 +121,25 @@ export function useAutorizacao(opcoes: { nested?: boolean } = {}): {
           empty="Ninguém nesta empresa pode liberar. Fale com o dono."
         />
         <TextField
-          label="Senha de quem libera"
+          label={comSenha ? "Senha de quem libera" : "PIN de quem libera"}
           type="password"
-          revealable
+          revealable={comSenha}
+          inputMode={comSenha ? undefined : "numeric"}
           value={senha}
           onChange={(event) => setSenha(event.target.value)}
           hint="Fica nesta requisição e não é guardada."
         />
+        <button
+          type="button"
+          onClick={() => {
+            setComSenha((atual) => !atual);
+            setSenha("");
+            setErro(null);
+          }}
+          className="self-start text-sm font-medium text-brand-link hover:underline"
+        >
+          {comSenha ? "Usar o PIN" : "Usar a senha"}
+        </button>
       </form>
     </Modal>
   );

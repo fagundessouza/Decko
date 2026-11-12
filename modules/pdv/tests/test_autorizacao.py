@@ -497,6 +497,99 @@ async def test_o_428_do_fechamento_nao_entrega_o_esperado(client: AsyncClient, l
     assert "esperado" not in recusado.text.lower()
 
 
+PIN_SUPERVISOR = "7219"
+
+
+async def _supervisor_com_pin(client: AsyncClient, loja: Loja) -> None:
+    token = await _como_supervisor(client, loja)
+    resposta = await client.put(
+        f"{CORE}/auth/pin",
+        headers=_auth(token),
+        json={"senha": SENHA_SUPERVISOR, "pin": PIN_SUPERVISOR},
+    )
+    assert resposta.status_code == 204, resposta.text
+
+
+async def test_supervisor_libera_com_o_pin(client: AsyncClient, loja: Loja) -> None:
+    """É isto que o dono do projeto pediu: a credencial **batida**, não uma senha longa.
+
+    Com a fila esperando, o supervisor chamado para liberar um cancelamento digita quatro
+    dígitos — e o servidor confere e executa na mesma requisição, como com a senha.
+    """
+    await _supervisor_com_pin(client, loja)
+    produto_id = await _produto(client, loja)
+    token = await _como_operador(client, loja)
+    venda_id, item_id = await _venda_com_item(client, token, produto_id)
+
+    liberado = await client.post(
+        f"{PDV}/vendas/{venda_id}/itens/{item_id}/retirar",
+        headers=_auth(token),
+        json={"autorizacao": {"autorizador_id": loja.supervisor_id, "pin": PIN_SUPERVISOR}},
+    )
+    assert liberado.status_code == 200, liberado.text
+    assert liberado.json()["itens"] == []
+
+    registradas = await _autorizacoes(loja)
+    assert str(registradas[0].autorizador_id) == loja.supervisor_id
+
+
+async def test_pin_errado_do_supervisor_conta_para_o_bloqueio(
+    client: AsyncClient, loja: Loja
+) -> None:
+    """Duas contagens separadas para o mesmo segredo dariam o dobro de tentativas.
+
+    O balcão vira um oráculo de adivinhação se o PIN tentado aqui não somar com o da
+    troca de operador: é o mesmo segredo, e o limite tem de ser um só.
+    """
+    await _supervisor_com_pin(client, loja)
+    produto_id = await _produto(client, loja)
+    token = await _como_operador(client, loja)
+    venda_id, item_id = await _venda_com_item(client, token, produto_id)
+
+    for _ in range(5):
+        errado = await client.post(
+            f"{PDV}/vendas/{venda_id}/itens/{item_id}/retirar",
+            headers=_auth(token),
+            json={"autorizacao": {"autorizador_id": loja.supervisor_id, "pin": "0000"}},
+        )
+        assert errado.status_code == 422, errado.text
+
+    # Agora nem o certo passa, aqui nem na troca de operador.
+    bloqueado = await client.post(
+        f"{PDV}/vendas/{venda_id}/itens/{item_id}/retirar",
+        headers=_auth(token),
+        json={"autorizacao": {"autorizador_id": loja.supervisor_id, "pin": PIN_SUPERVISOR}},
+    )
+    assert bloqueado.status_code == 422
+    assert "bloqueado" in bloqueado.json()["detail"].lower()
+
+    # A senha dele continua valendo: o bloqueio é do atalho, não da pessoa.
+    com_senha = await client.post(
+        f"{PDV}/vendas/{venda_id}/itens/{item_id}/retirar",
+        headers=_auth(token),
+        json={"autorizacao": _credencial(loja)},
+    )
+    assert com_senha.status_code == 200, com_senha.text
+
+
+async def test_credencial_sem_segredo_nenhum_e_recusada(client: AsyncClient, loja: Loja) -> None:
+    """Nem os dois juntos: qual deles vale seria uma pergunta sem resposta boa."""
+    produto_id = await _produto(client, loja)
+    token = await _como_operador(client, loja)
+    venda_id, item_id = await _venda_com_item(client, token, produto_id)
+
+    for corpo in (
+        {"autorizador_id": loja.supervisor_id},
+        {"autorizador_id": loja.supervisor_id, "senha": SENHA_SUPERVISOR, "pin": PIN_SUPERVISOR},
+    ):
+        recusado = await client.post(
+            f"{PDV}/vendas/{venda_id}/itens/{item_id}/retirar",
+            headers=_auth(token),
+            json={"autorizacao": corpo},
+        )
+        assert recusado.status_code == 422, recusado.text
+
+
 async def test_a_lista_de_quem_libera_traz_so_nome_e_so_quem_pode(
     client: AsyncClient, loja: Loja
 ) -> None:

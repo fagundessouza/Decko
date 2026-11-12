@@ -1088,10 +1088,11 @@ PERMISSAO_AUTORIZAR = "pdv.autorizar"
 
 @dataclass(frozen=True)
 class Credencial:
-    """Quem está liberando, e a senha dele. Nunca viaja para lugar nenhum além daqui."""
+    """Quem está liberando, e o segredo dele. Nunca viaja para lugar nenhum além daqui."""
 
     autorizador_id: uuid.UUID
-    senha: str
+    senha: str | None = None
+    pin: str | None = None
 
 
 class AutorizacaoExigidaError(Exception):
@@ -1170,7 +1171,15 @@ async def exigir_autorizacao(
     if PERMISSAO_AUTORIZAR not in await core_service.permissoes_de(session, autorizador.id):
         raise PdvError(f"{autorizador.full_name} não pode liberar esta ação.")
 
-    if not security.verify_password(credencial.senha, autorizador.password_hash):
+    if credencial.pin is not None:
+        # Pelo `conferir_pin` do núcleo, e não por uma conferência própria: PIN curto só
+        # se sustenta com bloqueio, e duas contagens separadas para o mesmo segredo
+        # dariam a quem adivinha o dobro de tentativas.
+        try:
+            await core_service.conferir_pin(session, user=autorizador, pin=credencial.pin)
+        except core_service.AuthError as exc:
+            raise PdvError(str(exc)) from exc
+    elif not security.verify_password(credencial.senha or "", autorizador.password_hash):
         # Mensagem igual à do supervisor inexistente seria pior aqui do que no login: o
         # operador sabe quem escolheu na lista, e "senha não confere" é o que ele precisa
         # para chamar a pessoa de novo.

@@ -15,6 +15,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -66,6 +67,9 @@ class User(TenantMixin, TimestampMixin, Base):
         # E-mail é único dentro da empresa, não globalmente: a mesma pessoa pode operar
         # em duas empresas diferentes com o mesmo endereço.
         UniqueConstraint("tenant_id", "email", name="uq_user_account_tenant_id_email"),
+        # O crachá identifica alguém: dois iguais na mesma empresa tornariam a leitura
+        # ambígua, e quem recusa isso é o banco.
+        UniqueConstraint("tenant_id", "cracha", name="uq_user_account_tenant_id_cracha"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -84,8 +88,38 @@ class User(TenantMixin, TimestampMixin, Base):
         Boolean, nullable=False, default=False, server_default=text("false")
     )
 
+    # ------------------------------------------------------------------ entrada rápida
+    #
+    # No balcão a troca de operador acontece várias vezes por turno, e digitar empresa,
+    # e-mail e senha a cada troca é o que faz a loja deixar uma conta só aberta o dia
+    # inteiro — e aí "quem fez" deixa de significar alguma coisa.
+    #
+    # **O crachá identifica; o PIN autentica.** O crachá é um código impresso, lido pelo
+    # mesmo leitor de código de barras que já funciona como teclado: não é segredo, e
+    # sozinho não entra. O PIN é o segredo, guardado com o mesmo algoritmo da senha.
+    #
+    # Essa separação não é preciosismo: com hash forte não há como descobrir de quem é um
+    # PIN sem testar o de todo mundo, e testar dez Argon2 por tentativa seria um segundo
+    # de espera por troca de operador. Ver docs/adr/0020-operador-supervisor-e-papeis.md.
+    pin_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cracha: Mapped[str | None] = mapped_column(String(60), nullable=True)
+
+    # PIN curto só se sustenta com bloqueio: sem isto, quem ficar sozinho com a estação
+    # tenta dez mil combinações. O contador zera a cada acerto.
+    pin_tentativas: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    pin_bloqueado_ate: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     tenant: Mapped["Tenant"] = relationship(back_populates="users")
     roles: Mapped[list["Role"]] = relationship(secondary="user_role", back_populates="users")
+
+    @property
+    def tem_pin(self) -> bool:
+        """Se tem PIN, nunca qual é. É o que a tela precisa saber, e só isso."""
+        return self.pin_hash is not None
 
 
 class Role(TenantMixin, TimestampMixin, Base):

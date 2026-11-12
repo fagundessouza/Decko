@@ -24,6 +24,9 @@ vi.mock("../lib/api", () => ({
     definirPapeis: vi.fn(),
     definirSituacao: vi.fn(),
     trocarSenha: vi.fn(),
+    definirPin: vi.fn(),
+    removerPin: vi.fn(),
+    definirCracha: vi.fn(),
   },
 }));
 
@@ -54,6 +57,8 @@ function umMembro(sobre: Partial<Membro> = {}): Membro {
     is_active: true,
     last_login_at: null,
     must_change_password: false,
+    tem_pin: false,
+    cracha: null,
     papeis: [{ id: "papel-op", name: "Operador de caixa", description: null }],
     ...sobre,
   };
@@ -166,6 +171,46 @@ describe("EquipePage", () => {
     await usuario.click(await screen.findByRole("button", { name: "Desligar acesso" }));
 
     await waitFor(() => expect(equipe.definirSituacao).toHaveBeenCalledWith("u-1", false));
+  });
+
+  it("mostra quem já assume a estação pelo PIN, e o crachá de cada um", async () => {
+    vi.mocked(equipe.listar).mockResolvedValue([
+      oDono(),
+      umMembro({ tem_pin: true, cracha: "CRACHA-0042" }),
+    ]);
+    abrir();
+
+    expect(await screen.findByText("Tem PIN")).toBeTruthy();
+    expect(screen.getByText(/crachá CRACHA-0042/)).toBeTruthy();
+  });
+
+  it("tira o PIN de quem esqueceu", async () => {
+    vi.mocked(equipe.listar).mockResolvedValue([oDono(), umMembro({ tem_pin: true })]);
+    vi.mocked(equipe.removerPin).mockResolvedValue(umMembro());
+    const usuario = abrir();
+
+    await usuario.click(await screen.findByRole("button", { name: "Tirar PIN" }));
+
+    // Apagar o dono pode; escolher, não — senão o PIN deixaria de ser da pessoa.
+    await waitFor(() => expect(equipe.removerPin).toHaveBeenCalledWith("u-1"));
+  });
+
+  it("não oferece tirar PIN de quem não tem", async () => {
+    abrir();
+    expect(await screen.findByText("Maria Operadora")).toBeTruthy();
+
+    expect(screen.queryByRole("button", { name: "Tirar PIN" })).toBeNull();
+  });
+
+  it("emite o crachá", async () => {
+    vi.mocked(equipe.definirCracha).mockResolvedValue(umMembro({ cracha: "CRACHA-7" }));
+    const usuario = abrir();
+
+    await usuario.click(await screen.findByRole("button", { name: "Crachá" }));
+    await usuario.type(await screen.findByLabelText("Código do crachá"), "CRACHA-7");
+    await usuario.click(screen.getByRole("button", { name: "Salvar crachá" }));
+
+    await waitFor(() => expect(equipe.definirCracha).toHaveBeenCalledWith("u-1", "CRACHA-7"));
   });
 
   it("diz o que cada papel concede, para o dono ver antes de dar", async () => {

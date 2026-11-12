@@ -26,6 +26,8 @@ export interface UserSummary {
   last_login_at: string | null;
   /** Quem entrou com a senha que o dono escolheu ainda não é dono da própria credencial. */
   must_change_password: boolean;
+  /** Se tem PIN, nunca qual é. */
+  tem_pin: boolean;
 }
 
 export interface TenantSummary {
@@ -291,7 +293,17 @@ export interface Membro {
   is_active: boolean;
   last_login_at: string | null;
   must_change_password: boolean;
+  /** Se tem PIN, nunca qual é. */
+  tem_pin: boolean;
+  /** O crachá identifica e não é segredo: é um cartão que a loja emite. */
+  cracha: string | null;
   papeis: PapelResumo[];
+}
+
+/** Quem dá para escolher na troca de operador. Só o nome vem. */
+export interface Operador {
+  id: string;
+  nome: string;
 }
 
 /** A equipe da loja: quem opera, e o que cada um alcança.
@@ -320,4 +332,39 @@ export const equipe = {
 
   trocarSenha: (senha_atual: string, nova_senha: string): Promise<void> =>
     authedJson("/core/auth/senha", { method: "POST", body: { senha_atual, nova_senha } }),
+
+  /** A pessoa define o próprio PIN, confirmando com a senha dela. */
+  definirPin: (senha: string, pin: string): Promise<void> =>
+    authedJson("/core/auth/pin", { method: "PUT", body: { senha, pin } }),
+
+  /** Caminho de quem esqueceu. A senha continua valendo. */
+  removerPin: (userId: string): Promise<Membro> =>
+    authedJson(`/core/users/${userId}/pin`, { method: "DELETE" }),
+
+  /** O dono emite o crachá: é cartão da loja, não escolha de quem o usa. */
+  definirCracha: (userId: string, cracha: string | null): Promise<Membro> =>
+    authedJson(`/core/users/${userId}/cracha`, { method: "PUT", body: { cracha } }),
 };
+
+/** Quem já consegue assumir a estação pelo PIN. */
+export function operadores(): Promise<Operador[]> {
+  return authedJson("/core/operadores");
+}
+
+/* Troca de operador na estação.
+ *
+ * Só funciona a partir de uma sessão já autenticada nesta empresa — é o login completo
+ * que diz "este aparelho é da loja", e o PIN diz apenas quem está nele agora. Ver
+ * `docs/adr/0020-operador-supervisor-e-papeis.md`, decisão 1. */
+export async function entrarPorPin(escolha: {
+  pin: string;
+  user_id?: string;
+  cracha?: string;
+}): Promise<SessionInfo> {
+  const payload: TokenPayload = await authedJson("/core/auth/pin", {
+    method: "POST",
+    body: escolha,
+  });
+  storeTokens(payload);
+  return fetchSession();
+}

@@ -9,7 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.config import get_settings
-from decko.db import bind_tenant
+from decko.db import SessionFactory, bind_tenant
 from decko_modules.core import security
 from decko_modules.core.breach import recusar_se_vazada
 from decko_modules.core.models import (
@@ -413,3 +413,174 @@ async def trocar_senha(
     user.must_change_password = False
     await session.flush()
     return user
+
+
+# ------------------------------------------------------------------- entrada rápida
+#
+# O crachá identifica; o PIN autentica. Decisão e motivos:
+# docs/adr/0020-operador-supervisor-e-papeis.md, decisão 1.
+
+PIN_MIN = 4
+PIN_MAX = 8
+
+# Cinco tentativas e cinco minutos de espera. PIN curto só se sustenta com bloqueio: sem
+# ele, quem ficar sozinho com a estação percorre dez mil combinações sem pressa. Cinco é
+# folgado para quem erra de dedo e inútil para quem está tentando adivinhar.
+PIN_TENTATIVAS = 5
+PIN_BLOQUEIO = timedelta(minutes=5)
+
+
+def _pin_bem_formado(pin: str) -> str:
+    """Só dígitos, de 4 a 8. É o formato do teclado numérico do balcão."""
+    limpo = pin.strip()
+    if not limpo.isdigit() or not (PIN_MIN <= len(limpo) <= PIN_MAX):
+        raise EquipeError(f"O PIN é só de números, de {PIN_MIN} a {PIN_MAX} dígitos.")
+    return limpo
+
+
+async def definir_pin(session: AsyncSession, *, user: User, senha: str, pin: str) -> User:
+    """A pessoa define o próprio PIN, confirmando com a senha dela.
+
+    Confirmar com a senha é o que mantém o PIN **dela**: sem isso, um terminal deixado
+    aberto no balcão permitiria a qualquer um gravar um PIN próprio na conta alheia e
+    voltar nela quando quisesse.
+    """
+    if not security.verify_password(senha, user.password_hash):
+        raise EquipeError("A senha não confere.")
+
+    user.pin_hash = security.hash_password(_pin_bem_formado(pin))
+    user.pin_tentativas = 0
+    user.pin_bloqueado_ate = None
+    await session.flush()
+    return user
+
+
+async def remover_pin(session: AsyncSession, *, user: User) -> User:
+    """Tira o PIN de alguém. É o caminho de quem esqueceu — a senha continua valendo."""
+    user.pin_hash = None
+    user.pin_tentativas = 0
+    user.pin_bloqueado_ate = None
+    await session.flush()
+    return user
+
+
+async def definir_cracha(session: AsyncSession, *, user: User, cracha: str | None) -> User:
+    """O dono emite o crachá: é um cartão da loja, não uma escolha de quem o usa.
+
+    Vazio apaga. A unicidade por empresa é do banco — dois crachás iguais tornariam a
+    leitura ambígua, e validar só aqui deixaria passar duas emissões simultâneas.
+    """
+    codigo = (cracha or "").strip() or None
+    if codigo is not None and len(codigo) > 60:
+        raise EquipeError("O código do crachá é longo demais.")
+
+    user.cracha = codigo
+    await session.flush()
+    return user
+
+
+async def _penalizar_pin(*, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Conta a tentativa errada **em transação própria**, e bloqueia ao chegar no limite.
+
+    Em transação própria pelo mesmo motivo da trilha de falha: a requisição vai levantar,
+    e a sessão dela desfaz tudo ao fazê-lo — inclusive o contador. Guardado junto, o
+    bloqueio nunca chegaria a existir, e cinco tentativas virariam infinitas.
+    """
+    async with SessionFactory() as session, session.begin():
+        await bind_tenant(session, tenant_id)
+        user = await session.get(User, user_id)
+        if user is None:  # pragma: no cover - acabou de ser lido
+            return
+
+        user.pin_tentativas += 1
+        if user.pin_tentativas >= PIN_TENTATIVAS:
+            user.pin_bloqueado_ate = datetime.now(UTC) + PIN_BLOQUEIO
+            user.pin_tentativas = 0
+
+
+async def conferir_pin(session: AsyncSession, *, user: User, pin: str) -> None:
+    """Confere o PIN e cuida do bloqueio. Levanta ``AuthError`` quando não serve.
+
+    Vive aqui, e não em cada chamador, porque o PDV também confere PIN — na liberação do
+    supervisor. Dois caminhos para o mesmo segredo com contagens separadas dariam a quem
+    adivinha o dobro de tentativas.
+    """
+    agora = datetime.now(UTC)
+
+    if user.pin_hash is None:
+        raise AuthError(
+            "Esta pessoa ainda não tem PIN.",
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            motivo="pin_ausente",
+        )
+
+    if user.pin_bloqueado_ate is not None and user.pin_bloqueado_ate > agora:
+        faltam = max(1, int((user.pin_bloqueado_ate - agora).total_seconds() // 60) + 1)
+        raise AuthError(
+            f"PIN bloqueado por tentativas erradas. Tente em {faltam} min, ou use a senha.",
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            motivo="pin_bloqueado",
+        )
+
+    if not security.verify_password(pin, user.pin_hash):
+        await _penalizar_pin(tenant_id=user.tenant_id, user_id=user.id)
+        raise AuthError(
+            "PIN incorreto.",
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            motivo="pin_errado",
+        )
+
+    user.pin_tentativas = 0
+    user.pin_bloqueado_ate = None
+
+
+async def entrar_por_pin(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    pin: str,
+    user_id: uuid.UUID | None = None,
+    cracha: str | None = None,
+) -> tuple[User, Tenant, list[str]]:
+    """Troca de operador na estação: quem é vem do nome escolhido ou do crachá lido.
+
+    **Só funciona a partir de uma estação já autenticada nesta empresa** — quem chama já
+    passou por um login completo. É esse login que diz "este aparelho é da loja"; o PIN
+    diz apenas qual pessoa está nele agora. Sem essa âncora, um PIN de quatro dígitos
+    seria a porta da frente.
+    """
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None or not tenant.is_active:  # pragma: no cover - a sessão já valida
+        raise AuthError
+
+    if user_id is not None:
+        user = await session.get(User, user_id)
+        if user is not None and user.tenant_id != tenant_id:
+            user = None
+    elif cracha is not None and cracha.strip():
+        user = await session.scalar(select(User).where(User.cracha == cracha.strip()))
+    else:
+        raise EquipeError("Diga quem está entrando: escolha o nome ou passe o crachá.")
+
+    if user is None:
+        # Sem ``user_id``: crachá desconhecido é palpite de quem sonda, e guardá-lo
+        # encheria a trilha sem responder nada.
+        raise AuthError(
+            "Crachá não reconhecido.", tenant_id=tenant_id, motivo="cracha_desconhecido"
+        )
+
+    if not user.is_active:
+        raise AuthError(
+            "Usuário desativado",
+            tenant_id=tenant_id,
+            user_id=user.id,
+            motivo="usuario_inativo",
+        )
+
+    await conferir_pin(session, user=user, pin=pin)
+
+    user.last_login_at = datetime.now(UTC)
+    return user, tenant, await _load_permissions(session, user.id)

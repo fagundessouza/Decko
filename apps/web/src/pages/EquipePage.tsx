@@ -51,6 +51,9 @@ export function EquipePage({ onBack, meuId }: Props) {
   const [trocandoPapel, setTrocandoPapel] = useState<Membro | null>(null);
   const [novoPapel, setNovoPapel] = useState("");
 
+  const [emitindoCracha, setEmitindoCracha] = useState<Membro | null>(null);
+  const [codigoCracha, setCodigoCracha] = useState("");
+
   async function carregar() {
     setErro(null);
     try {
@@ -111,6 +114,16 @@ export function EquipePage({ onBack, meuId }: Props) {
 
   const descricaoDoPapel = (id: string) => papeis.find((p) => p.id === id)?.description ?? "";
 
+  async function aplicarCracha() {
+    const alvo = emitindoCracha;
+    setEmitindoCracha(null);
+    if (!alvo) return;
+    await operar(
+      () => equipe.definirCracha(alvo.id, codigoCracha.trim() || null),
+      "Não foi possível emitir o crachá.",
+    );
+  }
+
   return (
     <Page>
       <PageHeader
@@ -165,8 +178,12 @@ export function EquipePage({ onBack, meuId }: Props) {
                     {membro.must_change_password && (
                       <Badge tone="warn">Senha ainda é a inicial</Badge>
                     )}
+                    {membro.tem_pin && <Badge tone="info">Tem PIN</Badge>}
                   </span>
-                  <span className="block truncate text-sm text-ink-faint">{membro.email}</span>
+                  <span className="block truncate text-sm text-ink-faint">
+                    {membro.email}
+                    {membro.cracha && ` · crachá ${membro.cracha}`}
+                  </span>
                   <span className="block truncate text-sm text-ink-muted">
                     {membro.papeis.length === 0
                       ? "Sem papel: entra e não alcança nada."
@@ -187,6 +204,32 @@ export function EquipePage({ onBack, meuId }: Props) {
                     >
                       Trocar papel
                     </Button>
+                    <Button
+                      variant="secondary"
+                      inline
+                      disabled={busy}
+                      onClick={() => {
+                        setEmitindoCracha(membro);
+                        setCodigoCracha(membro.cracha ?? "");
+                      }}
+                    >
+                      Crachá
+                    </Button>
+                    {membro.tem_pin && (
+                      <Button
+                        variant="secondary"
+                        inline
+                        disabled={busy}
+                        onClick={() =>
+                          void operar(
+                            () => equipe.removerPin(membro.id),
+                            "Não foi possível tirar o PIN.",
+                          )
+                        }
+                      >
+                        Tirar PIN
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       inline
@@ -294,6 +337,30 @@ export function EquipePage({ onBack, meuId }: Props) {
             hint={descricaoDoPapel(papelEscolhido)}
           />
         </form>
+      </Modal>
+
+      <Modal
+        open={emitindoCracha !== null}
+        title={`Crachá de ${emitindoCracha?.full_name ?? ""}`}
+        description="O crachá identifica no balcão; quem entra é o PIN. Vazio apaga."
+        onClose={() => setEmitindoCracha(null)}
+        footer={
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Button variant="secondary" inline onClick={() => setEmitindoCracha(null)}>
+              Cancelar
+            </Button>
+            <Button inline onClick={() => void aplicarCracha()}>
+              Salvar crachá
+            </Button>
+          </div>
+        }
+      >
+        <TextField
+          label="Código do crachá"
+          value={codigoCracha}
+          onChange={(event) => setCodigoCracha(event.target.value)}
+          hint="Passe o cartão no leitor para preencher. Não é segredo: sozinho não entra."
+        />
       </Modal>
 
       <Modal

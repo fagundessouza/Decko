@@ -660,7 +660,9 @@ async def devolver(
 def _credencial(payload: CredencialIn | None) -> service.Credencial | None:
     if payload is None:
         return None
-    return service.Credencial(autorizador_id=payload.autorizador_id, senha=payload.senha)
+    return service.Credencial(
+        autorizador_id=payload.autorizador_id, senha=payload.senha, pin=payload.pin
+    )
 
 
 def _pedir_autorizacao(exc: service.AutorizacaoExigidaError) -> HTTPException:

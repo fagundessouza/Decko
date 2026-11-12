@@ -64,15 +64,13 @@ describe("useAutorizacao", () => {
     await usuario.click(screen.getByRole("button", { name: "Retirar item" }));
 
     expect(await screen.findByRole("dialog")).toBeTruthy();
-    await usuario.type(screen.getByLabelText("Senha de quem libera"), "senha-da-joana");
+    await usuario.type(screen.getByLabelText("PIN de quem libera"), "7219");
     await usuario.click(screen.getByRole("button", { name: "Liberar" }));
 
-    // A credencial vai **junto com a ação**, na requisição que executa.
+    // A credencial vai **junto com a ação**, na requisição que executa. PIN é o padrão
+    // porque isto acontece no balcão, com fila esperando.
     await waitFor(() =>
-      expect(acao).toHaveBeenLastCalledWith({
-        autorizador_id: "sup-1",
-        senha: "senha-da-joana",
-      }),
+      expect(acao).toHaveBeenLastCalledWith({ autorizador_id: "sup-1", pin: "7219" }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
@@ -86,15 +84,34 @@ describe("useAutorizacao", () => {
     render(<Balcao acao={acao} />);
 
     await usuario.click(screen.getByRole("button", { name: "Retirar item" }));
-    await usuario.type(
-      await screen.findByLabelText("Senha de quem libera"),
-      "chute",
-    );
+    await usuario.type(await screen.findByLabelText("PIN de quem libera"), "0000");
     await usuario.click(screen.getByRole("button", { name: "Liberar" }));
 
     // Senha errada no balcão é para digitar de novo, não para recomeçar a operação.
     expect(await screen.findByText("A senha do supervisor não confere.")).toBeTruthy();
     expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("troca para a senha quem ainda não tem PIN", async () => {
+    const usuario = userEvent.setup();
+    const acao = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError("Precisa de supervisor.", 428))
+      .mockResolvedValueOnce(undefined);
+    render(<Balcao acao={acao} />);
+
+    await usuario.click(screen.getByRole("button", { name: "Retirar item" }));
+    await usuario.click(await screen.findByRole("button", { name: "Usar a senha" }));
+    await usuario.type(screen.getByLabelText("Senha de quem libera"), "senha-da-joana");
+    await usuario.click(screen.getByRole("button", { name: "Liberar" }));
+
+    // Um segredo só por vez: o servidor recusa a dúvida sobre qual deles vale.
+    await waitFor(() =>
+      expect(acao).toHaveBeenLastCalledWith({
+        autorizador_id: "sup-1",
+        senha: "senha-da-joana",
+      }),
+    );
   });
 
   it("erro que não é falta de liberação sobe para quem chamou", async () => {
