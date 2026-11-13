@@ -474,7 +474,7 @@ export default function App() {
             {canEditCompany && (
               <ModuleTile
                 title="Dados da empresa"
-                description="Registro no MAPA, CREA e inscrições — o cabeçalho dos documentos."
+                description="Razão social, documento e inscrições — o cabeçalho dos documentos que a empresa emite."
                 icon={<ModuleIcon name="store" />}
                 accent="violet"
                 onClick={() => setView({ name: "company" })}
@@ -559,7 +559,9 @@ export default function App() {
 
       {view.name === "pilotos" && <PilotosPage onBack={() => setView({ name: "plans" })} />}
 
-      {view.name === "company" && <CompanyPage onBack={() => setView({ name: "home" })} />}
+      {view.name === "company" && (
+        <CompanyPage onBack={() => setView({ name: "home" })} temAgro={hasAgro} />
+      )}
 
       {view.name === "trilha" && <TrilhaPage onBack={() => setView({ name: "home" })} />}
 
