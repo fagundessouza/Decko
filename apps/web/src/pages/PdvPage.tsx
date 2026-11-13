@@ -35,8 +35,11 @@ const DevolucaoPage = lazy(() =>
   import("./DevolucaoPage").then((m) => ({ default: m.DevolucaoPage })),
 );
 const CaixaPage = lazy(() => import("./CaixaPage").then((m) => ({ default: m.CaixaPage })));
+const AjustesCaixaPage = lazy(() =>
+  import("./AjustesCaixaPage").then((m) => ({ default: m.AjustesCaixaPage })),
+);
 
-type Operacao = "meu-caixa" | "devolucao" | "conferencia";
+type Operacao = "meu-caixa" | "devolucao" | "conferencia" | "ajustes";
 
 interface Props {
   onBack: () => void;
@@ -52,6 +55,8 @@ interface Props {
   podeAbrirCaixa: boolean;
   podeDevolver: boolean;
   podeConferir: boolean;
+  /** Mexer no que a loja exige supervisor para fazer. Sem isto, a tela é só leitura. */
+  podeAjustar: boolean;
 }
 
 function motivo(cause: unknown, padrao: string): string {
@@ -73,6 +78,7 @@ export function PdvPage({
   podeAbrirCaixa,
   podeDevolver,
   podeConferir,
+  podeAjustar,
 }: Props) {
   const [venda, setVenda] = useState<Venda | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -405,7 +411,7 @@ export function PdvPage({
 
   const operacoes = (
     <>
-      {(podeAbrirCaixa || podeDevolver || podeConferir) && (
+      {(podeAbrirCaixa || podeDevolver || podeConferir || podeAjustar) && (
         <div className="mb-6 flex flex-wrap gap-2">
           {podeAbrirCaixa && (
             <Button variant="secondary" inline onClick={() => setOperacao("meu-caixa")}>
@@ -420,6 +426,11 @@ export function PdvPage({
           {podeConferir && (
             <Button variant="secondary" inline onClick={() => setOperacao("conferencia")}>
               Conferência do dia
+            </Button>
+          )}
+          {podeAjustar && (
+            <Button variant="secondary" inline onClick={() => setOperacao("ajustes")}>
+              Ajustes do caixa
             </Button>
           )}
         </div>
@@ -458,6 +469,18 @@ export function PdvPage({
       >
         <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
           <CaixaPage embutido />
+        </Suspense>
+      </Modal>
+
+      <Modal
+        open={operacao === "ajustes"}
+        largura="ampla"
+        title="Ajustes do caixa"
+        description="O que esta loja exige supervisor para fazer, e a partir de quanto."
+        onClose={() => setOperacao(null)}
+      >
+        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+          <AjustesCaixaPage podeEditar={podeAjustar} />
         </Suspense>
       </Modal>
     </>

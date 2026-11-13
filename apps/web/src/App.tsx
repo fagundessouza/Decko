@@ -207,6 +207,7 @@ export default function App() {
   const podeAbrirCaixa = info.permissions.includes("pdv.caixa.abrir");
   const podeDevolver = info.permissions.includes("pdv.venda.devolver");
   const podeConferir = info.permissions.includes("pdv.caixa.conferir");
+  const podeAjustar = info.permissions.includes("pdv.config.write");
 
   // A sessão é relida porque o menu depende dos módulos ativos, que acabaram de mudar no
   // servidor. Com token novo, porque instalar um aplicativo também concede permissões —
@@ -523,6 +524,7 @@ export default function App() {
           podeAbrirCaixa={podeAbrirCaixa}
           podeDevolver={podeDevolver}
           podeConferir={podeConferir}
+          podeAjustar={podeAjustar}
         />
       )}
 

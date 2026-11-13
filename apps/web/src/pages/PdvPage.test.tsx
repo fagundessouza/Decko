@@ -44,6 +44,7 @@ vi.mock("../lib/pdv", async (importar) => {
       // que o diálogo abre.
       caixaAberto: vi.fn(),
       autorizadores: vi.fn(),
+      configuracao: vi.fn(),
     },
   };
 });
@@ -159,6 +160,7 @@ function abrirCaixa({
   podeAbrirCaixa = false,
   podeDevolver = false,
   podeConferir = false,
+  podeAjustar = false,
 } = {}) {
   return render(
     <PdvPage
@@ -168,6 +170,7 @@ function abrirCaixa({
       podeAbrirCaixa={podeAbrirCaixa}
       podeDevolver={podeDevolver}
       podeConferir={podeConferir}
+      podeAjustar={podeAjustar}
     />,
   );
 }
@@ -188,6 +191,16 @@ beforeEach(() => {
   vi.mocked(financeiro.listarContas).mockResolvedValue([]);
   vi.mocked(pdv.caixaAberto).mockResolvedValue(null);
   vi.mocked(pdv.autorizadores).mockResolvedValue([]);
+  vi.mocked(pdv.configuracao).mockResolvedValue({
+    exige_cancelar_item: true,
+    exige_cancelar_venda: true,
+    exige_sangria: true,
+    exige_devolucao: true,
+    exige_desconto: false,
+    desconto_livre: "0.00",
+    exige_diferenca: false,
+    diferenca_livre: "0.00",
+  });
 });
 
 describe("PdvPage, ao abrir", () => {
@@ -844,6 +857,16 @@ describe("PdvPage, as operações de caixa", () => {
     expect(await screen.findByLabelText("Quanto há na gaveta")).toBeTruthy();
   });
 
+  it("abre os ajustes do caixa para quem administra a loja", async () => {
+    const usuario = userEvent.setup();
+    abrirCaixa({ podeAjustar: true });
+
+    await usuario.click(await screen.findByRole("button", { name: "Ajustes do caixa" }));
+
+    // É configuração do caixa, e é no caixa que se procura por ela.
+    expect(await screen.findByLabelText("Sangria")).toBeTruthy();
+  });
+
   it("cada botão depende da sua própria permissão", async () => {
     // Afirmar só "sem permissão nenhuma, nada aparece" não guarda nada: cada guarda
     // esconderia o erro da outra. Aqui uma permissão está ligada e as demais não.
@@ -852,5 +875,6 @@ describe("PdvPage, as operações de caixa", () => {
 
     expect(screen.queryByRole("button", { name: "Meu caixa" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Devolução" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ajustes do caixa" })).toBeNull();
   });
 });
