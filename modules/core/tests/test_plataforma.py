@@ -11,17 +11,19 @@ O que estes testes guardam é a `docs/adr/0021-nivel-de-plataforma.md`:
   do isolamento, e é só ela que esta fatia toca.
 """
 
+import argparse
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select, update
 
 from decko.db import SessionFactory, bind_tenant
 from decko.main import create_app
-from decko_modules.core.cli import _bootstrap
+from decko_modules.core.cli import _bootstrap, _run_plataforma_lista
 from decko_modules.core.models import Tenant, User
 
 SENHA = "senha-local-de-teste-123"
@@ -233,6 +235,28 @@ async def test_a_sessao_diz_a_marca_para_o_menu_existir(
     # E a empresa cliente continua sem ela, com o próprio administrador dentro.
     dela = (await client.get(f"{CORE}/auth/me", headers=_auth(cliente.token))).json()
     assert dela["is_platform_admin"] is False
+
+
+async def test_a_linha_de_comando_consegue_conferir_quem_tem_a_marca(
+    plataforma: Empresa, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Privilégio concentrado precisa ser conferível, e conferir atravessa empresas.
+
+    A armadilha aqui é silenciosa: `user_account` tem RLS com `FORCE` e ninguém tem
+    `BYPASSRLS`, então uma consulta só por cima de todas as empresas não devolve linha
+    nenhuma — e o comando responderia "ninguém administra" com a marca ligada no banco.
+    Por isso ele visita uma empresa por vez, com o isolamento ligado em cada visita.
+    """
+    cliente: Empresa = plataforma.cliente  # type: ignore[attr-defined]
+    await _marcar(plataforma.tenant_id, plataforma.email, ligada=True)
+
+    assert await _run_plataforma_lista(argparse.Namespace()) == 0
+
+    dito = capsys.readouterr().out
+    assert plataforma.email in dito
+    assert plataforma.slug in dito
+    # Quem não tem a marca não entra na lista, nem sendo administrador da própria empresa.
+    assert cliente.email not in dito
 
 
 async def test_a_marca_nao_aparece_na_tela_de_equipe(

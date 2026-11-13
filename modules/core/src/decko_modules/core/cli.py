@@ -24,6 +24,7 @@ import unicodedata
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
+from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,6 +51,22 @@ PASSWORD_ENV_VAR = "DECKO_ADMIN_PASSWORD"  # noqa: S105
 
 class BootstrapError(Exception):
     pass
+
+
+def recusar_email_que_nao_entra(raw: str) -> str:
+    """Confere o e-mail com a **mesma** régua do login, antes de criar a conta.
+
+    Sem isto o comando aceitava, por exemplo, `alguem@empresa.local`, criava a empresa e
+    a conta inteiras, e a pessoa só descobria na tela de entrada: o `EmailStr` do login
+    recusa TLD reservado, e não havia caminho de volta pela interface. Criar conta que
+    não consegue entrar é pior do que recusar o cadastro.
+    """
+    email = raw.strip().lower()
+    try:
+        return str(TypeAdapter(EmailStr).validate_python(email))
+    except ValidationError as exc:
+        motivo = exc.errors()[0].get("msg", "formato inválido")
+        raise BootstrapError(f"'{raw}' não serve como e-mail de entrada: {motivo}") from exc
 
 
 def normalize_slug(raw: str) -> str:
@@ -225,6 +242,8 @@ async def _run_bootstrap(args: argparse.Namespace) -> int:
         if slug != args.tenant_slug:
             print(f"Identificador ajustado de '{args.tenant_slug}' para '{slug}'.")
 
+        email = recusar_email_que_nao_entra(args.admin_email)
+
         await _check_slug_available(slug)
         password = _read_password()
     except BootstrapError as exc:
@@ -238,7 +257,7 @@ async def _run_bootstrap(args: argparse.Namespace) -> int:
                 session,
                 tenant_name=args.tenant_name,
                 tenant_slug=slug,
-                admin_email=args.admin_email,
+                admin_email=email,
                 admin_name=args.admin_name,
                 password=password,
                 modules=args.modules,
@@ -321,17 +340,31 @@ async def _run_plataforma(args: argparse.Namespace) -> int:
 
 
 async def _run_plataforma_lista(_: argparse.Namespace) -> int:
-    """Quem tem a marca hoje. Privilégio concentrado precisa ser conferível."""
+    """Quem tem a marca hoje. Privilégio concentrado precisa ser conferível.
+
+    Visita **uma empresa por vez**, com o isolamento ligado em cada visita, em vez de uma
+    consulta só por cima de todas. A consulta por cima não era mais rápida: era vazia.
+    `user_account` tem Row Level Security com `FORCE`, e ninguém neste sistema tem
+    `BYPASSRLS` — sem empresa amarrada, a política não devolve linha nenhuma, e o comando
+    respondia "ninguém administra" com a marca ligada no banco. Ver ADR 0001.
+    """
     try:
-        async with SessionFactory() as session:
-            rows = (
-                await session.execute(
-                    select(Tenant.slug, User.email, User.full_name)
-                    .join(User, User.tenant_id == Tenant.id)
-                    .where(User.is_platform_admin.is_(True))
-                    .order_by(Tenant.slug, User.email)
-                )
+        async with SessionFactory() as session, session.begin():
+            empresas = (
+                await session.execute(select(Tenant.id, Tenant.slug).order_by(Tenant.slug))
             ).all()
+
+            rows = []
+            for tenant_id, slug in empresas:
+                await bind_tenant(session, tenant_id)
+                marcados = (
+                    await session.execute(
+                        select(User.email, User.full_name)
+                        .where(User.is_platform_admin.is_(True))
+                        .order_by(User.email)
+                    )
+                ).all()
+                rows.extend((slug, email, nome) for email, nome in marcados)
     finally:
         await engine.dispose()
 
