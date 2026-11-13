@@ -13,13 +13,14 @@ from decko.profiles import Profile, modules_to_activate
 from decko.seed import apply_seed, has_seed
 from decko_modules.core import activation, audit, service
 from decko_modules.core.breach import SenhaVazadaError
-from decko_modules.core.deps import CurrentPrincipal, require
+from decko_modules.core.deps import CurrentPrincipal, require, require_platform_admin
 from decko_modules.core.models import Tenant, User
 from decko_modules.core.schemas import (
     AuditEntryOut,
     AuditPageOut,
     CrachaIn,
     DefinirPinIn,
+    EmpresaDaPlataformaOut,
     EntrarPorPinIn,
     LoginRequest,
     MembroIn,
@@ -149,6 +150,7 @@ async def me(principal: CurrentPrincipal, session: SessionDep) -> SessionOut:
         user=user,  # type: ignore[arg-type]
         tenant=tenant,  # type: ignore[arg-type]
         permissions=sorted(principal.permissions),
+        is_platform_admin=user.is_platform_admin,
         # Permissão e ativação são coisas distintas: o administrador recebe as permissões
         # de todos os módulos instalados na plataforma, mas só alcança os que a empresa
         # ativou. A interface monta o menu a partir desta lista, não do prefixo das
@@ -934,3 +936,26 @@ async def definir_cracha(
         ip=audit.ip_de(request),
     )
     return await _um_membro(session, principal.tenant_id, user_id)
+
+
+# ------------------------------------------------------------- nível de plataforma
+#
+# Quem vende o Decko enxerga quem o usa. Nada aqui lê de dentro de empresa alheia: a tabela
+# `tenant` é a própria fronteira do isolamento e não tem RLS. Ver
+# docs/adr/0021-nivel-de-plataforma.md.
+
+
+@router.get("/plataforma/empresas", response_model=list[EmpresaDaPlataformaOut])
+async def listar_empresas_da_plataforma(
+    session: SessionDep,
+    _: Annotated[object, Depends(require_platform_admin)],
+) -> list[Tenant]:
+    """As empresas que usam o Decko, da mais nova para a mais antiga.
+
+    É a lista que faltava para o dono do projeto cobrar sem planilha paralela. Para ligar
+    cada uma à assinatura que a paga, a tela cruza esta lista com a carteira de clientes —
+    o vínculo mora no contato, e o núcleo não conhece o módulo `clientes`.
+    """
+    return list(
+        (await session.execute(select(Tenant).order_by(Tenant.created_at.desc()))).scalars().all()
+    )

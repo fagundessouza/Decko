@@ -221,3 +221,62 @@ descuido:
 
 Ou seja: o módulo responde **quem deveria estar bloqueado**. Transformar isso em porta
 fechada é trabalho do núcleo, e vem depois.
+
+---
+
+## 6. O primeiro cliente existe, e o controle dele não — 13/11/2026
+
+A empresa **Agrodrone Serviços e Agronegócios** foi cadastrada na plataforma em
+13/11/2026: identificador `agrodrone`, módulo `agro` ativo. É o primeiro cliente de
+verdade. E o dono do projeto perguntou, com razão:
+
+> *"Se a agrodrone foi criada, como ela não está nem em clientes e nem em assinaturas?
+> Como vou ter controle da agrodrone? Lembre-se que eu estou fazendo aquele use, vista e
+> fale."*
+
+### 6.1 Por que ela não aparece
+
+Não é defeito: são **duas coisas em lados opostos da fronteira de isolamento**, e nada as
+ligava.
+
+| O que é | Onde vive | O que significa |
+|---|---|---|
+| `tenant` `agrodrone` | Tabela da **plataforma**, fora de qualquer empresa | A empresa que usa o Decko |
+| `clientes_cliente` | **Dentro** da empresa `decko` | Quem compra da loja — contato, CPF/CNPJ |
+| `assinaturas_assinatura` | **Dentro** da empresa `decko` | Aponta para um `cliente_id`, nunca para um `tenant` |
+
+O `decko-admin bootstrap` cria a empresa na plataforma. Ele **não** cria um contato na
+carteira de ninguém, e não teria como: escrever dentro da empresa `decko` a partir de um
+comando de plataforma é exatamente a travessia de fronteira que a ADR 0001 fecha com RLS.
+
+### 6.2 O que dá para fazer hoje, sem decisão nenhuma
+
+Cadastrar a Agrodrone como **cliente** na empresa `decko`, criar o **plano**, e criar a
+**assinatura**. Isso entrega faturamento de verdade: ciclo, cobrança gerada, baixa à mão,
+e os três estados de inadimplência que a seção 5 já decidiu.
+
+O que falta para isso é um número que só o dono do projeto tem: **qual é o plano e quanto
+custa** (pergunta 5, ainda aberta, e também aberta no `docs/NEGOCIO.md`).
+
+### 6.3 O que falta para ser "controle", e não só cobrança
+
+**A assinatura não sabe qual empresa ela paga.** Enquanto ela apontar só para um contato,
+"bloquear quem não pagou" não tem o que bloquear — e a própria seção 5 já diz isso com
+todas as letras: *"bloquear a assinatura marca o estado dela. Não corta o acesso de
+ninguém."*
+
+Ligar as duas pontas é a decisão de plataforma que a
+`docs/adr/0020-operador-supervisor-e-papeis.md` deixou de fora de propósito, e ela tem
+peso: atravessa o isolamento por empresa, que é a garantia mais forte do projeto. Precisa
+de ADR própria, e ela responde pelo menos isto:
+
+1. **A assinatura aponta para o `tenant`, ou o `cliente` é que aponta?** A segunda mantém a
+   cobrança como está e acrescenta um vínculo; a primeira muda o modelo da assinatura.
+2. **Quem enxerga a lista de empresas da plataforma?** Hoje ninguém: não existe nível de
+   plataforma. Uma tela de "meus clientes" é a primeira coisa que vive fora de toda
+   empresa.
+3. **Como o corte acontece?** Marcar a assinatura é dentro da empresa `decko`; recusar o
+   login da Agrodrone é no núcleo, na autenticação. São dois lugares, e o segundo não pode
+   depender de ler dado do primeiro sem atravessar a fronteira.
+4. **Quem reverte, e em quanto tempo?** Pagamento confirmado precisa devolver o acesso sem
+   alguém passar na mão.

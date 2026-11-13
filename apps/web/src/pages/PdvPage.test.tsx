@@ -138,6 +138,7 @@ function umCliente(sobre: Partial<Cliente> = {}): Cliente {
     tipo: "fisica",
     nome: "Maria da Silva",
     apelido: null,
+    tenant_assinante_id: null,
     cpf_cnpj: "12345678909",
     inscricao_estadual: null,
     email: null,

@@ -113,6 +113,16 @@ class User(TenantMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Administra a **plataforma**, não uma empresa: enxerga quem usa o Decko.
+    #
+    # É marca de pessoa, e não permissão de papel, de propósito. Permissão é declarada por
+    # manifesto, e o reconciliador a concederia ao papel `Administrador` de **toda**
+    # empresa — a conta do cliente ganharia a lista de clientes. Ligada só pela linha de
+    # comando do servidor. Ver docs/adr/0021-nivel-de-plataforma.md.
+    is_platform_admin: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+
     tenant: Mapped["Tenant"] = relationship(back_populates="users")
     roles: Mapped[list["Role"]] = relationship(secondary="user_role", back_populates="users")
 

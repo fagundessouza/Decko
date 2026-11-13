@@ -33,6 +33,9 @@ class ClienteIn(BaseModel):
     tipo: TipoPessoa = TipoPessoa.FISICA
     nome: str = Field(min_length=1, max_length=200)
     apelido: str | None = Field(default=None, max_length=200)
+    # Qual empresa da plataforma este contato é, quando ele é uma. Nulo é o caso normal:
+    # cliente de balcão não é empresa nenhuma — ver ADR 0021, decisão 4.
+    tenant_assinante_id: uuid.UUID | None = None
 
     cpf_cnpj: OptionalDocumento = None
     inscricao_estadual: str | None = Field(default=None, max_length=40)
@@ -64,6 +67,7 @@ class ClienteOut(BaseModel):
     tipo: TipoPessoa
     nome: str
     apelido: str | None
+    tenant_assinante_id: uuid.UUID | None = None
 
     cpf_cnpj: str | None
     inscricao_estadual: str | None

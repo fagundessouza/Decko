@@ -55,6 +55,27 @@ async def _documento_em_uso(
     return await session.scalar(consulta) is not None
 
 
+async def _recusar_empresa_ja_vinculada(
+    session: AsyncSession, tenant_assinante_id: uuid.UUID | None, *, exceto: uuid.UUID | None = None
+) -> None:
+    """Uma empresa da plataforma é apontada por no máximo um contato.
+
+    Quem recusa de verdade é o índice único no banco; isto só troca o erro de integridade
+    por uma frase que diz o que houve. Duas assinaturas pagando o mesmo acesso tornaria
+    "está bloqueada?" uma pergunta sem resposta — ver ADR 0021, decisão 4.
+    """
+    if tenant_assinante_id is None:
+        return
+
+    consulta = select(Cliente.nome).where(Cliente.tenant_assinante_id == tenant_assinante_id)
+    if exceto is not None:
+        consulta = consulta.where(Cliente.id != exceto)
+
+    dono = await session.scalar(consulta)
+    if dono is not None:
+        raise ClientesError(f"'{dono}' já está ligado a esta empresa da plataforma.")
+
+
 async def criar(
     session: AsyncSession,
     *,
@@ -65,6 +86,8 @@ async def criar(
     cpf_cnpj = dados.get("cpf_cnpj")
     if cpf_cnpj and await _documento_em_uso(session, cpf_cnpj):
         raise ClientesError("Já existe um cliente com este CPF ou CNPJ.")
+
+    await _recusar_empresa_ja_vinculada(session, dados.get("tenant_assinante_id"))
 
     cliente = Cliente(tenant_id=tenant_id, **dados)
     session.add(cliente)
@@ -87,6 +110,10 @@ async def atualizar(
     cpf_cnpj = dados.get("cpf_cnpj")
     if cpf_cnpj and await _documento_em_uso(session, cpf_cnpj, exceto=cliente.id):
         raise ClientesError("Já existe outro cliente com este CPF ou CNPJ.")
+
+    await _recusar_empresa_ja_vinculada(
+        session, dados.get("tenant_assinante_id"), exceto=cliente.id
+    )
 
     alterados = [campo for campo, valor in dados.items() if getattr(cliente, campo, None) != valor]
     for campo, valor in dados.items():

@@ -239,6 +239,17 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       dar baixa, dar prazo e gerar o mês. O cartão explica pela cobrança que **decide** o
       bloqueio, não pela mais antiga: as duas divergem quando há várias em aberto
 - [x] Perfil `decko`: o próprio produto usa o próprio produto — clientes e assinaturas
+- [x] **Nível de plataforma.** Em 13/11/2026 a primeira empresa cliente entrou de verdade
+      — Agrodrone — e não aparecia em lugar nenhum: `tenant` é tabela da plataforma, e a
+      carteira de clientes vive dentro da empresa `decko`. Eram dois lados da fronteira de
+      isolamento sem nada ligando. Agora há uma marca de **pessoa**
+      (`user_account.is_platform_admin`, ligada só pela linha de comando), a tela "Meus
+      clientes" que lista as empresas, e o `tenant_assinante_id` no contato, que diz a quem
+      aquela assinatura dá acesso. Nenhum papel concede a marca, e **nada nesta fatia lê de
+      dentro de empresa alheia** — ver `docs/adr/0021-nivel-de-plataforma.md`
+- [ ] Suspender o acesso de quem não paga: é ato do núcleo, na autenticação, e espera três
+      respostas — o que acontece com quem está no meio de uma venda, o que o bloqueado vê,
+      e como o pagamento devolve o acesso sem alguém passar na mão. Decisão 5 da ADR 0021
 - [ ] Captura de pagamento, em módulo próprio atrás da porta decidida na
       `docs/adr/0017-meios-de-pagamento.md`. Não está agendado: começa quando houver
       cliente pedindo. Quatro coisas bloqueiam antes do código — qual agregador, se a

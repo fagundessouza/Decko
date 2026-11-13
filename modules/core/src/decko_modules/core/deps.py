@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decko.db import bind_tenant, get_session
 from decko.tenancy import set_current_tenant
 from decko_modules.core import security
+from decko_modules.core.models import User
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -84,3 +85,25 @@ def require(
         return principal
 
     return dependency
+
+
+async def require_platform_admin(
+    principal: CurrentPrincipal,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> Principal:
+    """Exige a marca de administrador da plataforma, conferida **no banco**.
+
+    No banco, e não no token, de propósito: token vive quinze minutos, e tirar a marca de
+    alguém só teria efeito depois que o dele expirasse. Para privilégio que atravessa
+    empresas, quinze minutos de atraso é tempo demais.
+
+    Recusa com **404**, não 403: para quem não administra a plataforma, esta área não faz
+    parte do sistema — 403 confirmaria que ela existe. Mesmo raciocínio do módulo não
+    contratado, na ADR 0004.
+
+    Ver docs/adr/0021-nivel-de-plataforma.md.
+    """
+    user = await session.get(User, principal.user_id)
+    if user is None or not user.is_platform_admin:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Não encontrado.")
+    return principal

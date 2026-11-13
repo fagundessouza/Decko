@@ -55,6 +55,9 @@ const ConferenciaPage = lazy(() =>
 const ConsolidationPage = lazy(() =>
   import("./pages/ConsolidationPage").then((m) => ({ default: m.ConsolidationPage })),
 );
+const MeusClientesPage = lazy(() =>
+  import("./pages/MeusClientesPage").then((m) => ({ default: m.MeusClientesPage })),
+);
 const NewPlanWizard = lazy(() =>
   import("./pages/NewPlanWizard").then((m) => ({ default: m.NewPlanWizard })),
 );
@@ -106,6 +109,7 @@ type View =
   | { name: "clientes" }
   | { name: "contas" }
   | { name: "assinaturas" }
+  | { name: "meusClientes" }
   | { name: "nota"; notaId: string }
   | { name: "produtos" }
   | { name: "equipe" }
@@ -128,6 +132,7 @@ const SECTION: Record<View["name"], string> = {
   clientes: "clientes",
   contas: "financeiro",
   assinaturas: "assinaturas",
+  meusClientes: "meusClientes",
   // Conferir uma nota é trabalho de produtos: é de lá que se chega e para lá se volta.
   nota: "produtos",
   produtos: "comercial",
@@ -335,6 +340,17 @@ export default function App() {
       onSelect: () => setView({ name: "assinaturas" }),
     });
   }
+  /* A área de quem vende o Decko. Não vem de módulo contratado nem de permissão de
+   * empresa: é marca de pessoa, posta pela linha de comando do servidor. Nenhum papel a
+   * concede — ver docs/adr/0021-nivel-de-plataforma.md, decisão 1. */
+  if (info.is_platform_admin) {
+    items.push({
+      key: "meusClientes",
+      label: "Meus clientes",
+      icon: <ModuleIcon name="store" size={22} />,
+      onSelect: () => setView({ name: "meusClientes" }),
+    });
+  }
   if (hasComercial) {
     items.push({
       key: "comercial",
@@ -508,6 +524,10 @@ export default function App() {
       {view.name === "contas" && <ContasPage onBack={() => setView({ name: "home" })} />}
       {view.name === "assinaturas" && (
         <AssinaturasPage onBack={() => setView({ name: "home" })} />
+      )}
+
+      {view.name === "meusClientes" && (
+        <MeusClientesPage onBack={() => setView({ name: "home" })} />
       )}
 
       {/* A lista de notas virou operação sobreposta em "Produtos e estoque". A conferência

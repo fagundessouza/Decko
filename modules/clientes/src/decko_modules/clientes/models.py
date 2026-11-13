@@ -11,7 +11,8 @@ desativar, que tira da busca e das telas de lançamento.
 import uuid
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Enum, Index, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Enum, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from decko.db import Base, TenantMixin, TimestampMixin, primary_key
@@ -40,6 +41,10 @@ class Cliente(TenantMixin, TimestampMixin, Base):
         UniqueConstraint("tenant_id", "cpf_cnpj", name="uq_clientes_cliente_cpf_cnpj"),
         Index("ix_clientes_cliente_tenant_id_nome", "tenant_id", "nome"),
         Index("ix_clientes_cliente_tenant_id_ativo", "tenant_id", "ativo"),
+        # Uma empresa da plataforma é apontada por no máximo um contato. Duas assinaturas
+        # pagando o mesmo acesso tornaria "está bloqueada?" uma pergunta sem resposta, e
+        # quem recusa a segunda é o banco.
+        UniqueConstraint("tenant_assinante_id", name="uq_clientes_cliente_tenant_assinante_id"),
     )
 
     id: Mapped[uuid.UUID] = primary_key()
@@ -53,6 +58,19 @@ class Cliente(TenantMixin, TimestampMixin, Base):
     # Nome de fantasia, para empresa. A nota sai com a razão social; o balcão chama pelo
     # fantasia, e procurar por ele é o que o vendedor faz.
     apelido: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Qual empresa **da plataforma** este contato é, quando ele é uma.
+    #
+    # É o que liga "quem o Decko cobra" a "quem usa o Decko": sem isto, bloquear uma
+    # assinatura não tem o que bloquear. Nulo é o caso normal — cliente de balcão não é
+    # empresa nenhuma na plataforma, e academia cobra mensalidade de aluno que não usa
+    # sistema. Ver docs/adr/0021-nivel-de-plataforma.md, decisão 4.
+    #
+    # `RESTRICT`: apagar a empresa por baixo de uma assinatura que a cobra não pode ser
+    # silencioso.
+    tenant_assinante_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("tenant.id", ondelete="RESTRICT"), nullable=True
+    )
 
     # Só os dígitos, conferidos pelo dígito verificador.
     cpf_cnpj: Mapped[str | None] = mapped_column(String(14), nullable=True)

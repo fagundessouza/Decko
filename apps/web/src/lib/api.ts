@@ -53,6 +53,11 @@ export interface SessionInfo {
   user: UserSummary;
   tenant: TenantSummary;
   permissions: string[];
+  /** Quem vende o Decko enxerga quem o usa. Nenhum papel concede isto, e nenhuma tela o
+   *  liga: a marca é posta pela linha de comando do servidor. Aqui ela só faz o menu
+   *  existir — quem guarda a área é o servidor, que confere no banco a cada requisição.
+   *  Ver docs/adr/0021-nivel-de-plataforma.md. */
+  is_platform_admin: boolean;
   /** Módulos contratados por esta empresa. Ter a permissão de um módulo não implica
    *  que a empresa o tenha — quem decide é a ativação. */
   active_modules: string[];
@@ -344,6 +349,26 @@ export const equipe = {
   /** O dono emite o crachá: é cartão da loja, não escolha de quem o usa. */
   definirCracha: (userId: string, cracha: string | null): Promise<Membro> =>
     authedJson(`/core/users/${userId}/cracha`, { method: "PUT", body: { cracha } }),
+};
+
+/** Uma empresa que usa o Decko, como a plataforma a vê.
+ *
+ * Só o que a tabela `tenant` já diz. O que está **dentro** de cada empresa — módulos
+ * ativos, movimento, gente — não é lido daqui: `tenant` é a própria fronteira do
+ * isolamento, e atravessá-la é decisão própria, com motivo próprio. Ver
+ * docs/adr/0021-nivel-de-plataforma.md, decisão 3. */
+export interface EmpresaDaPlataforma {
+  id: string;
+  slug: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+/** A área de quem vende o Decko. Responde 404 para quem não tem a marca: 403 confirmaria
+ *  que ela existe. */
+export const plataforma = {
+  empresas: (): Promise<EmpresaDaPlataforma[]> => authedJson("/core/plataforma/empresas"),
 };
 
 /** Quem já consegue assumir a estação pelo PIN. */

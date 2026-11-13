@@ -174,6 +174,13 @@ class SessionOut(BaseModel):
     user: UserOut
     tenant: TenantOut
     permissions: list[str]
+    # Quem vende o Decko enxerga quem o usa. Fica **fora** do `UserOut` de propósito: o
+    # `UserOut` é o que a tela de equipe lista, e a marca de plataforma não aparece lá nem
+    # é mexida de lá — ver docs/adr/0021-nivel-de-plataforma.md, decisão 1.
+    #
+    # Aqui ela serve só para o menu existir; quem de fato guarda a área é o
+    # `require_platform_admin`, que confere no banco a cada requisição.
+    is_platform_admin: bool = False
     # Módulos ativos nesta empresa. A interface monta o menu a partir daqui: ter a
     # permissão de um módulo não significa que a empresa o contratou.
     active_modules: list[str]
@@ -197,6 +204,22 @@ class PapelOut(PapelResumoOut):
     """
 
     permissoes: list[str]
+
+
+class EmpresaDaPlataformaOut(BaseModel):
+    """Uma empresa que usa o Decko, como quem o vende a enxerga.
+
+    Só o que a tabela `tenant` já diz: nome, identificador, se está ativa e desde quando.
+    **Nada de dentro dela** — ver `docs/adr/0021-nivel-de-plataforma.md`, decisão 3.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    slug: str
+    name: str
+    is_active: bool
+    created_at: datetime
 
 
 class MembroOut(BaseModel):

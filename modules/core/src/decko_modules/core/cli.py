@@ -278,6 +278,73 @@ async def _run_status(_: argparse.Namespace) -> int:
     return 0
 
 
+async def _run_plataforma(args: argparse.Namespace) -> int:
+    """Liga ou desliga a marca de administrador da plataforma.
+
+    Só por aqui, de propósito: nenhum papel concede isto e nenhuma tela dá isto. Fosse
+    permissão de manifesto, o reconciliador a daria ao papel `Administrador` de **toda**
+    empresa, e a conta do cliente ganharia a lista de clientes. Ver
+    docs/adr/0021-nivel-de-plataforma.md, decisão 1.
+    """
+    email = args.email.strip().lower()
+    try:
+        async with SessionFactory() as session, session.begin():
+            tenant = await session.scalar(select(Tenant).where(Tenant.slug == args.tenant_slug))
+            if tenant is None:
+                print(f"Empresa '{args.tenant_slug}' não encontrada.", file=sys.stderr)
+                return 1
+
+            await bind_tenant(session, tenant.id)
+            user = await session.scalar(select(User).where(User.email == email))
+            if user is None:
+                print(f"'{email}' não existe em '{args.tenant_slug}'.", file=sys.stderr)
+                return 1
+
+            user.is_platform_admin = not args.remover
+
+            session.add(
+                AuditLog(
+                    tenant_id=tenant.id,
+                    user_id=user.id,
+                    action="user.platform_admin",
+                    entity="user_account",
+                    entity_id=str(user.id),
+                    data={"ligada": user.is_platform_admin},
+                )
+            )
+    finally:
+        await engine.dispose()
+
+    estado = "desligada" if args.remover else "ligada"
+    print(f"Marca de administrador da plataforma {estado} para {email}.")
+    return 0
+
+
+async def _run_plataforma_lista(_: argparse.Namespace) -> int:
+    """Quem tem a marca hoje. Privilégio concentrado precisa ser conferível."""
+    try:
+        async with SessionFactory() as session:
+            rows = (
+                await session.execute(
+                    select(Tenant.slug, User.email, User.full_name)
+                    .join(User, User.tenant_id == Tenant.id)
+                    .where(User.is_platform_admin.is_(True))
+                    .order_by(Tenant.slug, User.email)
+                )
+            ).all()
+    finally:
+        await engine.dispose()
+
+    if not rows:
+        print("Ninguém administra a plataforma.")
+        return 0
+
+    print(f"Administradores da plataforma: {len(rows)}")
+    for slug, email, nome in rows:
+        print(f"  {slug:<24} {email:<36} {nome}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="decko-admin", description="Comandos administrativos do Decko."
@@ -303,6 +370,22 @@ def main() -> int:
 
     status = sub.add_parser("status", help="Lista as empresas cadastradas.")
     status.set_defaults(handler=_run_status)
+
+    plataforma = sub.add_parser(
+        "plataforma",
+        help="Liga ou desliga a marca de administrador da plataforma de alguém.",
+    )
+    plataforma.add_argument("--tenant-slug", required=True, help="Empresa onde a conta vive.")
+    plataforma.add_argument("--email", required=True)
+    plataforma.add_argument(
+        "--remover", action="store_true", help="Desliga a marca em vez de ligar."
+    )
+    plataforma.set_defaults(handler=_run_plataforma)
+
+    plataforma_lista = sub.add_parser(
+        "plataforma-lista", help="Mostra quem administra a plataforma hoje."
+    )
+    plataforma_lista.set_defaults(handler=_run_plataforma_lista)
 
     args = parser.parse_args()
 

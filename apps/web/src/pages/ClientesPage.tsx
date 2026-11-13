@@ -122,6 +122,11 @@ export function ClientesPage({ onBack }: Props) {
       tipo: form.tipo,
       nome: form.nome.trim(),
       apelido: ouNulo(form.apelido),
+      /* O vínculo com a empresa da plataforma não tem campo nesta tela e é mandado de
+       * volta como está. O `PUT` substitui o cadastro inteiro: sem isto, editar o
+       * telefone de um cliente desligaria a empresa dele da assinatura — em silêncio.
+       * Quem liga e desliga é a tela "Meus clientes". Ver ADR 0021, decisão 4. */
+      tenant_assinante_id: editando?.tenant_assinante_id ?? null,
       cpf_cnpj: ouNulo(form.cpf_cnpj),
       inscricao_estadual: ouNulo(form.inscricao_estadual),
       email: ouNulo(form.email),
