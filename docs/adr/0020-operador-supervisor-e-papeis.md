@@ -85,6 +85,18 @@ motivo pelo qual a vitrine do módulo mora no manifesto.
 Um papel só pode conceder permissão de módulo que o seu declare em `depends`. O operador
 precisa ler produto para vender, e o PDV já depende de `comercial`.
 
+> **Generalizado em 13/11/2026.** O dono do projeto apontou que o mecanismo não é do
+> caixa: *"os pilotos tem que ter um parecido também... é a mesma coisa, a diferença é que
+> um é operador de caixa e outro é piloto de drone"*. Ele está certo, e o desenho já
+> permitia — o `agro` declarou **Piloto** e **Responsável técnico** sem uma linha de
+> código novo, só manifesto.
+>
+> Lá a divisão não é a do balcão, e isso importa: **quem assina é o responsável técnico**,
+> porque é esse o papel que o formulário do MAPA nomeia na linha de assinatura, com CREA
+> (seção 4.9 do discovery do agro). O piloto registra a aplicação e não assina. Na empresa
+> do cliente a mesma pessoa é agrônomo e piloto — e aí ela recebe os dois papéis, em vez
+> de o papel de piloto ganhar uma assinatura que não é dele.
+
 ### 3. Papel semeado é ponto de partida, nunca configuração imposta
 
 Os papéis sugeridos são criados **na empresa que não os tem**, e depois disso **nunca mais

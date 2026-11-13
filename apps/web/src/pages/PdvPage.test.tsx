@@ -171,6 +171,8 @@ function abrirCaixa({
       podeDevolver={podeDevolver}
       podeConferir={podeConferir}
       podeAjustar={podeAjustar}
+      jaTemPin={false}
+      onOperadorTrocado={() => {}}
     />,
   );
 }
@@ -865,6 +867,16 @@ describe("PdvPage, as operações de caixa", () => {
 
     // É configuração do caixa, e é no caixa que se procura por ela.
     expect(await screen.findByLabelText("Sangria")).toBeTruthy();
+  });
+
+  it("passar o turno e ter um PIN não dependem de permissão", async () => {
+    // Quem está no balcão entrega a estação a quem chega, seja quem for. Estavam no
+    // rodapé do menu lateral, longe de onde a troca acontece.
+    abrirCaixa();
+    await screen.findByLabelText("Código, código de barras ou nome");
+
+    expect(screen.getByRole("button", { name: "Trocar de operador" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Meu PIN" })).toBeTruthy();
   });
 
   it("cada botão depende da sua própria permissão", async () => {

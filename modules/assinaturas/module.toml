@@ -12,6 +12,9 @@ version = "0.1.0"
 package = "decko_modules.assinaturas"
 depends = ["core", "clientes"]
 required = false
+# Da plataforma, não do cliente: é com este módulo que o Decko cobra **dos** clientes.
+# Oferecê-lo na vitrine de um deles seria vender a ele a régua com que ele é medido.
+interno = true
 category = "Operação"
 icon = "card"
 accent = "violet"

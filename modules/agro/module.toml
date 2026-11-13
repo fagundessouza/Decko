@@ -36,6 +36,51 @@ provides = [
   "agro.plan.export",
 ]
 
+# Papéis sugeridos a quem contrata o módulo. Criados na empresa que não os tem, e nunca
+# mais tocados: quem faz o quê é decisão da empresa. Mesmo mecanismo do ponto de venda —
+# ver docs/adr/0020-operador-supervisor-e-papeis.md, decisões 2 e 3.
+#
+# **Quem assina é o responsável técnico**, e isso não é escolha de desenho: o formulário
+# do MAPA nomeia o papel na linha de assinatura, com CREA — ver a seção 4.9 e a Q5 do
+# docs/discovery/agro-planejamento-operacional.md. Na empresa do cliente a mesma pessoa é
+# agrônomo e piloto; aí ela recebe os dois papéis, em vez de o piloto ganhar a assinatura.
+
+[[roles]]
+name = "Piloto"
+description = "Executa e registra a aplicação. Consulta os cadastros e não assina."
+grants = [
+  "agro.plan.read",
+  "agro.plan.write",
+  "agro.prescription.read",
+  "agro.client.read",
+  "agro.property.read",
+  "agro.aircraft.read",
+  "agro.product.read",
+  "agro.pilot.read",
+]
+
+[[roles]]
+name = "Responsável técnico"
+description = "Assina o planejamento, emite o documento e mantém os cadastros."
+grants = [
+  "agro.plan.read",
+  "agro.plan.write",
+  "agro.plan.sign",
+  "agro.plan.export",
+  "agro.prescription.read",
+  "agro.prescription.write",
+  "agro.client.read",
+  "agro.client.write",
+  "agro.property.read",
+  "agro.property.write",
+  "agro.aircraft.read",
+  "agro.aircraft.write",
+  "agro.product.read",
+  "agro.product.write",
+  "agro.pilot.read",
+  "agro.pilot.write",
+]
+
 [menu]
 label = "Pulverização"
 order = 100

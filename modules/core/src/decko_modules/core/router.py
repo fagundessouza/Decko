@@ -234,6 +234,9 @@ async def list_modules(
     return [
         _module_out(manifest, active=manifest.required or manifest.name in active)
         for manifest in manifests
+        # Módulo da plataforma não entra na vitrine de ninguém. Quem já o tem ativo
+        # continua vendo o menu dele; o que não aparece é a oferta de contratá-lo.
+        if not manifest.interno or manifest.name in active
     ]
 
 

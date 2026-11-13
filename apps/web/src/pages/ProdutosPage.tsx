@@ -1,12 +1,17 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { Page, PageHeader } from "../components/AppShell";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { Modal } from "../components/Modal";
 import { Card, Row } from "../components/Card";
 import { comercial } from "../lib/comercial";
 import type { Produto, Unidade } from "../lib/comercial";
 import { ncmMask, num } from "../lib/format";
+
+const NotasPage = lazy(() =>
+  import("./NotasPage").then((m) => ({ default: m.NotasPage })),
+);
 
 interface Props {
   onBack: () => void;
@@ -14,9 +19,21 @@ interface Props {
   onNew: () => void;
   onUnidades: () => void;
   onConferencia: () => void;
+  /* Entrada por nota: cadastrar à mão e receber do fornecedor eram duas telas que faziam
+   * a mesma coisa — criar produto e pôr estoque. Agora é uma operação daqui, sobreposta.
+   * Ausente quando a empresa não tem o módulo `compras`. */
+  onAbrirNota?: (notaId: string) => void;
 }
 
-export function ProdutosPage({ onBack, onOpen, onNew, onUnidades, onConferencia }: Props) {
+export function ProdutosPage({
+  onBack,
+  onOpen,
+  onNew,
+  onUnidades,
+  onConferencia,
+  onAbrirNota,
+}: Props) {
+  const [importando, setImportando] = useState(false);
   const [produtos, setProdutos] = useState<Produto[] | null>(null);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [busca, setBusca] = useState("");
@@ -59,6 +76,11 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades, onConferencia 
           <div className="flex gap-2">
             {/* Fora do bloqueio de unidades de propósito: a conferência responde "nada
                 para conferir" e isso é melhor que um caminho que não existe. */}
+            {onAbrirNota && (
+              <Button inline variant="secondary" onClick={() => setImportando(true)}>
+                Entrada por nota
+              </Button>
+            )}
             <Button inline variant="secondary" onClick={onConferencia}>
               Conferência
             </Button>
@@ -209,6 +231,26 @@ export function ProdutosPage({ onBack, onOpen, onNew, onUnidades, onConferencia 
           </div>
         </Card>
       )}
+
+      <Modal
+        open={importando}
+        largura="ampla"
+        title="Entrada por nota"
+        description="Importe o XML do fornecedor: o produto é cadastrado e o estoque entra conferido."
+        onClose={() => setImportando(false)}
+      >
+        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+          <NotasPage
+            embutido
+            onAbrir={(notaId) => {
+              // A conferência é trabalho longo — casar item por item com o catálogo — e
+              // merece a tela inteira. O diálogo fecha e a tela cede o lugar.
+              setImportando(false);
+              onAbrirNota?.(notaId);
+            }}
+          />
+        </Suspense>
+      </Modal>
     </Page>
   );
 }

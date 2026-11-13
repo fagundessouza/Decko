@@ -1,7 +1,16 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Alert } from "../components/Alert";
 import { useAutorizacao } from "../components/Autorizacao";
+import { MeuPin } from "../components/MeuPin";
+import { TrocarOperador } from "../components/TrocarOperador";
 import { Page, PageHeader } from "../components/AppShell";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
@@ -18,6 +27,7 @@ import type { ContaRecebimento } from "../lib/financeiro";
 import type { Produto } from "../lib/comercial";
 import { brl, num } from "../lib/format";
 import { FORMAS, pdv } from "../lib/pdv";
+import type { SessionInfo } from "../lib/api";
 import type { Credencial, FormaPagamento, Venda } from "../lib/pdv";
 
 /* As operações de caixa vivem **dentro** do ponto de venda, sobrepostas.
@@ -34,7 +44,9 @@ const MeuCaixaPage = lazy(() =>
 const DevolucaoPage = lazy(() =>
   import("./DevolucaoPage").then((m) => ({ default: m.DevolucaoPage })),
 );
-const CaixaPage = lazy(() => import("./CaixaPage").then((m) => ({ default: m.CaixaPage })));
+const CaixaPage = lazy(() =>
+  import("./CaixaPage").then((m) => ({ default: m.CaixaPage })),
+);
 const AjustesCaixaPage = lazy(() =>
   import("./AjustesCaixaPage").then((m) => ({ default: m.AjustesCaixaPage })),
 );
@@ -57,6 +69,10 @@ interface Props {
   podeConferir: boolean;
   /** Mexer no que a loja exige supervisor para fazer. Sem isto, a tela é só leitura. */
   podeAjustar: boolean;
+  /** Já tem PIN: a tela diz "trocar" em vez de "definir". */
+  jaTemPin: boolean;
+  /** O turno passou: a sessão agora é de quem assumiu a estação. */
+  onOperadorTrocado: (info: SessionInfo) => void;
 }
 
 function motivo(cause: unknown, padrao: string): string {
@@ -79,6 +95,8 @@ export function PdvPage({
   podeDevolver,
   podeConferir,
   podeAjustar,
+  jaTemPin,
+  onOperadorTrocado,
 }: Props) {
   const [venda, setVenda] = useState<Venda | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -105,6 +123,13 @@ export function PdvPage({
   const autorizacao = useAutorizacao();
 
   const [operacao, setOperacao] = useState<Operacao | null>(null);
+  /* Troca de operador e PIN moram **aqui**, e não no rodapé do menu.
+   *
+   * Passar o turno é operação de balcão: quem faz isso está na tela de venda, com fila,
+   * e procurar no menu lateral é sair de onde se está. O PIN anda junto porque é ele que
+   * destrava a troca — separá-los mandaria a pessoa a dois lugares para uma coisa só. */
+  const [trocandoOperador, setTrocandoOperador] = useState(false);
+  const [definindoPin, setDefinindoPin] = useState(false);
 
   const [identificando, setIdentificando] = useState(false);
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -131,7 +156,9 @@ export function PdvPage({
       try {
         const abertas = await pdv.listVendas("aberta");
         if (!vivo) return;
-        const atual = abertas[0] ? await pdv.ver(abertas[0].id) : await pdv.abrir();
+        const atual = abertas[0]
+          ? await pdv.ver(abertas[0].id)
+          : await pdv.abrir();
         if (!vivo) return;
         setVenda(atual);
       } catch (cause) {
@@ -179,7 +206,8 @@ export function PdvPage({
       evento.preventDefault();
 
       if (!venda || venda.itens.length === 0 || busy) return;
-      if (cobrando !== null || achados !== null || identificando || descontando) return;
+      if (cobrando !== null || achados !== null || identificando || descontando)
+        return;
 
       setCobrando(forma.valor);
       // Mesmo padrão do botão: o caso comum é receber exatamente o que falta.
@@ -218,7 +246,9 @@ export function PdvPage({
     setBusy(true);
     setErro(null);
     try {
-      const produtos = (await comercial.listProdutos(termo)).filter((item) => item.ativo);
+      const produtos = (await comercial.listProdutos(termo)).filter(
+        (item) => item.ativo,
+      );
       if (produtos.length === 0) {
         setErro(`Nenhum produto para “${termo}”.`);
         setAchados(null);
@@ -280,7 +310,9 @@ export function PdvPage({
     setBusy(true);
     setErro(null);
     try {
-      await autorizacao.executar(async (credencial) => setVenda(await acao(credencial)));
+      await autorizacao.executar(async (credencial) =>
+        setVenda(await acao(credencial)),
+      );
     } catch (cause) {
       setErro(motivo(cause, padrao));
     } finally {
@@ -364,7 +396,9 @@ export function PdvPage({
   if (carregando) {
     return (
       <Page wide>
-        <p className="animate-fade text-base text-ink-muted">Abrindo o caixa…</p>
+        <p className="animate-fade text-base text-ink-muted">
+          Abrindo o caixa…
+        </p>
       </Page>
     );
   }
@@ -375,7 +409,9 @@ export function PdvPage({
         <PageHeader title="Venda concluída" onBack={onBack} />
         <Card>
           <CardBody className="text-center">
-            <p className="text-sm uppercase tracking-wide text-ink-faint">Venda</p>
+            <p className="text-sm uppercase tracking-wide text-ink-faint">
+              Venda
+            </p>
             <p className="mt-1 text-5xl font-bold tabular-nums tracking-tight text-ink">
               {concluida.numero}
             </p>
@@ -411,30 +447,71 @@ export function PdvPage({
 
   const operacoes = (
     <>
-      {(podeAbrirCaixa || podeDevolver || podeConferir || podeAjustar) && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          {podeAbrirCaixa && (
-            <Button variant="secondary" inline onClick={() => setOperacao("meu-caixa")}>
-              Meu caixa
-            </Button>
-          )}
-          {podeDevolver && (
-            <Button variant="secondary" inline onClick={() => setOperacao("devolucao")}>
-              Devolução
-            </Button>
-          )}
-          {podeConferir && (
-            <Button variant="secondary" inline onClick={() => setOperacao("conferencia")}>
-              Conferência do dia
-            </Button>
-          )}
-          {podeAjustar && (
-            <Button variant="secondary" inline onClick={() => setOperacao("ajustes")}>
-              Ajustes do caixa
-            </Button>
-          )}
-        </div>
-      )}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {podeAbrirCaixa && (
+          <Button
+            variant="secondary"
+            inline
+            onClick={() => setOperacao("meu-caixa")}
+          >
+            Meu caixa
+          </Button>
+        )}
+        {podeDevolver && (
+          <Button
+            variant="secondary"
+            inline
+            onClick={() => setOperacao("devolucao")}
+          >
+            Devolução
+          </Button>
+        )}
+        {podeConferir && (
+          <Button
+            variant="secondary"
+            inline
+            onClick={() => setOperacao("conferencia")}
+          >
+            Conferência do dia
+          </Button>
+        )}
+        {podeAjustar && (
+          <Button
+            variant="secondary"
+            inline
+            onClick={() => setOperacao("ajustes")}
+          >
+            Ajustes do caixa
+          </Button>
+        )}
+        {/* Sem permissão: passar o turno e ter um PIN é de quem opera, seja quem for. */}
+        <Button
+          variant="secondary"
+          inline
+          onClick={() => setTrocandoOperador(true)}
+        >
+          Trocar de operador
+        </Button>
+        <Button
+          variant="secondary"
+          inline
+          onClick={() => setDefinindoPin(true)}
+        >
+          Meu PIN
+        </Button>
+      </div>
+
+      <TrocarOperador
+        open={trocandoOperador}
+        onClose={() => setTrocandoOperador(false)}
+        onTrocado={onOperadorTrocado}
+      />
+
+      <MeuPin
+        open={definindoPin}
+        onClose={() => setDefinindoPin(false)}
+        jaTem={jaTemPin}
+      />
 
       <Modal
         open={operacao === "meu-caixa"}
@@ -443,7 +520,9 @@ export function PdvPage({
         description="Abra, lance retiradas e entradas, e feche contando a gaveta."
         onClose={() => setOperacao(null)}
       >
-        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+        <Suspense
+          fallback={<p className="text-base text-ink-muted">Carregando…</p>}
+        >
           <MeuCaixaPage embutido />
         </Suspense>
       </Modal>
@@ -455,7 +534,9 @@ export function PdvPage({
         description="Ache a venda pelo número do cupom e diga o que está voltando."
         onClose={() => setOperacao(null)}
       >
-        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+        <Suspense
+          fallback={<p className="text-base text-ink-muted">Carregando…</p>}
+        >
           <DevolucaoPage embutido />
         </Suspense>
       </Modal>
@@ -467,7 +548,9 @@ export function PdvPage({
         description="Conte o dinheiro da gaveta antes de ver o que o sistema esperava."
         onClose={() => setOperacao(null)}
       >
-        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+        <Suspense
+          fallback={<p className="text-base text-ink-muted">Carregando…</p>}
+        >
           <CaixaPage embutido />
         </Suspense>
       </Modal>
@@ -479,7 +562,9 @@ export function PdvPage({
         description="O que esta loja exige supervisor para fazer, e a partir de quanto."
         onClose={() => setOperacao(null)}
       >
-        <Suspense fallback={<p className="text-base text-ink-muted">Carregando…</p>}>
+        <Suspense
+          fallback={<p className="text-base text-ink-muted">Carregando…</p>}
+        >
           <AjustesCaixaPage podeEditar={podeAjustar} />
         </Suspense>
       </Modal>
@@ -573,8 +658,15 @@ export function PdvPage({
               {venda.cliente_nome ? (
                 <>
                   <span className="text-ink-muted">Cliente:</span>
-                  <span className="font-medium text-ink">{venda.cliente_nome}</span>
-                  <Button variant="ghost" inline disabled={busy} onClick={() => setIdentificando(true)}>
+                  <span className="font-medium text-ink">
+                    {venda.cliente_nome}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    inline
+                    disabled={busy}
+                    onClick={() => setIdentificando(true)}
+                  >
                     Trocar
                   </Button>
                   <Button
@@ -596,7 +688,12 @@ export function PdvPage({
                   {/* Venda anônima é o caso normal, e a frase diz isso em vez de parecer
                       um campo por preencher. */}
                   <span className="text-ink-muted">Venda anônima.</span>
-                  <Button variant="ghost" inline disabled={busy} onClick={() => setIdentificando(true)}>
+                  <Button
+                    variant="ghost"
+                    inline
+                    disabled={busy}
+                    onClick={() => setIdentificando(true)}
+                  >
                     Identificar cliente
                   </Button>
                 </>
@@ -607,7 +704,9 @@ export function PdvPage({
           <Card>
             <CardHeader
               title="Itens"
-              description={temItem ? undefined : "Nada lançado ainda nesta venda."}
+              description={
+                temItem ? undefined : "Nada lançado ainda nesta venda."
+              }
             />
             {temItem && (
               <ul className="mt-2">
@@ -633,7 +732,8 @@ export function PdvPage({
                       disabled={busy}
                       onClick={() =>
                         void operarComLiberacao(
-                          (credencial) => pdv.removerItem(venda.id, item.id, credencial),
+                          (credencial) =>
+                            pdv.removerItem(venda.id, item.id, credencial),
                           "Não foi possível retirar o item.",
                         )
                       }
@@ -669,16 +769,22 @@ export function PdvPage({
                   inline
                   disabled={!temItem || busy}
                   onClick={() => {
-                    setValorDesconto(Number(venda.desconto) > 0 ? venda.desconto : "");
+                    setValorDesconto(
+                      Number(venda.desconto) > 0 ? venda.desconto : "",
+                    );
                     setDescontando(true);
                   }}
                 >
-                  {Number(venda.desconto) > 0 ? "Alterar desconto" : "Dar desconto"}
+                  {Number(venda.desconto) > 0
+                    ? "Alterar desconto"
+                    : "Dar desconto"}
                 </Button>
               </div>
 
               <div className="mt-5 border-t border-line-subtle pt-5">
-                <p className="text-sm uppercase tracking-wide text-ink-faint">A pagar</p>
+                <p className="text-sm uppercase tracking-wide text-ink-faint">
+                  A pagar
+                </p>
                 <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight text-ink">
                   {brl(venda.total)}
                 </p>
@@ -691,16 +797,21 @@ export function PdvPage({
                       key={pagamento.id}
                       className="flex items-center justify-between gap-3 text-sm"
                     >
-                      <span className="capitalize text-ink-muted">{pagamento.forma}</span>
+                      <span className="capitalize text-ink-muted">
+                        {pagamento.forma}
+                      </span>
                       <span className="flex items-center gap-2">
-                        <span className="tabular-nums text-ink">{brl(pagamento.valor)}</span>
+                        <span className="tabular-nums text-ink">
+                          {brl(pagamento.valor)}
+                        </span>
                         <button
                           type="button"
                           aria-label="Retirar pagamento"
                           disabled={busy}
                           onClick={() =>
                             void operar(
-                              () => pdv.removerPagamento(venda.id, pagamento.id),
+                              () =>
+                                pdv.removerPagamento(venda.id, pagamento.id),
                               "Não foi possível retirar o pagamento.",
                             )
                           }
@@ -745,7 +856,10 @@ export function PdvPage({
                     {forma.label}
                     {/* Escondido de leitor de tela porque `aria-keyshortcuts` já informa
                         o atalho, e some no celular, onde não há tecla de função. */}
-                    <span aria-hidden="true" className="hidden text-sm font-normal text-ink-faint sm:inline">
+                    <span
+                      aria-hidden="true"
+                      className="hidden text-sm font-normal text-ink-faint sm:inline"
+                    >
                       {forma.atalho}
                     </span>
                   </Button>
@@ -832,7 +946,9 @@ export function PdvPage({
                     </span>
                     {(cliente.apelido || cliente.cpf_cnpj) && (
                       <span className="block truncate text-sm text-ink-faint">
-                        {[cliente.apelido, cliente.cpf_cnpj].filter(Boolean).join(" · ")}
+                        {[cliente.apelido, cliente.cpf_cnpj]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     )}
                   </span>
@@ -865,7 +981,9 @@ export function PdvPage({
                            ring-1 ring-line-subtle transition-colors duration-150 ease-dk hover:bg-sunken"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-base text-ink">{produto.nome}</span>
+                  <span className="block truncate text-base text-ink">
+                    {produto.nome}
+                  </span>
                   <span className="block text-sm tabular-nums text-ink-faint">
                     {produto.codigo}
                   </span>
@@ -889,7 +1007,11 @@ export function PdvPage({
         }}
         footer={
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <Button variant="secondary" inline onClick={() => setDescontando(false)}>
+            <Button
+              variant="secondary"
+              inline
+              onClick={() => setDescontando(false)}
+            >
               Cancelar
             </Button>
             <Button inline onClick={() => void aplicarDesconto()}>
@@ -921,7 +1043,11 @@ export function PdvPage({
         onClose={() => setCobrando(null)}
         footer={
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <Button variant="secondary" inline onClick={() => setCobrando(null)}>
+            <Button
+              variant="secondary"
+              inline
+              onClick={() => setCobrando(null)}
+            >
               Cancelar
             </Button>
             <Button inline onClick={() => void cobrar()}>
@@ -949,7 +1075,10 @@ export function PdvPage({
                 label="Caiu em"
                 value={conta}
                 onChange={setConta}
-                options={contas.map((item) => ({ value: item.id, label: item.nome }))}
+                options={contas.map((item) => ({
+                  value: item.id,
+                  label: item.nome,
+                }))}
                 placeholder="Não informar"
                 hint="Opcional. É o que permite fechar o caixa sabendo o que entrou em cada lugar."
               />
@@ -964,8 +1093,8 @@ export function PdvPage({
 
       <p className="mt-8 flex items-center gap-2 text-sm text-ink-faint">
         <Badge>Sem emissão fiscal</Badge>
-        Esta venda registra a saída no estoque. A emissão de cupom fiscal entra com o
-        módulo fiscal.
+        Esta venda registra a saída no estoque. A emissão de cupom fiscal entra
+        com o módulo fiscal.
       </p>
 
       {autorizacao.dialogo}
@@ -984,7 +1113,11 @@ function Linha({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className={destaque ? "text-base text-ink" : "text-sm text-ink-muted"}>{rotulo}</dt>
+      <dt
+        className={destaque ? "text-base text-ink" : "text-sm text-ink-muted"}
+      >
+        {rotulo}
+      </dt>
       <dd
         className={
           "tabular-nums " +

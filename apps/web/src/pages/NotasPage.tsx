@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import { Alert } from "../components/Alert";
 import { Page, PageHeader } from "../components/AppShell";
@@ -10,8 +11,11 @@ import type { NotaResumo, StatusNota } from "../lib/compras";
 import { brl } from "../lib/format";
 
 interface Props {
-  onBack: () => void;
+  /** Só quando a tela é própria. Embutida, quem fecha é o diálogo. */
+  onBack?: () => void;
   onAbrir: (notaId: string) => void;
+  /** Dentro de "Produtos e estoque": sem cabeçalho de página. */
+  embutido?: boolean;
 }
 
 const TOM: Record<StatusNota, "neutral" | "success" | "warn"> = {
@@ -31,7 +35,7 @@ const ROTULO: Record<StatusNota, string> = {
  * Só o XML entra, e isso é decisão, não limitação temporária: o QR code da NFC-e não
  * contém os itens, e o PDF do DANFE é desenho de impressão. Ver
  * docs/adr/0009-identidade-de-produto-e-entrada-por-nota.md, decisão 6. */
-export function NotasPage({ onBack, onAbrir }: Props) {
+export function NotasPage({ onBack, onAbrir, embutido = false }: Props) {
   const [notas, setNotas] = useState<NotaResumo[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,24 +71,43 @@ export function NotasPage({ onBack, onAbrir }: Props) {
     }
   }
 
-  return (
-    <Page wide>
-      <PageHeader
-        title="Compras"
-        description="Importe o XML da nota do fornecedor e o estoque entra conferido."
-        onBack={onBack}
-        action={
-          <Button
-            inline
-            loading={busy}
-            onClick={() => arquivo.current?.click()}
-            icon={<span aria-hidden="true">↑</span>}
-          >
-            Importar XML
-          </Button>
-        }
-      />
+  const botaoImportar = (
+    <Button
+      inline
+      loading={busy}
+      onClick={() => arquivo.current?.click()}
+      icon={<span aria-hidden="true">↑</span>}
+    >
+      Importar XML
+    </Button>
+  );
 
+  /* Embutida, o título e o fechar são do diálogo; o botão de importar sobe para o topo
+   * do conteúdo, porque sem o cabeçalho de página ele não teria onde ficar. */
+  function moldura(conteudo: ReactNode) {
+    if (embutido) {
+      return (
+        <>
+          <div className="mb-6">{botaoImportar}</div>
+          {conteudo}
+        </>
+      );
+    }
+    return (
+      <Page wide>
+        <PageHeader
+          title="Entrada por nota"
+          description="Importe o XML da nota do fornecedor e o estoque entra conferido."
+          onBack={onBack}
+          action={botaoImportar}
+        />
+        {conteudo}
+      </Page>
+    );
+  }
+
+  return moldura(
+    <>
       <input
         ref={arquivo}
         type="file"
@@ -154,6 +177,6 @@ export function NotasPage({ onBack, onAbrir }: Props) {
       )}
 
       {notas === null && <p className="animate-fade text-base text-ink-muted">Carregando…</p>}
-    </Page>
+    </>,
   );
 }

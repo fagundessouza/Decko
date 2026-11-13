@@ -153,6 +153,30 @@ async def test_operador_vende_mas_nao_devolve_nem_fecha(client: AsyncClient, loj
     } <= supervisor
 
 
+async def test_cada_modulo_traz_os_papeis_dele(client: AsyncClient, loja: Loja) -> None:
+    """O mecanismo é do núcleo; os papéis são de cada módulo, no manifesto dele.
+
+    O agro é o segundo a usá-lo, e serve de prova de que não há nada de PDV no caminho:
+    lá os papéis são piloto e responsável técnico, e quem **assina** é o responsável — é o
+    que o formulário do MAPA nomeia na linha de assinatura, com CREA.
+    """
+    async with SessionFactory() as session, session.begin():
+        await bind_tenant(session, loja.tenant_id)
+        criados = await garantir_papeis_sugeridos(
+            session, tenant_id=loja.tenant_id, ativos=["comercial", "pdv", "agro"]
+        )
+
+    assert set(criados) == {"Piloto", "Responsável técnico"}
+
+    papeis = (await client.get(f"{BASE}/papeis", headers=_auth(loja.token))).json()
+    piloto = {p["name"]: set(p["permissoes"]) for p in papeis}["Piloto"]
+    responsavel = {p["name"]: set(p["permissoes"]) for p in papeis}["Responsável técnico"]
+
+    assert "agro.plan.write" in piloto
+    assert "agro.plan.sign" not in piloto
+    assert "agro.plan.sign" in responsavel
+
+
 async def test_papel_semeado_nao_e_refeito_na_subida_seguinte(
     client: AsyncClient, loja: Loja
 ) -> None:

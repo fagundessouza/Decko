@@ -150,6 +150,31 @@ async def test_catalog_shows_what_is_installed_and_what_is_active(
     assert by_name["agro"]["active"] is False
 
 
+async def test_platform_module_is_not_offered_to_a_client(client: AsyncClient) -> None:
+    """`assinaturas` é como o Decko cobra **dos** clientes.
+
+    Oferecê-lo na vitrine de um deles seria vender a ele a régua com que é medido. Quem já
+    o tem ativo continua enxergando o menu; o que some é a oferta de contratar.
+    """
+    company = await _company(client, modules=[])
+
+    catalogo = (await client.get(f"{CORE}/modules", headers=_auth(company))).json()
+    nomes = {module["name"] for module in catalogo}
+
+    assert "assinaturas" not in nomes
+    # E os de cliente continuam lá, para o teste não passar por o catálogo estar vazio.
+    assert {"agro", "pdv", "comercial"} <= nomes
+
+
+async def test_platform_module_still_shows_for_whoever_has_it(client: AsyncClient) -> None:
+    company = await _company(client, modules=["assinaturas"])
+
+    catalogo = (await client.get(f"{CORE}/modules", headers=_auth(company))).json()
+    assinaturas = next(m for m in catalogo if m["name"] == "assinaturas")
+
+    assert assinaturas["active"] is True
+
+
 async def test_activating_opens_the_module(client: AsyncClient) -> None:
     company = await _company(client, modules=[])
     assert (await client.get(f"{AGRO}/clients", headers=_auth(company))).status_code == 404

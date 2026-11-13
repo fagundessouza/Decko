@@ -22,10 +22,6 @@ interface Props {
   onSignOut: () => void;
   /** Abre a troca de empresa. Ausente quando a sessão não pode trocar. */
   onSwitchCompany?: () => void;
-  /** Troca de operador pelo PIN, sem sair da empresa. É o turno passando no balcão. */
-  onSwitchOperator?: () => void;
-  /** Define o próprio PIN. Fica aqui porque é de todo mundo, não só de quem administra. */
-  onDefinePin?: () => void;
   children: ReactNode;
 }
 
@@ -42,8 +38,6 @@ export function AppShell({
   onHome,
   onSignOut,
   onSwitchCompany,
-  onSwitchOperator,
-  onDefinePin,
   children,
 }: Props) {
   const [drawer, setDrawer] = useState(false);
@@ -134,24 +128,6 @@ export function AppShell({
       </div>
       <div className="mt-1 flex flex-col gap-1">
         <ThemeToggle onDark />
-        {onSwitchOperator && (
-          <button
-            type="button"
-            onClick={onSwitchOperator}
-            className="min-h-touch rounded-dk px-3 text-left text-base text-white/70 hover:bg-white/5 hover:text-white"
-          >
-            Trocar de operador
-          </button>
-        )}
-        {onDefinePin && (
-          <button
-            type="button"
-            onClick={onDefinePin}
-            className="min-h-touch rounded-dk px-3 text-left text-base text-white/70 hover:bg-white/5 hover:text-white"
-          >
-            Meu PIN
-          </button>
-        )}
         {onSwitchCompany && (
           <button
             type="button"

@@ -11,9 +11,7 @@ import type { SessionInfo } from "./lib/api";
 import type { Plan } from "./lib/agro";
 import { comercial } from "./lib/comercial";
 import type { Alertas, Produto } from "./lib/comercial";
-import { MeuPin } from "./components/MeuPin";
 import { TrocarEmpresa } from "./components/TrocarEmpresa";
-import { TrocarOperador } from "./components/TrocarOperador";
 import { LoginPage } from "./pages/LoginPage";
 
 /* Cada tela entra sob demanda, e não no pacote de abertura.
@@ -63,9 +61,6 @@ const NewPlanWizard = lazy(() =>
 const NotaConferenciaPage = lazy(() =>
   import("./pages/NotaConferenciaPage").then((m) => ({ default: m.NotaConferenciaPage })),
 );
-const NotasPage = lazy(() =>
-  import("./pages/NotasPage").then((m) => ({ default: m.NotasPage })),
-);
 const NovoProdutoWizard = lazy(() =>
   import("./pages/NovoProdutoWizard").then((m) => ({ default: m.NovoProdutoWizard })),
 );
@@ -111,7 +106,6 @@ type View =
   | { name: "clientes" }
   | { name: "contas" }
   | { name: "assinaturas" }
-  | { name: "notas" }
   | { name: "nota"; notaId: string }
   | { name: "produtos" }
   | { name: "equipe" }
@@ -134,8 +128,8 @@ const SECTION: Record<View["name"], string> = {
   clientes: "clientes",
   contas: "financeiro",
   assinaturas: "assinaturas",
-  notas: "compras",
-  nota: "compras",
+  // Conferir uma nota é trabalho de produtos: é de lá que se chega e para lá se volta.
+  nota: "produtos",
   produtos: "comercial",
   equipe: "equipe",
   conferencia: "comercial",
@@ -154,10 +148,6 @@ export default function App() {
    * por aplicativo troca para a vitrine aqui mesmo, antes de existir menu. */
   const [montandoNaMao, setMontandoNaMao] = useState(false);
   const [trocando, setTrocando] = useState(false);
-  // Troca de operador e PIN próprio vivem no rodapé da lateral, ao lado da troca de
-  // empresa: é a mesma natureza de ação, e estão à mão de dentro do PDV também.
-  const [trocandoOperador, setTrocandoOperador] = useState(false);
-  const [definindoPin, setDefinindoPin] = useState(false);
 
   useEffect(() => {
     restoreSession()
@@ -345,14 +335,6 @@ export default function App() {
       onSelect: () => setView({ name: "assinaturas" }),
     });
   }
-  if (hasCompras) {
-    items.push({
-      key: "compras",
-      label: "Compras",
-      icon: <ModuleIcon name="truck" size={22} />,
-      onSelect: () => setView({ name: "notas" }),
-    });
-  }
   if (hasComercial) {
     items.push({
       key: "comercial",
@@ -402,8 +384,6 @@ export default function App() {
       activeKey={SECTION[view.name]}
       onHome={() => setView({ name: "home" })}
       onSwitchCompany={() => setTrocando(true)}
-      onSwitchOperator={() => setTrocandoOperador(true)}
-      onDefinePin={() => setDefinindoPin(true)}
       onSignOut={() => {
         void logout().then(() => {
           setInfo(null);
@@ -446,15 +426,6 @@ export default function App() {
                 icon={<ModuleIcon name="people" />}
                 accent="slate"
                 onClick={() => setView({ name: "clientes" })}
-              />
-            )}
-            {hasCompras && (
-              <ModuleTile
-                title="Compras"
-                description="Importe o XML da nota do fornecedor e o estoque entra conferido."
-                icon={<ModuleIcon name="truck" />}
-                accent="violet"
-                onClick={() => setView({ name: "notas" })}
               />
             )}
             {hasComercial && (
@@ -525,6 +496,8 @@ export default function App() {
           podeDevolver={podeDevolver}
           podeConferir={podeConferir}
           podeAjustar={podeAjustar}
+          jaTemPin={info.user.tem_pin}
+          onOperadorTrocado={setInfo}
         />
       )}
 
@@ -537,17 +510,13 @@ export default function App() {
         <AssinaturasPage onBack={() => setView({ name: "home" })} />
       )}
 
-      {view.name === "notas" && (
-        <NotasPage
-          onBack={() => setView({ name: "home" })}
-          onAbrir={(notaId) => setView({ name: "nota", notaId })}
-        />
-      )}
-
+      {/* A lista de notas virou operação sobreposta em "Produtos e estoque". A conferência
+          continua tela inteira: casar item por item com o catálogo é trabalho longo, e
+          voltar dela é voltar para os produtos, de onde se veio. */}
       {view.name === "nota" && (
         <NotaConferenciaPage
           notaId={view.notaId}
-          onBack={() => setView({ name: "notas" })}
+          onBack={() => setView({ name: "produtos" })}
           onConfirmada={() => undefined}
         />
       )}
@@ -589,6 +558,9 @@ export default function App() {
           onNew={() => setView({ name: "novoProduto" })}
           onUnidades={() => setView({ name: "unidades" })}
           onConferencia={() => setView({ name: "conferencia" })}
+          onAbrirNota={
+            hasCompras ? (notaId) => setView({ name: "nota", notaId }) : undefined
+          }
         />
       )}
 
@@ -609,23 +581,6 @@ export default function App() {
       {view.name === "unidades" && (
         <UnidadesPage onBack={() => setView({ name: "produtos" })} />
       )}
-
-      <TrocarOperador
-        open={trocandoOperador}
-        onClose={() => setTrocandoOperador(false)}
-        onTrocado={(nova) => {
-          setInfo(nova);
-          // Fica no PDV se é de lá que o turno está passando; caso contrário volta ao
-          // início, porque a pessoa que assumiu pode não alcançar a tela aberta.
-          setView((atual) => (atual.name === "pdv" ? atual : { name: "home" }));
-        }}
-      />
-
-      <MeuPin
-        open={definindoPin}
-        onClose={() => setDefinindoPin(false)}
-        jaTem={info.user.tem_pin}
-      />
 
       <TrocarEmpresa
         open={trocando}

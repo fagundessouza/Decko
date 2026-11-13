@@ -51,6 +51,11 @@ class ModuleManifest:
     branch_label: str | None = None
     permissions: tuple[str, ...] = ()
     roles: tuple[RoleSuggestion, ...] = ()
+
+    # Módulo da plataforma, não do cliente: some da vitrine e ninguém o contrata sozinho.
+    # É o caso de `assinaturas`, que é como o Decko cobra **dos** clientes — oferecê-lo a
+    # um deles seria vender a ele a régua com que ele é medido.
+    interno: bool = False
     menu: dict[str, object] = field(default_factory=dict)
 
     # Como o módulo aparece na vitrine. Fica no manifesto, e não numa lista na interface,
@@ -78,6 +83,7 @@ class ModuleManifest:
                 required=bool(module.get("required", False)),
                 branch_label=data.get("migrations", {}).get("branch_label"),
                 permissions=tuple(data.get("permissions", {}).get("provides", [])),
+                interno=bool(module.get("interno", False)),
                 roles=tuple(
                     RoleSuggestion(
                         name=papel["name"],

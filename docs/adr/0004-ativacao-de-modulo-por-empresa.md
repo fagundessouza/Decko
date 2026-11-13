@@ -97,3 +97,18 @@ em papel que o cliente tenha criado, e não concede permissão de módulo não c
 Roda na subida porque é quando a versão nova do módulo chega. Fazer no login espalharia
 escrita por um caminho de leitura; deixar para um comando manual faria a atualização
 depender de alguém lembrar.
+
+## Atualização de 13/11/2026 — módulo de plataforma
+
+`assinaturas` é como o Decko cobra **dos** clientes: planos, cobranças, bloqueio de quem
+não pagou. Oferecê-lo na vitrine de um cliente seria vender a ele a régua com que é
+medido — e, pior, deixá-lo contratar por engano algo que só faz sentido deste lado.
+
+O manifesto ganhou `interno = true`. Módulo marcado assim **some do catálogo**, e com isso
+ninguém o contrata pela interface. Quem já o tem ativo continua enxergando o menu dele:
+o que desaparece é a oferta, não o acesso — a empresa do próprio Decko usa o módulo
+normalmente.
+
+Não é permissão nem papel: é a diferença entre o que a plataforma vende e o que ela usa
+para vender. Confundir as duas é como um cliente acabaria com uma tela de cobrança de
+assinaturas que não cobra ninguém.

@@ -351,6 +351,15 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       funciona como teclado, e identifica; quem autentica é o PIN. Cinco erros bloqueiam
       por cinco minutos, com contagem única entre a troca de operador e a liberação do
       supervisor. Decisão: `docs/adr/0020-operador-supervisor-e-papeis.md`
+- [x] **Papéis por módulo, não só no caixa.** O `agro` passou a sugerir Piloto e
+      Responsável técnico pelo manifesto, sem código novo — e quem assina é o responsável,
+      que é o papel que o formulário do MAPA nomeia
+- [x] **As operações do caixa estão todas dentro do PDV**, inclusive trocar de operador,
+      definir o próprio PIN e os ajustes do que exige supervisor. Nada disso é item de
+      menu lateral: passar o turno é operação de balcão
+- [x] **Entrada por nota entrou em "Produtos e estoque".** Cadastrar à mão e receber do
+      fornecedor eram duas telas que faziam a mesma coisa — criar produto e pôr estoque.
+      A conferência continua tela inteira, porque casar item por item é trabalho longo
 - [ ] Biometria (Digital Persona, facial) para o mesmo fim. **Depende da ADR de
       periféricos**: o navegador não alcança o leitor, e isso exige agente local
 - [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
