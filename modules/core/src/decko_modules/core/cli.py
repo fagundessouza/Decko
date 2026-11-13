@@ -151,6 +151,11 @@ async def _bootstrap(
         email=admin_email.strip().lower(),
         full_name=admin_name,
         password_hash=hash_password(password),
+        # Quem cadastra a empresa escolhe a senha de entrada de quem vai usá-la, e por isso
+        # a conhece. A troca na primeira entrada é o que torna a credencial **da pessoa** —
+        # a mesma regra do cadastro pela tela de equipe, que valia para o operador e não
+        # valia para o dono. Ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 6.
+        must_change_password=True,
     )
     session.add(user)
     await session.flush()

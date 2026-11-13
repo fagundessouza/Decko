@@ -109,6 +109,18 @@ async def _criar(
     )
 
 
+async def test_quem_cadastra_a_empresa_tambem_troca_a_senha(
+    client: AsyncClient, loja: Loja
+) -> None:
+    """A regra valia para o operador e não valia para o dono, que é quem recebe a senha.
+
+    Quem cadastra a empresa escolhe a senha de entrada e por isso a conhece. Sem a troca,
+    "quem fez" na empresa inteira fica contestável desde o primeiro dia.
+    """
+    sessao = (await client.get(f"{BASE}/auth/me", headers=_auth(loja.token))).json()
+    assert sessao["user"]["must_change_password"] is True
+
+
 async def test_contratar_o_pdv_semeia_os_papeis(client: AsyncClient, loja: Loja) -> None:
     """Sem papel semeado o dono não tem o que dar a quem contrata."""
     papeis = (await client.get(f"{BASE}/papeis", headers=_auth(loja.token))).json()
