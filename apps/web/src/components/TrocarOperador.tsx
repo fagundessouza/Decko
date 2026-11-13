@@ -13,6 +13,13 @@ interface Props {
   onClose: () => void;
   /** A sessão passa a ser de quem entrou. */
   onTrocado: (info: SessionInfo) => void;
+  /** Trava de abertura do caixa: não dá para fechar sem dizer quem está operando.
+   *  A saída é sair do PDV, e ela fica escrita no próprio diálogo. */
+  travado?: boolean;
+  /** Sair do ponto de venda. Só com `travado`, e é a única saída dali. */
+  onSair?: () => void;
+  /** Abre a definição do PIN para quem ainda não tem. */
+  onDefinirPin?: () => void;
 }
 
 /* A troca de operador no balcão.
@@ -27,7 +34,14 @@ interface Props {
  * PIN diz apenas quem está nele agora. Ver `docs/adr/0020-operador-supervisor-e-papeis.md`,
  * decisão 1.
  */
-export function TrocarOperador({ open, onClose, onTrocado }: Props) {
+export function TrocarOperador({
+  open,
+  onClose,
+  onTrocado,
+  travado = false,
+  onSair,
+  onDefinirPin,
+}: Props) {
   const [quem, setQuem] = useState<Operador[]>([]);
   const [escolhido, setEscolhido] = useState("");
   const [cracha, setCracha] = useState("");
@@ -73,14 +87,25 @@ export function TrocarOperador({ open, onClose, onTrocado }: Props) {
   return (
     <Modal
       open={open}
-      title="Trocar de operador"
-      description="Passe o crachá ou escolha o nome, e digite o PIN."
+      bloqueado={travado}
+      title={travado ? "Quem está no caixa?" : "Trocar de operador"}
+      description={
+        travado
+          ? "O caixa abre no nome de quem vai operar, para o que acontecer aqui ter dono."
+          : "Passe o crachá ou escolha o nome, e digite o PIN."
+      }
       onClose={onClose}
       footer={
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <Button variant="secondary" inline onClick={onClose}>
-            Cancelar
-          </Button>
+          {travado ? (
+            <Button variant="secondary" inline onClick={onSair}>
+              Sair do caixa
+            </Button>
+          ) : (
+            <Button variant="secondary" inline onClick={onClose}>
+              Cancelar
+            </Button>
+          )}
           <Button inline loading={busy} disabled={!pronto} onClick={() => void entrar()}>
             Entrar
           </Button>
@@ -119,7 +144,7 @@ export function TrocarOperador({ open, onClose, onTrocado }: Props) {
           value={escolhido}
           onChange={setEscolhido}
           options={quem.map((pessoa) => ({ value: pessoa.id, label: pessoa.nome }))}
-          empty="Ninguém definiu PIN ainda. Use 'Meu PIN' para definir o seu."
+          empty="Ninguém definiu PIN ainda nesta empresa."
         />
         <TextField
           label="PIN"
@@ -130,6 +155,15 @@ export function TrocarOperador({ open, onClose, onTrocado }: Props) {
           onChange={(event) => setPin(event.target.value)}
           hint="Só números. Errar cinco vezes bloqueia por alguns minutos."
         />
+        {onDefinirPin && (
+          <button
+            type="button"
+            onClick={onDefinirPin}
+            className="self-start text-sm font-medium text-brand-link hover:underline"
+          >
+            Ainda não tenho PIN
+          </button>
+        )}
       </form>
     </Modal>
   );

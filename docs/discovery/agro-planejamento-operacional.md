@@ -328,3 +328,76 @@ vento**, que o sistema ainda não guarda.
 - **Pilotos e login.** "Cada um fazia seu relatório": cada piloto terá usuário próprio no
   sistema, e deve ver só os planejamentos dele? Ou o cadastro serve só para não redigitar o
   nome? Enquanto não houver resposta, o cadastro é só cadastro.
+
+## 7. Requisito novo do Nathan — 13/11/2026
+
+> *"Tem um aplicativo da DJI, chama SmartFarm, nele ficam todos os registros de voo, seria
+> top se desse para conectar com esse app, assim os relatórios de voo já ficariam com os
+> registros tudo lá. Com horário de início, fim, área aplicada."*
+
+É o mesmo dado que hoje ele redigita: início, fim e área aplicada estão no painel do
+equipamento e são copiados à mão para o relatório.
+
+### 7.1 O que foi apurado, em 13/11/2026
+
+**Não existe API pública do SmartFarm.** A apuração encontrou três coisas, e nenhuma delas
+é um caminho automático que o Decko possa tomar sozinho:
+
+- Integrador de terceiro afirma que a plataforma Agras **não oferece exportação
+  automatizada** para aplicações externas, e que o caminho que eles usam é o operador
+  **exportar os voos selecionados em `.xlsx`** e converter o arquivo.
+- Serviços como AirData e DroneLogbook sincronizam contas SmartFarm, mas são **produtos
+  com acordo próprio com a DJI**, não uma API documentada e aberta.
+- O *log export* da Cloud API da DJI é descrito como ferramenta de depuração para o
+  suporte, e a licença de API da DJI proíbe compartilhar chave com terceiro e usar a API
+  para outra finalidade sem autorização escrita.
+
+### 7.2 O caminho que dá para fazer
+
+**Importar o `.xlsx` que ele já consegue exportar** do SmartFarm, e usá-lo para preencher
+o relatório: horário de início, horário de fim e área aplicada, por voo, casados com o
+planejamento.
+
+É a mesma forma da entrada por nota do módulo `compras` — ver
+`docs/adr/0009-identidade-de-produto-e-entrada-por-nota.md`: o cliente já produz o
+arquivo, o sistema lê, propõe o casamento e **ele confirma**. Não inventa dado, não depende
+de autorização de terceiro, e funciona amanhã.
+
+O que não dá para prometer é a sincronização automática. Prometê-la seria vender uma
+dependência que não está na nossa mão.
+
+### 7.3 E direto do drone, sem o SmartFarm?
+
+A pergunta é do dono do projeto, em 13/11/2026, e ela é a certa: *"esse é o foco pro
+módulo de pulverização, o cliente não precisar ficar preso em relatórios burocráticos."*
+
+O que a apuração do mesmo dia encontrou:
+
+- **O registro de voo do Agras fica no controle remoto**, não no drone, e sai por USB. O
+  caminho relatado é `Armazenamento interno > DJI > com.dji.industry.pilot > FlightRecord`,
+  em arquivos `.txt` com nome `DJIFlightRecord_AAAAMMDD_HHMMSS`.
+- **Esses arquivos são criptografados.** O aplicativo da DJI mostra uma parte do conteúdo;
+  ler o resto exige decifrar, e o caminho oficial para isso passa pela DJI.
+- **Não há API de telemetria do Agras** na documentação pública. O que existe de "nuvem"
+  na linha enterprise é envio manual pelo aplicativo, não endpoint para terceiro.
+
+**A leitura que importa para o produto:** tirar o cliente do relatório burocrático **é
+possível hoje**, e o caminho é o arquivo que ele já consegue exportar — a planilha do
+SmartFarm, ou o registro do controle. O que **não** está na nossa mão é o vínculo
+automático com o equipamento: ele depende de a DJI abrir, e de decifrar um formato que ela
+fecha de propósito.
+
+Então o objetivo se escreve assim: **o cliente não redigita**. Não: "o sistema conversa com
+o drone". O primeiro a gente entrega; o segundo seria vender uma dependência de terceiro
+como se fosse nossa.
+
+### 7.4 O que falta perguntar ao Nathan
+
+1. **Qual é exatamente o arquivo** que o SmartFarm exporta hoje? Uma planilha de exemplo
+   responde o formato, as colunas e a unidade da área — e sem ela qualquer leitor é
+   suposição.
+2. **Um voo é um planejamento?** Uma aplicação pode ser vários voos (recarga, talhão
+   dividido), e o relatório é por aplicação. Como ele junta hoje?
+3. **O que vale quando divergem?** O painel diz uma área e o planejamento diz outra. A
+   regra do `compras` é "o sistema propõe, a pessoa confirma", e aqui provavelmente é a
+   mesma — mas isso é decisão dele, não minha.

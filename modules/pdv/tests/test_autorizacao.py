@@ -220,6 +220,9 @@ async def test_a_loja_nasce_exigindo_o_que_foi_escolhido(client: AsyncClient, lo
     # Ligar estas duas exige escolher o limite, e inventar o limite seria inventar regra.
     assert config["exige_desconto"] is False
     assert config["exige_diferenca"] is False
+    # Abrir o PDV pede o PIN de quem vai operar: estação aberta na conta de quem passou
+    # antes é como "quem fez" deixa de significar alguma coisa.
+    assert config["exige_pin_no_pdv"] is True
 
 
 async def test_operador_sozinho_nao_retira_item(client: AsyncClient, loja: Loja) -> None:

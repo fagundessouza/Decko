@@ -90,6 +90,24 @@ describe("Modal", () => {
     expect(aoFechar).toHaveBeenCalledWith("Ana");
   });
 
+  it("travado, não fecha no Esc nem oferece o ✕", async () => {
+    // Para quando sair dali não é uma opção — o ponto de venda perguntando quem está no
+    // caixa. A saída tem de estar no conteúdo, dita com todas as letras, e não num gesto
+    // que fecha a pergunta e deixa a estação aberta na conta de quem passou antes.
+    const usuario = userEvent.setup();
+    const aoFechar = vi.fn();
+    render(
+      <Modal open bloqueado title="Quem está no caixa?" onClose={aoFechar}>
+        <p>Qualquer coisa.</p>
+      </Modal>,
+    );
+
+    await usuario.keyboard("{Escape}");
+
+    expect(aoFechar).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Fechar" })).toBeNull();
+  });
+
   it("devolve a rolagem do fundo ao fechar", () => {
     const { rerender } = render(
       <Modal open title="Novo cliente" onClose={() => {}}>

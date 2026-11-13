@@ -11,6 +11,8 @@ interface Props {
   onClose: () => void;
   /** Já tem PIN: a tela diz que vai substituir, em vez de deixar a pessoa na dúvida. */
   jaTem?: boolean;
+  /** Empilha acima de outro diálogo — a trava de abertura do caixa, por exemplo. */
+  nested?: boolean;
 }
 
 /* O PIN de entrada rápida, definido pela própria pessoa.
@@ -20,7 +22,7 @@ interface Props {
  * voltar nela quando quisesse. O dono consegue **apagar** um PIN esquecido, nunca
  * escolher um — ver `docs/adr/0020-operador-supervisor-e-papeis.md`, decisão 1.
  */
-export function MeuPin({ open, onClose, jaTem = false }: Props) {
+export function MeuPin({ open, onClose, jaTem = false, nested = false }: Props) {
   const [senha, setSenha] = useState("");
   const [pin, setPin] = useState("");
   const [repetido, setRepetido] = useState("");
@@ -59,6 +61,7 @@ export function MeuPin({ open, onClose, jaTem = false }: Props) {
   return (
     <Modal
       open={open}
+      nested={nested}
       title="Meu PIN"
       description={
         jaTem

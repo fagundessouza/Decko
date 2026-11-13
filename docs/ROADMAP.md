@@ -360,6 +360,9 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [x] **Entrada por nota entrou em "Produtos e estoque".** Cadastrar à mão e receber do
       fornecedor eram duas telas que faziam a mesma coisa — criar produto e pôr estoque.
       A conferência continua tela inteira, porque casar item por item é trabalho longo
+- [x] **O ponto de venda abre no nome de quem vai operar.** A pergunta vem antes de haver
+      venda, e a saída está escrita no próprio diálogo. É configuração, ligada por padrão
+      e desligável nos ajustes
 - [ ] Biometria (Digital Persona, facial) para o mesmo fim. **Depende da ADR de
       periféricos**: o navegador não alcança o leitor, e isso exige agente local
 - [ ] Periféricos por serial, Bluetooth e TEF. **Precisa de ADR**: o navegador não alcança
@@ -383,6 +386,12 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 
 ## Fase 6 — Camada de inteligência
 
+- [ ] **Preencher o relatório de voo a partir do arquivo do equipamento.** O Nathan pediu
+      em 13/11/2026: *"seria top se desse para conectar com esse app"*. **Não existe API
+      pública do SmartFarm**, e o registro de voo que fica no controle é criptografado — o
+      caminho viável é importar a planilha que ele já exporta, como o `compras` faz com o
+      XML. Apuração e perguntas em aberto na seção 7 do
+      `docs/discovery/agro-planejamento-operacional.md`
 - [ ] OCR de receituário e nota fiscal (Tesseract + MinIO)
 - [ ] Extração estruturada via LLM local (Ollama), sempre com confirmação humana
 - [ ] Busca semântica no catálogo (Qdrant + rerank)

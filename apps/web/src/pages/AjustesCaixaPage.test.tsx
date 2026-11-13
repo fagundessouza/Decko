@@ -30,6 +30,7 @@ function umaConfig(sobre: Partial<ConfiguracaoPdv> = {}): ConfiguracaoPdv {
     desconto_livre: "0.00",
     exige_diferenca: false,
     diferenca_livre: "0.00",
+    exige_pin_no_pdv: true,
     ...sobre,
   };
 }
@@ -90,6 +91,7 @@ describe("AjustesCaixaPage", () => {
         // O campo nasce vazio quando o limite é zero, então o que vai é o que foi
         // digitado — com a vírgula virando ponto, não grudada no valor do servidor.
         diferenca_livre: "5.00",
+        exige_pin_no_pdv: true,
       }),
     );
     expect(await screen.findByText("Ajustes salvos.")).toBeTruthy();

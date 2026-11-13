@@ -131,6 +131,27 @@ export function PdvPage({
   const [trocandoOperador, setTrocandoOperador] = useState(false);
   const [definindoPin, setDefinindoPin] = useState(false);
 
+  /* A trava de abertura: o caixa abre no nome de quem vai operar.
+   *
+   * `null` é "ainda não sei", e nesse estado nada é desenhado — nem a trava, nem a venda.
+   * Perguntar depois de já ter aberto uma venda poria o começo do turno na conta de quem
+   * passou antes, que é exatamente o que a trava existe para evitar.
+   *
+   * Falha de rede ao ler a configuração **destrava**: isto organiza o turno, não guarda
+   * dinheiro, e uma loja parada por um soluço de rede seria pior do que o problema. */
+  const [travado, setTravado] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    pdv
+      .configuracao()
+      .then((config) => vivo && setTravado(config.exige_pin_no_pdv))
+      .catch(() => vivo && setTravado(false));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   const [identificando, setIdentificando] = useState(false);
   const [buscaCliente, setBuscaCliente] = useState("");
   const [achadosCliente, setAchadosCliente] = useState<Cliente[] | null>(null);
@@ -145,6 +166,9 @@ export function PdvPage({
   /* Retoma a venda aberta em vez de começar outra: recarregar a página não pode perder o
    * que já foi bipado. */
   useEffect(() => {
+    // Enquanto a trava não for resolvida, nenhuma venda é aberta — ver `travado`.
+    if (travado !== false) return;
+
     /* O módulo `financeiro` pode não estar ativo nesta empresa: aí a escolha de conta
      * simplesmente não aparece, e o caixa vende como antes. */
     financeiro
@@ -173,7 +197,7 @@ export function PdvPage({
     return () => {
       vivo = false;
     };
-  }, [focarCodigo]);
+  }, [focarCodigo, travado]);
 
   /* As teclas de função abrem o recebimento.
    *
@@ -393,7 +417,37 @@ export function PdvPage({
     }
   }
 
-  if (carregando) {
+  /* A trava de abertura.
+   *
+   * Vem antes de tudo, inclusive do "abrindo o caixa": enquanto não se sabe quem está
+   * operando, não há venda, não há tela e não há o que fazer aqui além de dizer quem é —
+   * ou sair. A saída está escrita no diálogo, porque trava sem saída dita é armadilha. */
+  if (travado === true) {
+    return (
+      <Page wide>
+        <PageHeader title="Ponto de venda" onBack={onBack} />
+        <TrocarOperador
+          open
+          travado
+          onClose={() => undefined}
+          onSair={onBack}
+          onDefinirPin={() => setDefinindoPin(true)}
+          onTrocado={(nova) => {
+            onOperadorTrocado(nova);
+            setTravado(false);
+          }}
+        />
+        <MeuPin
+          open={definindoPin}
+          onClose={() => setDefinindoPin(false)}
+          jaTem={jaTemPin}
+          nested
+        />
+      </Page>
+    );
+  }
+
+  if (carregando || travado === null) {
     return (
       <Page wide>
         <p className="animate-fade text-base text-ink-muted">

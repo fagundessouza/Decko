@@ -467,6 +467,14 @@ class ConfiguracaoPdv(Base):
     )
 
     exige_diferenca: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Abrir o ponto de venda pede o PIN de quem vai operar. Nasce **ligada**: estação de
+    # balcão aberta na conta de quem passou antes é como "quem fez" deixa de significar
+    # alguma coisa. Quem não quiser desliga — loja de uma pessoa só não ganha nada com
+    # isso. Ver docs/adr/0020-operador-supervisor-e-papeis.md, decisão 1.
+    exige_pin_no_pdv: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
     # Quanto de diferença o fechamento aceita sem supervisor, para mais ou para menos.
     # É a única trava deste tipo que o Odoo tem de fábrica (*Set Maximum Difference*).
     diferenca_livre: Mapped[Decimal] = mapped_column(

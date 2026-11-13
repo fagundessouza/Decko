@@ -28,6 +28,8 @@ export interface ConfiguracaoPdv {
   desconto_livre: string;
   exige_diferenca: boolean;
   diferenca_livre: string;
+  /** Abrir o ponto de venda pede o PIN de quem vai operar. */
+  exige_pin_no_pdv: boolean;
 }
 
 export type StatusVenda = "aberta" | "finalizada" | "cancelada";

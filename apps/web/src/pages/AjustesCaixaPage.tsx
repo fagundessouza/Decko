@@ -100,6 +100,16 @@ export function AjustesCaixaPage({ podeEditar }: Props) {
       {salvo && <Alert tone="success">Ajustes salvos.</Alert>}
 
       <div className="flex flex-col gap-4">
+        <Checkbox
+          label="Pedir o PIN ao abrir o ponto de venda"
+          hint="O caixa abre no nome de quem vai operar. Desligue numa loja de uma pessoa só."
+          checked={config.exige_pin_no_pdv}
+          disabled={!podeEditar}
+          onChange={(v) => mexer("exige_pin_no_pdv", v)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-4 border-t border-line-subtle pt-6">
         <p className="text-sm text-ink-muted">
           Ligado, o operador só conclui a ação com a credencial de alguém que possa
           liberá-la — e as duas pessoas ficam registradas.

@@ -13,6 +13,10 @@ interface Props {
   /** "ampla" para operação inteira dentro do diálogo — caixa, devolução, conferência.
    *  O padrão continua estreito, que é o certo para confirmar ou preencher três campos. */
   largura?: "normal" | "ampla";
+  /** Trava: sem ✕, sem Esc, sem clicar fora. Para quando sair daqui não é uma opção —
+   *  o ponto de venda pedindo quem está no caixa, por exemplo. A saída tem de estar no
+   *  conteúdo, dita com todas as letras, e não escondida num gesto. */
+  bloqueado?: boolean;
 }
 
 /* Sobreposição focada, para tarefa curta que não merece sair da tela.
@@ -29,6 +33,7 @@ export function Modal({
   footer,
   nested = false,
   largura = "normal",
+  bloqueado = false,
 }: Props) {
   const painel = useRef<HTMLDivElement>(null);
   const anterior = useRef<HTMLElement | null>(null);
@@ -41,8 +46,10 @@ export function Modal({
    * jogaria de volta no primeiro elemento do painel. No celular, foco saindo de um campo
    * de texto fecha o teclado — era preciso tocar no campo outra vez a cada letra. */
   const fechar = useRef(onClose);
+  const travado = useRef(bloqueado);
   useEffect(() => {
     fechar.current = onClose;
+    travado.current = bloqueado;
   });
 
   useEffect(() => {
@@ -65,7 +72,7 @@ export function Modal({
     (alvo ?? painel.current)?.focus();
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") fechar.current();
+      if (event.key === "Escape" && !travado.current) fechar.current();
     };
     document.addEventListener("keydown", onKey);
 
@@ -80,15 +87,25 @@ export function Modal({
 
   return (
     <div className={"fixed inset-0 flex items-end justify-center sm:items-center " + (nested ? "z-[60]" : "z-50")}>
-      <button
-        type="button"
-        aria-label="Fechar"
-        onClick={onClose}
-        className={
-          "absolute inset-0 animate-fade backdrop-blur-sm " +
-          (nested ? "bg-brand-950/50" : "bg-brand-950/45")
-        }
-      />
+      {bloqueado ? (
+        <div
+          aria-hidden="true"
+          className={
+            "absolute inset-0 animate-fade backdrop-blur-sm " +
+            (nested ? "bg-brand-950/50" : "bg-brand-950/45")
+          }
+        />
+      ) : (
+        <button
+          type="button"
+          aria-label="Fechar"
+          onClick={onClose}
+          className={
+            "absolute inset-0 animate-fade backdrop-blur-sm " +
+            (nested ? "bg-brand-950/50" : "bg-brand-950/45")
+          }
+        />
+      )}
 
       <div
         ref={painel}
@@ -112,6 +129,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
+            hidden={bloqueado}
             className="-mr-1 -mt-1 flex size-9 shrink-0 items-center justify-center rounded-dk
                        text-ink-faint transition-colors duration-150 ease-dk
                        hover:bg-sunken hover:text-ink"

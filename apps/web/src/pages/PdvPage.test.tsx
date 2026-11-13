@@ -202,6 +202,8 @@ beforeEach(() => {
     desconto_livre: "0.00",
     exige_diferenca: false,
     diferenca_livre: "0.00",
+    // Destravado por padrão nestes testes: a trava tem os seus próprios, logo abaixo.
+    exige_pin_no_pdv: false,
   });
 });
 
@@ -822,6 +824,60 @@ describe("PdvPage, as teclas de função", () => {
     await screen.findByLabelText("Código, código de barras ou nome");
 
     expect(fireEvent.keyDown(document, { key: "F4", ctrlKey: true })).toBe(true);
+  });
+});
+
+describe("PdvPage, a trava de abertura", () => {
+  it("não abre venda nenhuma antes de saber quem está operando", async () => {
+    vi.mocked(pdv.configuracao).mockResolvedValue({
+      exige_cancelar_item: true,
+      exige_cancelar_venda: true,
+      exige_sangria: true,
+      exige_devolucao: true,
+      exige_desconto: false,
+      desconto_livre: "0.00",
+      exige_diferenca: false,
+      diferenca_livre: "0.00",
+      exige_pin_no_pdv: true,
+    });
+    abrirCaixa();
+
+    expect(await screen.findByText("Quem está no caixa?")).toBeTruthy();
+    // Abrir a venda antes poria o começo do turno na conta de quem passou antes, que é
+    // exatamente o que a trava existe para evitar.
+    expect(pdv.abrir).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Código, código de barras ou nome")).toBeNull();
+  });
+
+  it("a trava não fecha no ✕ nem no Esc, e diz qual é a saída", async () => {
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.configuracao).mockResolvedValue({
+      exige_cancelar_item: true,
+      exige_cancelar_venda: true,
+      exige_sangria: true,
+      exige_devolucao: true,
+      exige_desconto: false,
+      desconto_livre: "0.00",
+      exige_diferenca: false,
+      diferenca_livre: "0.00",
+      exige_pin_no_pdv: true,
+    });
+    abrirCaixa();
+    expect(await screen.findByText("Quem está no caixa?")).toBeTruthy();
+
+    await usuario.keyboard("{Escape}");
+
+    // Trava sem saída dita é armadilha: a saída existe, e está escrita.
+    expect(screen.getByText("Quem está no caixa?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sair do caixa" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Cancelar" })).toBeNull();
+  });
+
+  it("destravada, a venda abre como antes", async () => {
+    abrirCaixa();
+
+    expect(await screen.findByLabelText("Código, código de barras ou nome")).toBeTruthy();
+    expect(screen.queryByText("Quem está no caixa?")).toBeNull();
   });
 });
 

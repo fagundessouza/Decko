@@ -53,6 +53,7 @@ class ConfiguracaoOut(BaseModel):
     desconto_livre: Decimal
     exige_diferenca: bool
     diferenca_livre: Decimal
+    exige_pin_no_pdv: bool
 
 
 class ConfiguracaoIn(BaseModel):
@@ -64,6 +65,7 @@ class ConfiguracaoIn(BaseModel):
     desconto_livre: Decimal = Field(ge=0)
     exige_diferenca: bool
     diferenca_livre: Decimal = Field(ge=0)
+    exige_pin_no_pdv: bool
 
 
 class AutorizacaoExigidaOut(BaseModel):
