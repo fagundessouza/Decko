@@ -247,6 +247,11 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       clientes" que lista as empresas, e o `tenant_assinante_id` no contato, que diz a quem
       aquela assinatura dá acesso. Nenhum papel concede a marca, e **nada nesta fatia lê de
       dentro de empresa alheia** — ver `docs/adr/0021-nivel-de-plataforma.md`
+- [x] **Domínio próprio e túnel nomeado.** `decko.app.br` registrado em 16/11/2026, com a
+      tela em `decko.app.br` e a API em `api.decko.app.br`. O túnel rápido sorteia uma URL
+      a cada reinicialização, e com cliente de verdade entrando isso é o sistema fora do ar
+      em silêncio. O `infra/tvbox/configurar-tunel-nomeado.sh` faz a virada na caixa; os
+      passos que moram no registro.br e na Vercel estão no `infra/tvbox/README.md`
 - [ ] Suspender o acesso de quem não paga: é ato do núcleo, na autenticação, e espera três
       respostas — o que acontece com quem está no meio de uma venda, o que o bloqueado vê,
       e como o pagamento devolve o acesso sem alguém passar na mão. Decisão 5 da ADR 0021

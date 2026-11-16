@@ -72,9 +72,50 @@ a tela publicada leva essa URL embutida no pacote, então cada mudança pede um 
 Enquanto o box não for desligado, a URL se mantém. Para parar de depender disso é preciso
 túnel nomeado, que exige um domínio dentro da Cloudflare.
 
+### Túnel nomeado, quando existe domínio
+
+O domínio `decko.app.br` foi registrado em 16/11/2026, e com ele o túnel deixa de sortear
+endereço. O desenho é `decko.app.br` para a tela, na Vercel, e `api.decko.app.br` para a
+API, por este túnel.
+
+A ordem importa, e o motivo de cada passo é o mesmo: **nenhum deles pode quebrar o piloto
+que já está no ar.**
+
+1. **No registro.br**, troque os servidores de nome para os que a Cloudflare indicar ao
+   adicionar a zona. Pode levar horas. Enquanto não propagar, o túnel rápido continua
+   servindo — não mexa em mais nada até `dig NS decko.app.br` responder a Cloudflare.
+2. **Na caixa**, com a zona já na Cloudflare:
+
+   ```bash
+   sudo ./configurar-tunel-nomeado.sh api.decko.app.br
+   ```
+
+   O script pede a autenticação na conta, cria o túnel, aponta o nome, instala a
+   credencial em `/etc/decko/tunel` e troca o serviço. É seguro repetir.
+3. **Ainda na caixa**, acrescente a origem nova ao CORS e reinicie a API. Esta variável
+   guarda a origem **da tela**, não a do túnel, e vive em `/etc/decko/decko.env` — não na
+   Vercel:
+
+   ```
+   DECKO_CORS_ORIGINS=https://decko.app.br,https://decko-web.vercel.app
+   ```
+
+   As duas juntas durante a virada: a tela antiga continua funcionando enquanto a nova não
+   está publicada.
+4. **Na Vercel**, acrescente o domínio `decko.app.br` ao projeto, aponte `VITE_API_URL`
+   para `https://api.decko.app.br` e promova um build novo da `main`. Valor `VITE_` entra
+   no pacote na montagem, então sem build novo nada muda.
+
+Por que a credencial exige usuário fixo: o túnel rápido roda com `DynamicUser` porque não
+tem segredo nenhum: qualquer um levanta um e recebe uma URL sorteada. O nomeado guarda um
+arquivo que vale o domínio inteiro, e por isso ele fica em `/etc/decko/tunel`, com dono
+`decko` e permissão 600 — usuário sorteado a cada partida não conseguiria lê-lo, e não
+deveria.
+
 ## Conferir que está de pé
 
 ```bash
+# decko-tunel enquanto for o túnel rápido; decko-tunel-nomeado depois da virada.
 systemctl is-active postgresql decko-api decko-tunel
 curl -s localhost:8000/health
 sudo /usr/local/sbin/decko-testar-restauracao.sh

@@ -1,0 +1,29 @@
+[Unit]
+Description=Decko - tunel Cloudflare nomeado
+Documentation=https://github.com/fagundessouza/Decko
+After=network-online.target decko-api.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+# Roda como o usuario da aplicacao, e nao com DynamicUser como o tunel rapido.
+#
+# O tunel rapido nao tem credencial: qualquer processo pode levantar um e receber uma URL
+# sorteada. O nomeado guarda um arquivo que vale o dominio inteiro, e usuario sorteado a
+# cada partida nao consegue ler arquivo com dono fixo e permissao 600.
+User=decko
+Group=decko
+ExecStart=/usr/local/bin/cloudflared tunnel --config /etc/decko/tunel/config.yml \
+    --no-autoupdate --loglevel info run
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+# A credencial e a configuracao ficam aqui, e so para leitura.
+ReadOnlyPaths=/etc/decko/tunel
+
+[Install]
+WantedBy=multi-user.target
