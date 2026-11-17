@@ -41,6 +41,13 @@ A tela não soma dinheiro.
 Duas somas do mesmo valor em lugares diferentes divergem — por arredondamento, por ordem
 de operação, por um campo que não recarregou — e a que o cliente paga é a do servidor.
 
+**Exceção, aberta em 17/11/2026:** a venda feita **sem rede** é somada no aparelho, porque
+não há a quem perguntar e a alternativa é não vender. A conta é feita em centavos inteiros,
+com o mesmo arredondamento do servidor, e o servidor recalcula tudo quando o pacote chega —
+o que o aparelho manda é o que foi cobrado, não a verdade final. Ver a fatia 4 da
+`docs/adr/0022-offline-first-as-respostas.md`. Com rede, esta decisão vale como sempre
+valeu.
+
 ### 4. O número da venda só existe ao finalizar
 
 Enquanto aberta, a venda é identificada pelo id. Numerar na abertura gastaria número em

@@ -308,3 +308,155 @@ async def test_pagamento_menor_que_a_venda_e_recusado(session: AsyncSession) -> 
             registrada_no_aparelho_em=datetime.now(UTC),
             **pacote,
         )
+
+
+# -------------------------------------- a rede caiu no meio do atendimento, e a venda era
+# -------------------------------------- um rascunho aberto aqui
+
+
+async def test_a_venda_aberta_aqui_e_a_mesma_que_o_aparelho_termina(
+    session: AsyncSession,
+) -> None:
+    """O caso mais comum de todos: a rede cai com a venda já aberta no servidor.
+
+    O balcão abriu a venda com rede, bipou um item, perdeu o sinal e terminou a venda no
+    aparelho. O pacote chega com o id que o servidor já tinha dado.
+
+    Sem o tratamento disto o pacote batia no reenvio, respondia "já existia" e sumia: o
+    rascunho ficava aberto para sempre, o estoque não baixava, e o operador via "enviado"
+    tendo perdido a venda.
+    """
+    loja = await _loja(session, "10")
+    rascunho = await service.abrir_venda(session, tenant_id=loja.tenant.id)
+    await service.adicionar_item(
+        session, venda=rascunho, produto_id=loja.produto.id, quantidade=Decimal(1)
+    )
+    assert rascunho.status is StatusVenda.ABERTA
+
+    resultado = await service.sincronizar_venda(
+        session,
+        tenant_id=loja.tenant.id,
+        registrada_no_aparelho_em=datetime.now(UTC),
+        **_pacote(loja, quantidade="3", venda_id=rascunho.id),
+    )
+
+    assert resultado.ja_existia is False, "o rascunho não é reenvio: a venda não estava aqui"
+    assert resultado.venda.id == rascunho.id, "uma venda só, e não duas"
+    assert resultado.venda.status is StatusVenda.FINALIZADA
+    assert resultado.venda.numero is not None
+    # O que vale é o que o aparelho terminou: três, e não o item do rascunho.
+    assert resultado.venda.total == Decimal("30.00")
+    assert await comercial.saldo_do_produto(session, loja.produto.id) == Decimal(7)
+
+
+async def test_o_item_do_rascunho_nao_fica_somado_duas_vezes(session: AsyncSession) -> None:
+    """O item bipado com rede está nos dois lados, e só pode contar uma vez.
+
+    O aparelho manda a venda inteira — inclusive o que já havia sido bipado antes de a
+    rede cair, porque ele não tem como saber o que chegou. Então o conteúdo do rascunho é
+    substituído, e não acrescentado.
+    """
+    loja = await _loja(session, "10")
+    rascunho = await service.abrir_venda(session, tenant_id=loja.tenant.id)
+    await service.adicionar_item(
+        session, venda=rascunho, produto_id=loja.produto.id, quantidade=Decimal(2)
+    )
+
+    resultado = await service.sincronizar_venda(
+        session,
+        tenant_id=loja.tenant.id,
+        registrada_no_aparelho_em=datetime.now(UTC),
+        **_pacote(loja, quantidade="2", venda_id=rascunho.id),
+    )
+
+    linhas = (
+        (
+            await session.execute(
+                select(ItemVenda).where(ItemVenda.venda_id == resultado.venda.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(linhas) == 1, "o item do rascunho sobrou junto com o do aparelho"
+    assert resultado.venda.total == Decimal("20.00")
+    assert await comercial.saldo_do_produto(session, loja.produto.id) == Decimal(8)
+
+
+async def test_o_rascunho_nao_sobra_aberto(session: AsyncSession) -> None:
+    """Rascunho aberto esquecido é retomado na próxima abertura do PDV.
+
+    O operador veria uma venda com itens que o cliente já levou e pagou. Por isso não
+    pode sobrar nenhuma venda aberta depois da sincronização.
+    """
+    loja = await _loja(session, "10")
+    rascunho = await service.abrir_venda(session, tenant_id=loja.tenant.id)
+    await service.adicionar_item(
+        session, venda=rascunho, produto_id=loja.produto.id, quantidade=Decimal(1)
+    )
+
+    await service.sincronizar_venda(
+        session,
+        tenant_id=loja.tenant.id,
+        registrada_no_aparelho_em=datetime.now(UTC),
+        **_pacote(loja, quantidade="1", venda_id=rascunho.id),
+    )
+
+    abertas = (
+        (
+            await session.execute(
+                select(Venda).where(Venda.status == StatusVenda.ABERTA)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert abertas == []
+
+
+async def test_o_pagamento_do_rascunho_nao_fica_para_tras(session: AsyncSession) -> None:
+    """Pagamento parcial lançado com rede, e o aparelho termina a venda inteira.
+
+    Somar os dois faria a venda parecer paga em dobro e o caixa esperar dinheiro que não
+    existe na gaveta.
+    """
+    loja = await _loja(session, "10")
+    rascunho = await service.abrir_venda(session, tenant_id=loja.tenant.id)
+    await service.adicionar_item(
+        session, venda=rascunho, produto_id=loja.produto.id, quantidade=Decimal(2)
+    )
+    await service.registrar_pagamento(
+        session, venda=rascunho, forma=FormaPagamento.DINHEIRO, valor=Decimal("5.00")
+    )
+
+    resultado = await service.sincronizar_venda(
+        session,
+        tenant_id=loja.tenant.id,
+        registrada_no_aparelho_em=datetime.now(UTC),
+        **_pacote(loja, quantidade="2", venda_id=rascunho.id),
+    )
+
+    assert await service.total_pago(session, resultado.venda) == Decimal("20.00")
+
+
+async def test_venda_cancelada_aqui_e_recusada_com_motivo(session: AsyncSession) -> None:
+    """Duas pessoas discordaram sobre a mesma venda, e isso precisa aparecer.
+
+    Ressuscitar calada a venda que alguém cancelou esconderia a divergência — e a
+    divergência é o produto, não o defeito. A recusa fica na fila do aparelho com o
+    motivo, para alguém olhar.
+    """
+    loja = await _loja(session, "10")
+    rascunho = await service.abrir_venda(session, tenant_id=loja.tenant.id)
+    await service.adicionar_item(
+        session, venda=rascunho, produto_id=loja.produto.id, quantidade=Decimal(1)
+    )
+    await service.cancelar_venda(session, venda=rascunho)
+
+    with pytest.raises(service.PdvError, match="cancelada"):
+        await service.sincronizar_venda(
+            session,
+            tenant_id=loja.tenant.id,
+            registrada_no_aparelho_em=datetime.now(UTC),
+            **_pacote(loja, quantidade="1", venda_id=rascunho.id),
+        )

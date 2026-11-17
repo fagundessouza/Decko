@@ -13,7 +13,7 @@ import { apagar, gravar, lerTodos, type Armazem } from "./local";
 
 const ARMAZEM: Armazem = "fila";
 
-export type Acao = "cliente.criar" | "cliente.atualizar";
+export type Acao = "cliente.criar" | "cliente.atualizar" | "venda.sincronizar";
 
 export interface Pendente {
   /** A identidade da **entidade**, não da operação.
@@ -27,12 +27,25 @@ export interface Pendente {
   /** Hora do aparelho. A ADR 0019 avisa que esta e a hora do servidor divergem, e que a
    *  trilha precisa das duas — por isso ela viaja junto. */
   criadoEm: string;
+  /** Desempata quem entrou no mesmo milissegundo.
+   *
+   * `criadoEm` tem resolução de milissegundo, e dois itens gravados dentro do mesmo não
+   * têm ordem — o empate cairia na ordem da chave, que é um sorteio. Importa porque a
+   * fila guarda tipos diferentes juntos: uma venda identificada aponta para um cliente
+   * que pode ter sido cadastrado instantes antes, e invertê-los faria o servidor recusar
+   * a venda por apontar para alguém que ainda não existe lá.
+   *
+   * O contador zera quando a página recarrega, e isso não atrapalha: dois itens de sessões
+   * diferentes não compartilham o mesmo milissegundo. */
+  ordem?: number;
   tentativas: number;
   /** O que o servidor respondeu da última vez, quando ele recusou. */
   erro?: string;
 }
 
 export const EVENTO_FILA = "decko:fila-mudou";
+
+let contador = 0;
 
 function avisar(): void {
   window.dispatchEvent(new CustomEvent(EVENTO_FILA));
@@ -45,6 +58,7 @@ export async function enfileirar(
   const pendente: Pendente = {
     ...item,
     criadoEm: new Date().toISOString(),
+    ordem: ++contador,
     tentativas: 0,
   };
   await gravar(empresa, ARMAZEM, pendente);
@@ -54,7 +68,10 @@ export async function enfileirar(
 export async function pendentes(empresa: string): Promise<Pendente[]> {
   const todos = await lerTodos<Pendente>(empresa, ARMAZEM);
   // Da mais antiga para a mais nova: a ordem em que aconteceram é a ordem em que entram.
-  return todos.sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
+  return todos.sort(
+    (a, b) =>
+      a.criadoEm.localeCompare(b.criadoEm) || (a.ordem ?? 0) - (b.ordem ?? 0),
+  );
 }
 
 export async function esquecer(empresa: string, id: string): Promise<void> {

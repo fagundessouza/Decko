@@ -17,11 +17,11 @@
 
 /* Sobe quando um armazém entra ou sai: `onupgradeneeded` só roda quando a versão muda, e
  * sem isso o armazém novo não existe no aparelho de quem já usou o sistema antes. */
-const VERSAO = 2;
+const VERSAO = 3;
 
-export type Armazem = "fila" | "clientes" | "produtos";
+export type Armazem = "fila" | "clientes" | "produtos" | "avisos" | "configuracao";
 
-const ARMAZENS: Armazem[] = ["fila", "clientes", "produtos"];
+const ARMAZENS: Armazem[] = ["fila", "clientes", "produtos", "avisos", "configuracao"];
 
 /** Falha de armazenamento local. Quem chama decide se isso é fatal para a operação. */
 export class LocalIndisponivelError extends Error {

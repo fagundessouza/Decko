@@ -121,6 +121,24 @@ PIN no disco de um PC de balcão e no celular de um piloto, fora do PostgreSQL e
 fora do Row Level Security. Isso tem consequência de LGPD — o armazenamento local precisa
 ser apagado ao sair, e aparelho perdido é incidente a tratar, não contratempo.
 
+## A pergunta que esta ADR **não** responde
+
+**Como liberar supervisor sem rede.** A credencial de quem libera é conferida no servidor,
+na mesma requisição que executa a ação — ADR 0020, decisão 4. Sem rede não há a quem pedir,
+e conferir no aparelho seria teatro: quem abre o inspetor passa por cima.
+
+O que está implementado é um remendo, e ele está aqui escrito para não passar por decisão:
+o aparelho guarda a configuração da loja na última sincronização e, sem rede, **permite o
+que a loja não exige supervisor para fazer** e recusa o resto, dizendo o motivo. Sem
+configuração guardada, recusa — supor "pode" seria inventar permissão.
+
+Isso deixa dois casos ruins, e os dois são do dono do projeto decidir:
+
+1. Loja que exige supervisor para retirar item fica sem corrigir um item bipado errado
+   enquanto não houver rede. O jeito é cancelar a venda inteira, se isso for livre.
+2. Um PIN de supervisor guardado no aparelho resolveria — e seria a fatia 5 valendo também
+   para liberação, com o mesmo custo de LGPD dela.
+
 ## O que isto não resolve
 
 - **Número de venda e número fiscal** continuam como a ADR 0019 e a 0018 descrevem: o
@@ -133,12 +151,32 @@ ser apagado ao sair, e aparelho perdido é incidente a tratar, não contratempo.
 
 Em fatias que valem sozinhas, na ordem:
 
-1. **Identidade na origem e rotas idempotentes.** O `id` passa a vir do aparelho e reenviar
-   o mesmo pacote deixa de duplicar. Não muda nada visível e é a base de todo o resto.
-2. **Fila local e cadastro de cliente offline.** A fila mais simples, na tela mais simples.
-3. **Leitura guardada para o PDV e o agro**, pelo recorte da resposta 3.
-4. **Venda offline**, com a divergência de estoque aparecendo na sincronização.
-5. **Entrada sem rede pelo PIN**, com os três limites da resposta 6.
+1. **Identidade na origem e rotas idempotentes.** ✅ feita em 17/11/2026. O `id` vem do
+   aparelho e reenviar o mesmo pacote devolve o que já existe. Não mudou nada visível, e é
+   a base de todo o resto.
+2. **Fila local e cadastro de cliente offline.** ✅ feita em 17/11/2026. A fila mais
+   simples, na tela mais simples — e o que não subiu fica à vista, item por item.
+3. **Leitura guardada para o PDV**, pelo recorte da resposta 3. ✅ feita em 17/11/2026,
+   decidida no servidor (`pdv.catalogo_do_aparelho`). A metade do agro continua aberta.
+4. **Venda offline**, com a divergência de estoque aparecendo na sincronização. ✅ feita em
+   17/11/2026, nas duas metades: o servidor recebe a venda que aconteceu
+   (`POST /pdv/vendas/do-aparelho`) e o aparelho compõe a venda (`apps/web/src/lib/balcao.ts`).
+
+   Três coisas valem registrar, porque nenhuma delas era óbvia:
+
+   - **A conta de dinheiro desceu para o aparelho**, e isso é uma divergência deliberada da
+     decisão 3 da ADR 0008 ("a tela não soma dinheiro"). Sem rede não há a quem perguntar, e
+     a alternativa à conta local é não vender. Ela é feita em centavos inteiros, com o mesmo
+     arredondamento do `Decimal` do servidor — ponto flutuante aqui apareceria como um
+     centavo que não fecha no fim do dia, longe de onde nasceu.
+   - **A rede que cai no meio do atendimento não cria uma segunda venda.** A venda aberta no
+     servidor é um rascunho: não tem número nem baixa de estoque, é intenção e não fato. O
+     pacote do aparelho chega com o mesmo id e **substitui** o conteúdo do rascunho. Sem
+     isso o pacote batia na regra do reenvio, respondia "já existia" e desaparecia — o
+     rascunho ficava aberto para sempre e a venda que aconteceu não entrava.
+   - **Venda cancelada no servidor é recusada**, e fica na fila com o motivo à mostra.
+     Ressuscitá-la calada esconderia que duas pessoas discordaram sobre a mesma venda.
+5. **Entrada sem rede pelo PIN**, com os três limites da resposta 6. Ainda não feita.
 
 Cada fatia é uma alteração própria, com teste e checagem por mutação. Nenhuma delas é
-pequena, e a 4 e a 5 são as caras.
+pequena, e a 5 é a cara que falta.

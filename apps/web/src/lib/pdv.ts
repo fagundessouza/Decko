@@ -235,6 +235,19 @@ export interface Conferencia {
   avarias: LinhaDeAvaria[];
 }
 
+/** A resposta da sincronização: a venda gravada e o que não bateu no estoque. */
+export interface VendaSincronizada {
+  venda: Venda;
+  /** Já estava aqui, finalizada: foi reenvio, e nada foi gravado de novo. */
+  ja_existia: boolean;
+  divergencias: {
+    produto_id: string;
+    descricao: string;
+    vendido: string;
+    saldo_depois: string;
+  }[];
+}
+
 export const pdv = {
   caixaAberto: (): Promise<Caixa | null> => authedJson("/pdv/caixa/aberto"),
 
@@ -367,6 +380,14 @@ export const pdv = {
 
   /** Quem pode liberar o que o operador não faz sozinho. */
   autorizadores: (): Promise<Autorizador[]> => authedJson("/pdv/autorizadores"),
+
+  /** Entrega ao servidor uma venda que **já aconteceu** no balcão, sem rede.
+   *
+   * O corpo é o pacote inteiro, de uma vez: não há como abrir, lançar e pagar em
+   * requisições separadas quando o que se está contando é um fato do passado. O tipo do
+   * corpo vive em `balcao.ts`, que é quem compõe a venda no aparelho. */
+  sincronizarVenda: (body: unknown): Promise<VendaSincronizada> =>
+    authedJson("/pdv/vendas/do-aparelho", { method: "POST", body }),
 
   /** O recorte do catálogo que o aparelho guarda para vender sem rede. Ver ADR 0022. */
   catalogoDoAparelho: (): Promise<Produto[]> => authedJson("/pdv/catalogo-do-aparelho"),

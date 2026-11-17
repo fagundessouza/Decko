@@ -1,6 +1,6 @@
 import { SemRedeError } from "./api";
 import { clientes, type Cliente, type ClienteIn } from "./clientes";
-import { enfileirar, pendentes, sincronizar, type Pendente } from "./fila";
+import { enfileirar, pendentes, type Pendente } from "./fila";
 import { gravar, gravarVarios, lerTodos, LocalIndisponivelError } from "./local";
 
 /* A carteira de clientes, com ou sem rede.
@@ -169,16 +169,18 @@ export async function salvar(
   }
 }
 
-/** Esvazia a fila contra o servidor. Devolve o que entrou e o que foi recusado. */
-export function enviarPendentes(empresa: string) {
-  return sincronizar(empresa, async (item) => {
-    const corpo = item.corpo as ClienteIn;
-    // O corpo guardado na fila já é o cadastro inteiro: o `PUT` substitui, e mandar
-    // parcial apagaria o resto. Por isso a fila guarda corpo, e não diferença.
-    const cliente =
-      item.acao === "cliente.criar"
-        ? await clientes.criar(corpo)
-        : await clientes.atualizar(item.id, corpo);
-    await guardar(empresa, cliente);
-  });
+/** Manda ao servidor um cadastro que estava na fila.
+ *
+ * Quem chama é `sincronia.enviarPendentes`, que esvazia a fila inteira: ela guarda
+ * cadastro de cliente e venda de balcão juntos, na ordem em que aconteceram.
+ */
+export async function enviarCliente(empresa: string, item: Pendente): Promise<void> {
+  const corpo = item.corpo as ClienteIn;
+  // O corpo guardado na fila já é o cadastro inteiro: o `PUT` substitui, e mandar
+  // parcial apagaria o resto. Por isso a fila guarda corpo, e não diferença.
+  const cliente =
+    item.acao === "cliente.criar"
+      ? await clientes.criar(corpo)
+      : await clientes.atualizar(item.id, corpo);
+  await guardar(empresa, cliente);
 }

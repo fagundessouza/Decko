@@ -21,7 +21,10 @@ vi.mock("./clientes", async (original) => ({
 }));
 
 const { clientes } = await import("./clientes");
-const { listar, salvar, enviarPendentes } = await import("./carteira");
+const { listar, salvar } = await import("./carteira");
+// Quem esvazia a fila agora é `sincronia`: ela guarda cadastro e venda juntos, e a rota
+// por ação vive lá — ver `apps/web/src/lib/sincronia.ts`.
+const { enviarPendentes } = await import("./sincronia");
 const { pendentes } = await import("./fila");
 const local = await import("./local");
 

@@ -278,12 +278,26 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
 - [ ] **Offline-first.** Escrita nasce no aparelho, identidade vem da origem, fila
       sincroniza sozinha e a API aceita o mesmo pacote duas vezes sem duplicar — ver
       `docs/adr/0019-offline-first.md`. O servidor continua sendo o dono: o aparelho só
-      adianta a escrita. Atravessa todos os módulos e **não começa** antes de **cinco**
-      respostas: regra de conflito por entidade, prazo máximo offline, o que fica disponível
-      sem rede, permissão revogada durante a ausência, e para quais telas isto paga o custo.
-      A sexta — estoque negativo — foi respondida em 04/11/2026: a venda subtrai, o saldo
-      pode ficar negativo, e a divergência **aparece** na sincronização, porque é ela que o
-      dono da loja quer ver
+      adianta a escrita. As seis respostas que faltavam estão propostas na
+      `docs/adr/0022-offline-first-as-respostas.md` (17/11/2026), organizadas por um
+      princípio só: **a divergência é o produto, não o defeito**. Quatro fatias feitas:
+  - [x] Identidade na origem e rota idempotente — reenviar o mesmo cadastro devolve o que
+        já existe, em vez de duplicar ou acusar documento repetido
+  - [x] Fila local e cadastro de cliente sem rede, com o que não subiu à vista na tela
+  - [x] Leitura guardada no aparelho: o recorte do catálogo é decidido no servidor (vendidos
+        nos últimos 90 dias, com teto), porque o catálogo inteiro não cabe num celular fraco
+  - [x] **Venda sem rede, composta no aparelho.** O caixa abre sem servidor, o item entra
+        pelo catálogo guardado, a conta é feita em centavos inteiros no aparelho, a venda
+        fecha e sobe inteira num pacote quando a rede voltar. Rede que cai no meio do
+        atendimento não recomeça a venda: o id é o mesmo, e o servidor termina o rascunho
+        dele em vez de criar uma segunda venda. Estoque negativo entra e **aparece**, com
+        endereço — qual produto, quanto saiu, com quanto ficou
+  - [ ] Entrar sem rede pelo PIN, com validade de 7 dias e só em aparelho confiado. É a
+        fatia mais delicada: põe hash de PIN e cadastro de cliente no disco de um PC de
+        balcão, fora do PostgreSQL e portanto fora do Row Level Security
+  - [ ] **Liberação de supervisor sem rede não tem resposta.** Hoje o aparelho obedece ao
+        que a loja declarou na última sincronização e recusa o que ela exige supervisor para
+        fazer, dizendo o motivo. É remendo, não decisão
 - [ ] Modelo do documento fiscal, desenhado para atravessar a transição sem reescrita:
       documento é entidade própria e não coluna na venda, tributo é linha e não coluna, e o
       que foi autorizado é guardado como foi e nunca recalculado — ver
@@ -393,7 +407,9 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       com o desconto da venda embutido. Decisão na atualização de 10/11/2026 da
       `docs/adr/0008-ponto-de-venda.md`; o requisito, em
       `docs/discovery/pdv-devolucao-de-venda.md`
-- [ ] PDV offline-first
+- [ ] PDV offline-first. A venda de balcão já é feita sem rede (17/11/2026, fatia 4 da
+      `docs/adr/0022-offline-first-as-respostas.md`). Faltam devolução, sessão de caixa e
+      conferência — todas dependem de leitura que hoje só o servidor tem
 - [ ] Verticais sobre a base. **Cada uma exige documento real da operação**, como o agro
       exigiu o talão do MAPA. Sem isso vira suposição, que é o defeito que o projeto
       existe para não repetir:

@@ -1,7 +1,10 @@
+import "fake-indexeddb/auto";
+
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SemRedeError } from "../lib/api";
 import type { Cliente } from "../lib/clientes";
 import type { Produto } from "../lib/comercial";
 import type { Venda } from "../lib/pdv";
@@ -45,6 +48,9 @@ vi.mock("../lib/pdv", async (importar) => {
       caixaAberto: vi.fn(),
       autorizadores: vi.fn(),
       configuracao: vi.fn(),
+      // Sem rede: o catálogo guardado e a venda que sobe inteira depois.
+      catalogoDoAparelho: vi.fn(),
+      sincronizarVenda: vi.fn(),
     },
   };
 });
@@ -65,6 +71,9 @@ const { pdv } = await import("../lib/pdv");
 const { comercial } = await import("../lib/comercial");
 const { clientes } = await import("../lib/clientes");
 const { financeiro } = await import("../lib/financeiro");
+const local = await import("../lib/local");
+const balcao = await import("../lib/balcao");
+const { session } = await import("../lib/session");
 
 function umaVenda(sobre: Partial<Venda> = {}): Venda {
   return {
@@ -194,6 +203,7 @@ beforeEach(() => {
   vi.mocked(financeiro.listarContas).mockResolvedValue([]);
   vi.mocked(pdv.caixaAberto).mockResolvedValue(null);
   vi.mocked(pdv.autorizadores).mockResolvedValue([]);
+  vi.mocked(pdv.catalogoDoAparelho).mockResolvedValue([]);
   vi.mocked(pdv.configuracao).mockResolvedValue({
     exige_cancelar_item: true,
     exige_cancelar_venda: true,
@@ -945,5 +955,181 @@ describe("PdvPage, as operações de caixa", () => {
     expect(screen.queryByRole("button", { name: "Meu caixa" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Devolução" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Ajustes do caixa" })).toBeNull();
+  });
+});
+
+/* O balcão sem rede.
+ *
+ * Fatia 4 da `docs/adr/0022-offline-first-as-respostas.md`. Antes desta fatia, cair a
+ * rede no caixa dava "não foi possível abrir o caixa" e acabava ali: cliente na frente,
+ * mercadoria na mão, e nada a fazer. O que se afirma aqui é que a operação **continua** —
+ * e que ela continua sem o operador fazer nada diferente.
+ *
+ * O que não é afirmado aqui é a aritmética: ela tem os seus testes em `dinheiro.test.ts`
+ * e em `balcao.test.ts`, onde não há tela no caminho. */
+describe("PdvPage, sem rede", () => {
+  const EMPRESA = "loja-sem-rede";
+
+  const LOJA_LIVRE = {
+    exige_cancelar_item: false,
+    exige_cancelar_venda: false,
+    exige_sangria: false,
+    exige_devolucao: false,
+    exige_desconto: false,
+    desconto_livre: "0.00",
+    exige_diferenca: false,
+    diferenca_livre: "0.00",
+    exige_pin_no_pdv: false,
+  };
+
+  /** Põe o produto no catálogo guardado deste aparelho, como a última sincronização teria. */
+  async function comCatalogoGuardado() {
+    session.setTenantSlug(EMPRESA);
+    local.fechar();
+    for (const armazem of ["produtos", "fila", "avisos", "configuracao"] as const) {
+      await local.esvaziar(EMPRESA, armazem);
+    }
+    await local.gravarVarios(EMPRESA, "produtos", [umProduto()]);
+    // A loja não exige supervisor para retirar item nem para desconto, e o aparelho sabe.
+    await balcao.guardarConfiguracao(EMPRESA, LOJA_LIVRE);
+  }
+
+  /** O servidor fora do ar, do jeito que o `fetch` recusa: rejeitando, sem status. */
+  function semRede() {
+    vi.mocked(pdv.listVendas).mockRejectedValue(new SemRedeError());
+    vi.mocked(pdv.abrir).mockRejectedValue(new SemRedeError());
+    vi.mocked(pdv.configuracao).mockRejectedValue(new SemRedeError());
+    vi.mocked(comercial.listProdutos).mockRejectedValue(new SemRedeError());
+    vi.mocked(financeiro.listarContas).mockRejectedValue(new SemRedeError());
+    vi.mocked(pdv.sincronizarVenda).mockRejectedValue(new SemRedeError());
+  }
+
+  /** Bipa o código e espera o item aparecer na lista. */
+  async function bipar(usuario: ReturnType<typeof userEvent.setup>) {
+    await usuario.type(campoDeCodigo(), "7891000100103{Enter}");
+    await screen.findByText("Café torrado 500g");
+  }
+
+  beforeEach(async () => {
+    await comCatalogoGuardado();
+    semRede();
+  });
+
+  it("o caixa abre, e abre avisando que a venda é deste aparelho", async () => {
+    abrirCaixa();
+
+    await screen.findByLabelText("Código, código de barras ou nome");
+    expect(await screen.findByText(/esta venda está sendo feita neste aparelho/i)).toBeTruthy();
+  });
+
+  it("o item bipado entra, com o preço do catálogo guardado", async () => {
+    const usuario = userEvent.setup();
+    abrirCaixa();
+    await screen.findByLabelText("Código, código de barras ou nome");
+
+    await bipar(usuario);
+
+    // A conta é do aparelho, porque não há a quem perguntar.
+    expect(screen.getAllByText("R$ 19,90").length).toBeGreaterThan(0);
+    expect(pdv.adicionarItem).not.toHaveBeenCalled();
+  });
+
+  it("a venda fecha, vai para a fila e sobe quando a rede voltar", async () => {
+    const usuario = userEvent.setup();
+    abrirCaixa();
+    await screen.findByLabelText("Código, código de barras ou nome");
+    await bipar(usuario);
+
+    // Recebe em dinheiro o que falta, que é o caso comum do balcão.
+    await usuario.click(screen.getByRole("button", { name: /^Dinheiro/ }));
+    await usuario.click(await screen.findByRole("button", { name: "Receber" }));
+    await usuario.click(await screen.findByRole("button", { name: "Fechar venda" }));
+
+    // A venda foi concluída sem número: ele nasce no servidor, e isto é dito na tela.
+    expect(await screen.findByText("Venda concluída")).toBeTruthy();
+    expect(screen.getByText(/sobe sozinha quando a rede voltar/i)).toBeTruthy();
+
+    // E está guardada: é isto que impede a venda de se perder com o navegador fechado.
+    expect(await balcao.vendasNaFila(EMPRESA)).toHaveLength(1);
+
+    // Agora a rede volta, e a venda sobe inteira num pacote só.
+    vi.mocked(pdv.sincronizarVenda).mockResolvedValue({
+      venda: umaVenda({ numero: 7, status: "finalizada" }),
+      ja_existia: false,
+      divergencias: [],
+    });
+    const { enviarPendentes } = await import("../lib/sincronia");
+    await enviarPendentes(EMPRESA);
+
+    const corpo = vi.mocked(pdv.sincronizarVenda).mock.calls.at(-1)?.[0] as {
+      itens: { produto_id: string }[];
+      pagamentos: { forma: string; valor: string }[];
+    };
+    expect(corpo.itens).toHaveLength(1);
+    expect(corpo.itens[0].produto_id).toBe("produto-1");
+    expect(corpo.pagamentos[0]).toMatchObject({ forma: "dinheiro", valor: "19.90" });
+    expect(await balcao.vendasNaFila(EMPRESA)).toEqual([]);
+  });
+
+  it("a rede que cai no meio da venda não recomeça a venda", async () => {
+    /* O caso mais comum de todos: a venda abriu com rede, um item entrou no servidor, e o
+     * sinal caiu. A venda continua a mesma — com o mesmo id, que é o que permite ao
+     * servidor terminar o rascunho dele em vez de criar uma segunda venda. */
+    const usuario = userEvent.setup();
+    vi.mocked(pdv.listVendas).mockResolvedValue([]);
+    vi.mocked(pdv.abrir).mockResolvedValue(vendaComItem());
+    vi.mocked(pdv.adicionarItem).mockRejectedValue(new SemRedeError());
+
+    abrirCaixa();
+    await screen.findByLabelText("Código, código de barras ou nome");
+    await usuario.type(campoDeCodigo(), "7891000100103{Enter}");
+
+    // O item do servidor continua na tela, e o bipado agora entra ao lado dele.
+    await waitFor(() => expect(screen.getAllByText("Café torrado 500g")).toHaveLength(2));
+    expect(await screen.findByText(/esta venda está sendo feita neste aparelho/i)).toBeTruthy();
+
+    await usuario.click(screen.getByRole("button", { name: /^Dinheiro/ }));
+    await usuario.click(await screen.findByRole("button", { name: "Receber" }));
+    await usuario.click(await screen.findByRole("button", { name: "Fechar venda" }));
+    await screen.findByText("Venda concluída");
+
+    const fila = await balcao.vendasNaFila(EMPRESA);
+    expect(fila).toHaveLength(1);
+    // O id é o da venda que o servidor abriu: uma venda só, e não duas.
+    expect(fila[0].id).toBe("venda-1");
+  });
+
+  it("não deixa retirar item quando a loja exige supervisor e não há a quem pedir", async () => {
+    /* A liberação é conferida no servidor, na mesma requisição que executa a ação — ADR
+     * 0020, decisão 4. Destravar aqui por conta própria seria passar por cima da regra
+     * que a loja configurou; dizer o motivo é o mínimo. */
+    const usuario = userEvent.setup();
+    await balcao.guardarConfiguracao(EMPRESA, { ...LOJA_LIVRE, exige_cancelar_item: true });
+
+    abrirCaixa();
+    await screen.findByLabelText("Código, código de barras ou nome");
+    await bipar(usuario);
+
+    await usuario.click(screen.getByRole("button", { name: "Retirar Café torrado 500g" }));
+
+    expect(await screen.findByText(/exige liberação de supervisor/i)).toBeTruthy();
+    // O item continua lá: a recusa não pode levar a venda com ela.
+    expect(screen.getByText("Café torrado 500g")).toBeTruthy();
+  });
+
+  it("a venda que o servidor não aceitou fica à vista, com o motivo", async () => {
+    const { ApiError } = await import("../lib/api");
+    const { enfileirar } = await import("../lib/fila");
+    await enfileirar(EMPRESA, { id: "venda-recusada", acao: "venda.sincronizar", corpo: {} });
+    vi.mocked(pdv.sincronizarVenda).mockRejectedValue(
+      new ApiError("Esta venda foi cancelada no sistema.", 422),
+    );
+    const { enviarPendentes } = await import("../lib/sincronia");
+    await enviarPendentes(EMPRESA);
+
+    abrirCaixa();
+
+    expect(await screen.findByText(/não foi aceita pelo servidor/i)).toBeTruthy();
+    expect(screen.getByText(/cancelada no sistema/i)).toBeTruthy();
   });
 });

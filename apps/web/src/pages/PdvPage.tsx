@@ -19,8 +19,11 @@ import { Modal } from "../components/Modal";
 import { Select } from "../components/Select";
 import { LarguraDoPapel, Recibo } from "../components/Recibo";
 import { TextField } from "../components/TextField";
-import { clientes } from "../lib/clientes";
 import type { Cliente } from "../lib/clientes";
+import { listar as listarCarteira } from "../lib/carteira";
+import * as balcao from "../lib/balcao";
+import { EVENTO_FILA, type Pendente } from "../lib/fila";
+import { enviarPendentes } from "../lib/sincronia";
 import { financeiro } from "../lib/financeiro";
 import type { ContaRecebimento } from "../lib/financeiro";
 import type { Produto } from "../lib/comercial";
@@ -28,8 +31,14 @@ import { brl, num } from "../lib/format";
 import { FORMAS, pdv } from "../lib/pdv";
 import * as catalogo from "../lib/catalogo";
 import { session } from "../lib/session";
-import type { SessionInfo } from "../lib/api";
-import type { Credencial, FormaPagamento, Venda } from "../lib/pdv";
+import { SemRedeError, type SessionInfo } from "../lib/api";
+import type {
+  ConfiguracaoPdv,
+  Credencial,
+  FormaPagamento,
+  ItemVenda,
+  Venda,
+} from "../lib/pdv";
 
 /* As operações de caixa vivem **dentro** do ponto de venda, sobrepostas.
  *
@@ -144,6 +153,28 @@ export function PdvPage({
   /* A busca veio do aparelho, e não do servidor. Quem está vendendo precisa saber: o
    * preço é o da última sincronização, e produto cadastrado hoje pode não estar ali. */
   const [semRede, setSemRede] = useState(false);
+  /* **Esta venda está sendo composta no aparelho.**
+   *
+   * É o coração da fatia 4 da ADR 0022. Enquanto é falso, quem manda é o servidor e a
+   * tela só desenha — a decisão 3 da ADR 0008 valendo como sempre valeu. Vira verdadeiro
+   * na primeira operação que a rede recusar, e aí a venda continua aqui: o item entra, o
+   * pagamento entra, o total é somado neste aparelho e a venda inteira sobe num pacote
+   * quando a conexão voltar.
+   *
+   * Não volta a falso no meio da venda, nem se a rede voltar. A venda local tem itens com
+   * identidade daqui, e metade dela no servidor seria pior do que ela inteira aqui — ela
+   * sobe inteira no fechamento, que é quando a conta vira fato. */
+  const [local, setLocal] = useState(false);
+  /* O que esta loja exige supervisor para fazer, guardado no aparelho.
+   *
+   * Sem rede não há a quem pedir liberação, e é esta configuração que diz se a ação
+   * depende de alguém — ver `balcao.podeSemLiberacao`. */
+  const [config, setConfig] = useState<ConfiguracaoPdv | null>(null);
+  /* Vendas deste aparelho que ainda não chegaram ao servidor, e vendas que chegaram com
+   * divergência de estoque. As duas listas são para quem está no balcão: a primeira diz
+   * "a venda não se perdeu"; a segunda, "você vendeu o que não tinha". */
+  const [naFila, setNaFila] = useState<Pendente[]>([]);
+  const [avisos, setAvisos] = useState<balcao.Aviso[]>([]);
   /* O identificador da empresa, e não o nome: `empresa` acima é o nome que sai no recibo.
    * O armazenamento do aparelho é separado por identificador, o mesmo que a carteira de
    * clientes usa — duas empresas no mesmo balcão não podem misturar catálogo. */
@@ -151,14 +182,41 @@ export function PdvPage({
 
   useEffect(() => {
     let vivo = true;
-    pdv
-      .configuracao()
-      .then((config) => vivo && setTravado(config.exige_pin_no_pdv))
-      .catch(() => vivo && setTravado(false));
+    (async () => {
+      try {
+        const doServidor = await pdv.configuracao();
+        await balcao.guardarConfiguracao(chaveLocal, doServidor);
+        if (!vivo) return;
+        setConfig(doServidor);
+        setTravado(doServidor.exige_pin_no_pdv);
+      } catch {
+        /* Sem rede, a regra da loja é a da última sincronização — e a trava destrava, como
+         * já destravava antes desta fatia. O PIN é conferido no servidor, então honrar a
+         * trava aqui deixaria a estação fechada sem caminho para entrar. Entrar sem rede é
+         * a fatia 5 da ADR 0022, e ainda não existe. */
+        const guardada = await balcao.configuracaoGuardada(chaveLocal);
+        if (!vivo) return;
+        setConfig(guardada);
+        setTravado(false);
+      }
+    })();
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [chaveLocal]);
+
+  /* A fila do aparelho, relida sempre que ela muda — inclusive quando esvazia sozinha em
+   * segundo plano, com a pessoa parada nesta tela. */
+  const reverFila = useCallback(() => {
+    void balcao.vendasNaFila(chaveLocal).then(setNaFila);
+    void balcao.avisos(chaveLocal).then(setAvisos);
+  }, [chaveLocal]);
+
+  useEffect(() => {
+    reverFila();
+    window.addEventListener(EVENTO_FILA, reverFila);
+    return () => window.removeEventListener(EVENTO_FILA, reverFila);
+  }, [reverFila]);
 
   const [identificando, setIdentificando] = useState(false);
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -203,7 +261,16 @@ export function PdvPage({
         if (!vivo) return;
         setVenda(atual);
       } catch (cause) {
-        if (vivo) setErro(motivo(cause, "Não foi possível abrir o caixa."));
+        if (!vivo) return;
+        /* Sem rede o caixa **abre no aparelho**. Era aqui que a operação morria: o PDV
+         * mostrava "não foi possível abrir o caixa" e não havia como vender nada, com
+         * cliente na frente e mercadoria na mão. */
+        if (cause instanceof SemRedeError) {
+          setVenda(balcao.vendaNova());
+          setLocal(true);
+        } else {
+          setErro(motivo(cause, "Não foi possível abrir o caixa."));
+        }
       } finally {
         if (vivo) {
           setCarregando(false);
@@ -259,25 +326,70 @@ export function PdvPage({
     return () => document.removeEventListener("keydown", aoTeclar);
   }, [venda, busy, cobrando, achados, identificando, descontando]);
 
-  async function lancar(produto: Produto) {
-    if (!venda) return;
+  /** Aplica a operação no aparelho. Devolve se deu certo. */
+  function aplicarLocal(acao: (venda: Venda) => Venda, padrao: string): boolean {
+    if (!venda) return false;
+    try {
+      setVenda(acao(venda));
+      setErro(null);
+      return true;
+    } catch (cause) {
+      setErro(motivo(cause, padrao));
+      return false;
+    } finally {
+      focarCodigo();
+    }
+  }
+
+  /* Toda operação da venda passa por aqui, e é isto que faz a operação não parar.
+   *
+   * Com rede, quem decide é o servidor — regra de negócio não desce para a tela. Quando a
+   * rede cai **no meio da operação**, a mesma operação é refeita no aparelho e a venda
+   * passa a ser composta aqui. A bipada não se perde, a venda não recomeça, e o operador
+   * não precisa fazer nada diferente: ele continua bipando.
+   *
+   * A queda é reconhecida por `SemRedeError`, e só por ela: 422 do servidor é regra de
+   * negócio recusando, e refazer a operação no aparelho passaria por cima da regra. */
+  async function mexer(
+    online: (venda: Venda) => Promise<Venda>,
+    noAparelho: (venda: Venda) => Venda,
+    padrao: string,
+  ): Promise<boolean> {
+    if (!venda) return false;
+    if (local) return aplicarLocal(noAparelho, padrao);
+
     setBusy(true);
     setErro(null);
     try {
-      const atual = await pdv.adicionarItem(venda.id, {
-        produto_id: produto.id,
-        quantidade: quantidade.replace(",", ".") || "1",
-      });
-      setVenda(atual);
-      setCodigo("");
-      setQuantidade("1");
-      setAchados(null);
+      setVenda(await online(venda));
+      return true;
     } catch (cause) {
-      setErro(motivo(cause, "Não foi possível lançar o item."));
+      if (!(cause instanceof SemRedeError)) {
+        setErro(motivo(cause, padrao));
+        return false;
+      }
+      setLocal(true);
+      return aplicarLocal(noAparelho, padrao);
     } finally {
       setBusy(false);
       focarCodigo();
     }
+  }
+
+  async function lancar(produto: Produto) {
+    const entrou = await mexer(
+      (atual) =>
+        pdv.adicionarItem(atual.id, {
+          produto_id: produto.id,
+          quantidade: quantidade.replace(",", ".") || "1",
+        }),
+      (atual) => balcao.lancar(atual, produto, quantidade),
+      "Não foi possível lançar o item.",
+    );
+    if (!entrou) return;
+    setCodigo("");
+    setQuantidade("1");
+    setAchados(null);
   }
 
   async function procurar() {
@@ -309,7 +421,11 @@ export function PdvPage({
   async function procurarCliente() {
     setErro(null);
     try {
-      setAchadosCliente(await clientes.listar(buscaCliente));
+      /* Pela carteira, e não direto pelo servidor: ela cai no cadastro guardado neste
+       * aparelho quando não há rede. Identificar a venda é o que permite vender no crediário
+       * de quem o dono conhece, e isso não pode depender de sinal. */
+      const visao = await listarCarteira(chaveLocal, buscaCliente);
+      setAchadosCliente(visao.clientes);
     } catch (cause) {
       setErro(motivo(cause, "Não foi possível procurar o cliente."));
     }
@@ -319,24 +435,11 @@ export function PdvPage({
     setIdentificando(false);
     setBuscaCliente("");
     setAchadosCliente(null);
-    if (!venda) return;
-    await operar(
-      () => pdv.identificar(venda.id, cliente.id),
+    await mexer(
+      (atual) => pdv.identificar(atual.id, cliente.id),
+      (atual) => balcao.identificar(atual, cliente),
       "Não foi possível identificar a venda.",
     );
-  }
-
-  async function operar(acao: () => Promise<Venda>, padrao: string) {
-    setBusy(true);
-    setErro(null);
-    try {
-      setVenda(await acao());
-    } catch (cause) {
-      setErro(motivo(cause, padrao));
-    } finally {
-      setBusy(false);
-      focarCodigo();
-    }
   }
 
   /* Ação que a loja pode exigir supervisor para fazer.
@@ -355,21 +458,63 @@ export function PdvPage({
         setVenda(await acao(credencial)),
       );
     } catch (cause) {
-      setErro(motivo(cause, padrao));
+      if (cause instanceof SemRedeError) {
+        // A venda passa a ser deste aparelho, e a ação é repetida do jeito local.
+        setLocal(true);
+        setErro("A conexão caiu. Esta venda agora é deste aparelho — tente de novo.");
+      } else {
+        setErro(motivo(cause, padrao));
+      }
     } finally {
       setBusy(false);
       focarCodigo();
     }
   }
 
+  /** O recado de quando a loja exige supervisor e não há a quem pedir. */
+  function semLiberacao(oque: string): string {
+    return (
+      `Esta loja exige liberação de supervisor para ${oque}, e sem conexão não há a quem ` +
+      "pedir. A liberação é conferida no servidor, nunca neste aparelho."
+    );
+  }
+
+  async function retirarItem(item: ItemVenda) {
+    if (local) {
+      if (!balcao.podeSemLiberacao(config, "cancelar_item")) {
+        setErro(semLiberacao("retirar item da venda"));
+        return;
+      }
+      aplicarLocal(
+        (atual) => balcao.retirar(atual, item.id),
+        "Não foi possível retirar o item.",
+      );
+      return;
+    }
+    if (!venda) return;
+    await operarComLiberacao(
+      (credencial) => pdv.removerItem(venda.id, item.id, credencial),
+      "Não foi possível retirar o item.",
+    );
+  }
+
   async function cobrar() {
     if (!venda || cobrando === null) return;
+    const forma = cobrando;
     const valor = valorRecebido.replace(",", ".");
     const destino = conta || null;
     setCobrando(null);
     setValorRecebido("");
-    await operar(
-      () => pdv.pagar(venda.id, { forma: cobrando, valor, conta_id: destino }),
+    await mexer(
+      (atual) => pdv.pagar(atual.id, { forma, valor, conta_id: destino }),
+      (atual) =>
+        balcao.pagar(atual, {
+          forma,
+          valor,
+          conta_id: destino,
+          // O nome da conta é só para a tela; o servidor resolve pelo id na sincronização.
+          conta_nome: contas.find((item) => item.id === destino)?.nome ?? null,
+        }),
       "Não foi possível registrar o pagamento.",
     );
   }
@@ -380,6 +525,19 @@ export function PdvPage({
     const valor = valorDesconto.replace(",", ".") || "0";
     setDescontando(false);
     setValorDesconto("");
+
+    if (local) {
+      if (!balcao.podeSemLiberacao(config, "desconto", valor)) {
+        setErro(semLiberacao("dar este desconto"));
+        return;
+      }
+      aplicarLocal(
+        (atual) => balcao.definirDesconto(atual, valor),
+        "Não foi possível dar o desconto.",
+      );
+      return;
+    }
+
     await operarComLiberacao(
       (credencial) => pdv.definirDesconto(venda.id, valor, credencial),
       "Não foi possível dar o desconto.",
@@ -388,6 +546,20 @@ export function PdvPage({
 
   async function cancelarVenda() {
     if (!venda) return;
+
+    if (local) {
+      if (!balcao.podeSemLiberacao(config, "cancelar_venda")) {
+        setErro(semLiberacao("cancelar a venda"));
+        return;
+      }
+      /* A venda local nunca foi gravada em lugar nenhum: cancelar é esquecê-la. Nada é
+       * enfileirado, e por isso nada precisa ser desfeito no servidor depois. */
+      setVenda(null);
+      setErro(null);
+      focarCodigo();
+      return;
+    }
+
     setBusy(true);
     setErro(null);
     try {
@@ -405,14 +577,40 @@ export function PdvPage({
     }
   }
 
+  /** Fecha a venda no aparelho e põe o pacote na fila. */
+  async function concluirNoAparelho(aberta: Venda) {
+    const fechada = balcao.fechar(aberta);
+    await balcao.enfileirarVenda(chaveLocal, fechada);
+    setConcluida(fechada);
+    setVenda(null);
+    // A venda seguinte tenta o servidor de novo: a rede pode já ter voltado.
+    setLocal(false);
+    // E esta mesma tenta subir agora, pelo mesmo motivo. Falhar aqui não é problema: ela
+    // está na fila, e a fila sobe sozinha quando a rede voltar.
+    void enviarPendentes(chaveLocal).catch(() => undefined);
+  }
+
   async function finalizar() {
     if (!venda) return;
     setBusy(true);
     setErro(null);
     try {
-      const fechada = await pdv.finalizar(venda.id);
-      setConcluida(fechada);
-      setVenda(null);
+      if (local) {
+        await concluirNoAparelho(venda);
+        return;
+      }
+      try {
+        const fechada = await pdv.finalizar(venda.id);
+        setConcluida(fechada);
+        setVenda(null);
+      } catch (cause) {
+        if (!(cause instanceof SemRedeError)) throw cause;
+        /* A rede caiu **no fechamento**, o pior momento possível: o dinheiro já está na
+         * gaveta. O pedido pode ter chegado e só a resposta ter se perdido — e aí a venda
+         * sobe de novo sem duplicar, porque o id é o desta venda e o servidor reconhece a
+         * segunda chegada do mesmo pacote (ADR 0022, fatia 1). O que não dá é perdê-la. */
+        await concluirNoAparelho(venda);
+      }
     } catch (cause) {
       setErro(motivo(cause, "Não foi possível fechar a venda."));
     } finally {
@@ -426,8 +624,14 @@ export function PdvPage({
     setErro(null);
     try {
       setVenda(await pdv.abrir());
+      setLocal(false);
     } catch (cause) {
-      setErro(motivo(cause, "Não foi possível abrir outra venda."));
+      if (cause instanceof SemRedeError) {
+        setVenda(balcao.vendaNova());
+        setLocal(true);
+      } else {
+        setErro(motivo(cause, "Não foi possível abrir outra venda."));
+      }
     } finally {
       setBusy(false);
       focarCodigo();
@@ -483,9 +687,19 @@ export function PdvPage({
             <p className="text-sm uppercase tracking-wide text-ink-faint">
               Venda
             </p>
+            {/* Sem rede a venda ainda não tem número: ele nasce no servidor, porque dois
+                caixas sem rede não têm como combinar um contador. Mostrar um número
+                inventado aqui seria pior do que não mostrar nenhum — o cliente levaria um
+                cupom com um número que não existe. */}
             <p className="mt-1 text-5xl font-bold tabular-nums tracking-tight text-ink">
-              {concluida.numero}
+              {concluida.numero ?? "—"}
             </p>
+            {concluida.numero === null && (
+              <p className="mt-3 text-base text-ink-muted">
+                A venda está guardada neste aparelho e sobe sozinha quando a rede voltar.
+                O número do cupom sai lá.
+              </p>
+            )}
 
             <dl className="mt-8 flex flex-col gap-3 text-left">
               <Linha rotulo="Total" valor={brl(concluida.total)} />
@@ -647,6 +861,11 @@ export function PdvPage({
       <Page>
         <PageHeader title="Ponto de venda" onBack={onBack} />
         {erro && <Alert tone="danger">{erro}</Alert>}
+        <Pendencias
+          naFila={naFila}
+          avisos={avisos}
+          onEsquecer={(id) => void balcao.esquecerAviso(chaveLocal, id).then(reverFila)}
+        />
         {/* As operações vêm antes de abrir venda de propósito: o operador abre o caixa
             dele no começo do expediente, quando ainda não há venda nenhuma. */}
         <div className="mt-6">{operacoes}</div>
@@ -668,14 +887,25 @@ export function PdvPage({
         onBack={onBack}
       />
 
-      {semRede && (
+      {(local || semRede) && (
         <div className="mb-6">
           <Alert tone="warn">
-            Sem conexão: a busca está usando o catálogo guardado neste aparelho. Os preços
-            são os da última sincronização, e produto cadastrado hoje pode não aparecer.
+            {local
+              ? "Sem conexão: esta venda está sendo feita neste aparelho. Ela sobe sozinha " +
+                "quando a rede voltar, e é lá que o número do cupom nasce. Os preços são os " +
+                "da última sincronização."
+              : "Sem conexão: a busca está usando o catálogo guardado neste aparelho. Os " +
+                "preços são os da última sincronização, e produto cadastrado hoje pode não " +
+                "aparecer."}
           </Alert>
         </div>
       )}
+
+      <Pendencias
+        naFila={naFila}
+        avisos={avisos}
+        onEsquecer={(id) => void balcao.esquecerAviso(chaveLocal, id).then(reverFila)}
+      />
 
       {erro && (
         <div className="mb-6">
@@ -754,8 +984,9 @@ export function PdvPage({
                     inline
                     disabled={busy}
                     onClick={() =>
-                      void operar(
-                        () => pdv.desidentificar(venda.id),
+                      void mexer(
+                        (atual) => pdv.desidentificar(atual.id),
+                        (atual) => balcao.desidentificar(atual),
                         "Não foi possível tirar o cliente da venda.",
                       )
                     }
@@ -810,13 +1041,7 @@ export function PdvPage({
                       type="button"
                       aria-label={`Retirar ${item.descricao}`}
                       disabled={busy}
-                      onClick={() =>
-                        void operarComLiberacao(
-                          (credencial) =>
-                            pdv.removerItem(venda.id, item.id, credencial),
-                          "Não foi possível retirar o item.",
-                        )
-                      }
+                      onClick={() => void retirarItem(item)}
                       className="shrink-0 rounded-dk px-2 py-1 text-lg leading-none text-ink-faint
                                  transition-colors duration-150 ease-dk hover:bg-danger-soft hover:text-danger
                                  disabled:cursor-not-allowed disabled:opacity-50"
@@ -889,9 +1114,11 @@ export function PdvPage({
                           aria-label="Retirar pagamento"
                           disabled={busy}
                           onClick={() =>
-                            void operar(
-                              () =>
-                                pdv.removerPagamento(venda.id, pagamento.id),
+                            void mexer(
+                              (atual) =>
+                                pdv.removerPagamento(atual.id, pagamento.id),
+                              (atual) =>
+                                balcao.retirarPagamento(atual, pagamento.id),
                               "Não foi possível retirar o pagamento.",
                             )
                           }
@@ -1179,6 +1406,73 @@ export function PdvPage({
 
       {autorizacao.dialogo}
     </Page>
+  );
+}
+
+/* O que este aparelho vendeu e o servidor ainda não sabe, e o que ele soube e não bateu.
+ *
+ * Fica na tela do caixa porque é lá que está quem precisa disso. A trilha de auditoria
+ * registra a divergência para o dono da loja; esta lista é para o operador, no mesmo dia:
+ * ele vendeu o que o estoque dizia não ter, e isso tem de ter endereço — qual produto,
+ * quanto saiu, com quanto ficou.
+ *
+ * A fila some sozinha quando sobe. O que **não** some sozinho é a recusa: venda que o
+ * servidor não aceitou fica com o motivo à mostra, porque repetir não resolveria e apagar
+ * esconderia de quem vendeu que a venda não entrou. */
+function Pendencias({
+  naFila,
+  avisos,
+  onEsquecer,
+}: {
+  naFila: Pendente[];
+  avisos: balcao.Aviso[];
+  onEsquecer: (id: string) => void;
+}) {
+  const esperando = naFila.filter((item) => !item.erro);
+  const recusadas = naFila.filter((item) => item.erro);
+  if (esperando.length === 0 && recusadas.length === 0 && avisos.length === 0) return null;
+
+  return (
+    <div className="mb-6 flex flex-col gap-3">
+      {esperando.length > 0 && (
+        <Alert tone="info">
+          {esperando.length === 1
+            ? "1 venda feita neste aparelho está esperando a rede."
+            : `${esperando.length} vendas feitas neste aparelho estão esperando a rede.`}{" "}
+          Elas sobem sozinhas, sem ninguém pedir.
+        </Alert>
+      )}
+
+      {recusadas.map((item) => (
+        <Alert tone="danger" key={item.id}>
+          Uma venda deste aparelho não foi aceita pelo servidor: {item.erro} Ela continua
+          guardada aqui; chame quem cuida do caixa.
+        </Alert>
+      ))}
+
+      {avisos.map((aviso) => (
+        <Alert tone="warn" key={aviso.id}>
+          <span className="font-medium">
+            A venda {aviso.numero ?? "sem número"} entrou com o estoque negativo.
+          </span>{" "}
+          {aviso.divergencias
+            .map(
+              (divergencia) =>
+                `${divergencia.descricao}: saíram ${num(divergencia.vendido, 3)} e o saldo ` +
+                `ficou em ${num(divergencia.saldo_depois, 3)}`,
+            )
+            .join("; ")}
+          .{" "}
+          <button
+            type="button"
+            onClick={() => onEsquecer(aviso.id)}
+            className="underline underline-offset-2"
+          >
+            Entendi
+          </button>
+        </Alert>
+      ))}
+    </div>
   );
 }
 

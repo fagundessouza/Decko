@@ -9,7 +9,7 @@ import { ModuleTile } from "./components/ModuleTile";
 import { logout, renewSession, restoreSession, SemRedeError } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import { SemConexao } from "./components/SemConexao";
-import { enviarPendentes } from "./lib/carteira";
+import { enviarPendentes } from "./lib/sincronia";
 import { AtualizacaoDisponivel } from "./components/AtualizacaoDisponivel";
 import type { Plan } from "./lib/agro";
 import { comercial } from "./lib/comercial";

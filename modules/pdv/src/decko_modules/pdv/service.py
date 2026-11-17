@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1322,6 +1322,67 @@ class VendaSincronizada:
     divergencias: list[Divergencia]
 
 
+async def _venda_para_receber(
+    session: AsyncSession,
+    existente: Venda | None,
+    *,
+    tenant_id: uuid.UUID,
+    venda_id: uuid.UUID,
+    operador_id: uuid.UUID | None,
+    cliente_id: uuid.UUID | None,
+    desconto: Decimal,
+    registrada_no_aparelho_em: datetime,
+) -> Venda:
+    """A venda em que o pacote do aparelho vai entrar, criada ou adotada.
+
+    Dois casos, e eles são diferentes de propósito (o reenvio de venda já finalizada é
+    resolvido antes, por quem chama):
+
+    - **Não existe aqui:** venda nova, com o id que o aparelho escolheu.
+    - **Existe e está aberta:** é o rascunho *desta mesma venda*. Acontece sempre que a
+      rede cai no meio do atendimento: o balcão abriu a venda com rede, bipou dois itens,
+      perdeu o sinal e terminou a venda no aparelho. O rascunho não tem número nem baixa
+      de estoque — ele não é um fato, é uma intenção. O fato é o que o aparelho traz, e
+      por isso o conteúdo do rascunho é substituído pelo do pacote.
+
+      Sem isto o pacote batia no ``ja_existia`` e sumia: o rascunho ficava aberto para
+      sempre, a venda que aconteceu não entrava, e o estoque não baixava. O operador via
+      "enviado" e tinha perdido a venda.
+
+    Venda cancelada aqui é recusada, e de propósito: ressuscitá-la calada esconderia que
+    duas pessoas discordaram sobre a mesma venda. A recusa fica na fila do aparelho com o
+    motivo, que é como a divergência aparece — ver ``docs/adr/0022-offline-first-as-respostas.md``.
+    """
+    if existente is None:
+        venda = Venda(
+            tenant_id=tenant_id,
+            operador_id=operador_id,
+            cliente_id=cliente_id,
+            desconto=_dinheiro(desconto),
+            registrada_no_aparelho_em=registrada_no_aparelho_em,
+        )
+        venda.id = venda_id
+        session.add(venda)
+        await session.flush()
+        return venda
+
+    if existente.status is StatusVenda.CANCELADA:
+        raise PdvError(
+            "Esta venda foi cancelada no sistema enquanto o aparelho estava sem rede. "
+            "Confira o que aconteceu no balcão antes de registrar de novo."
+        )
+
+    await session.execute(delete(ItemVenda).where(ItemVenda.venda_id == existente.id))
+    await session.execute(delete(Pagamento).where(Pagamento.venda_id == existente.id))
+    # O operador fica o de quem abriu: é no caixa dele que a venda entra, e quem esvazia a
+    # fila pode ser outra pessoa, horas depois.
+    existente.cliente_id = cliente_id
+    existente.desconto = _dinheiro(desconto)
+    existente.registrada_no_aparelho_em = registrada_no_aparelho_em
+    await session.flush()
+    return existente
+
+
 async def sincronizar_venda(
     session: AsyncSession,
     *,
@@ -1353,23 +1414,24 @@ async def sincronizar_venda(
     um contador, e o número é o que o cliente vê no cupom. A ADR 0019 já dizia que ele só
     existe depois da sincronização.
     """
-    existente = await session.get(Venda, venda_id)
-    if existente is not None:
-        return VendaSincronizada(venda=existente, ja_existia=True, divergencias=[])
-
     if not itens:
         raise PdvError("Não dá para registrar uma venda sem itens.")
 
-    venda = Venda(
+    existente = await session.get(Venda, venda_id)
+    if existente is not None and existente.status is StatusVenda.FINALIZADA:
+        # Reenvio por oscilação de sinal: a venda já está aqui, inteira, e nada é tocado.
+        return VendaSincronizada(venda=existente, ja_existia=True, divergencias=[])
+
+    venda = await _venda_para_receber(
+        session,
+        existente,
         tenant_id=tenant_id,
+        venda_id=venda_id,
         operador_id=operador_id,
         cliente_id=cliente_id,
-        desconto=_dinheiro(desconto),
+        desconto=desconto,
         registrada_no_aparelho_em=registrada_no_aparelho_em,
     )
-    venda.id = venda_id
-    session.add(venda)
-    await session.flush()
 
     for item in itens:
         linha = ItemVenda(
