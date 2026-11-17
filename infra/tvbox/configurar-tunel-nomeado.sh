@@ -55,8 +55,11 @@ import json, sys
 
 procurado = sys.argv[1]
 for tunel in json.load(sys.stdin):
-    # Tunel apagado continua na lista, com data de remocao. Nao e o nosso.
-    if tunel.get("name") == procurado and not tunel.get("deleted_at"):
+    # Tunel apagado continua na lista. Mas o vivo nao vem com deleted_at nulo: vem com
+    # "0001-01-01T00:00:00Z", o zero do tipo de data em Go, que em Python e verdadeiro.
+    # Foi assim que a versao anterior deu "nao existe" para um tunel recem-criado.
+    apagado = (tunel.get("deleted_at") or "0001-01-01")[:10] != "0001-01-01"
+    if tunel.get("name") == procurado and not apagado:
         print(tunel["id"])
         break
 ' "$NOME_TUNEL"
