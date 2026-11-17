@@ -99,6 +99,17 @@ cat > "$DESTINO/config.yml" <<CONFIG
 tunnel: $UUID
 credentials-file: $DESTINO/credencial.json
 
+# HTTP/2 em vez de QUIC.
+#
+# QUIC roda sobre UDP/7844, e link residencial derruba UDP com frequencia. Em 17/11/2026,
+# depois de um pico de energia, o tunel ficou "active" sem entregar nada: a Cloudflare
+# respondia 530 e o log repetia "failed to dial to edge with quic" nas quatro conexoes.
+# Com http2 as quatro registraram em segundos.
+#
+# Custa um pouco de latencia. Vale: o modo rapido que nao conecta e mais lento que o modo
+# lento que conecta.
+protocol: http2
+
 ingress:
   - hostname: $HOSTNAME_API
     service: http://127.0.0.1:8000

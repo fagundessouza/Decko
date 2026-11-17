@@ -1,0 +1,7 @@
+[Unit]
+Description=Decko - confere se o sistema responde de fora
+After=network-online.target decko-tunel-nomeado.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/decko-vigia.sh

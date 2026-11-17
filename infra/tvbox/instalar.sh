@@ -232,10 +232,13 @@ install -m 644 "$(dirname "$0")/decko-api.service" /etc/systemd/system/
 install -m 644 "$(dirname "$0")/decko-tunel.service" /etc/systemd/system/
 install -m 750 "$(dirname "$0")/decko-backup.sh" /usr/local/sbin/
 install -m 750 "$(dirname "$0")/decko-testar-restauracao.sh" /usr/local/sbin/
+install -m 750 "$(dirname "$0")/decko-vigia.sh" /usr/local/sbin/
 install -m 644 "$(dirname "$0")/decko-backup.service" /etc/systemd/system/
+install -m 644 "$(dirname "$0")/decko-vigia.service" /etc/systemd/system/
+install -m 644 "$(dirname "$0")/decko-vigia.timer" /etc/systemd/system/
 install -m 644 "$(dirname "$0")/decko-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now decko-api.service decko-tunel.service decko-backup.timer >/dev/null
+systemctl enable --now decko-api.service decko-tunel.service decko-backup.timer \n    decko-vigia.timer >/dev/null
 
 passo "pronto"
 systemctl is-active postgresql@$PGVER-main decko-api decko-tunel | paste -sd' ' -

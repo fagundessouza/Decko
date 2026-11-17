@@ -1,0 +1,12 @@
+[Unit]
+Description=Decko - conferencia periodica de fora
+
+[Timer]
+# Cinco minutos depois do boot: da tempo de a rede e o tunel subirem antes da primeira
+# pergunta, para o vigia nao reiniciar um tunel que ainda esta nascendo.
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

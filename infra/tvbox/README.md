@@ -179,6 +179,36 @@ banco não corre esse risco, porque o PostgreSQL faz `fsync` do WAL por conta pr
 anteriores. Como a escrita medida é de ~225 MiB/dia, o desgaste que esse ajuste evita é
 pequeno perto do que ele custa em queda de luz.
 
+## O que liga sozinho
+
+É o equivalente aos "aplicativos de inicialização" do Windows, e no systemd ele se chama
+`enable`. Tudo o que o Decko precisa já está armado:
+
+```bash
+systemctl is-enabled postgresql decko-api decko-tunel-nomeado decko-backup.timer decko-vigia.timer
+```
+
+As cinco respondem `enabled`. Na prática: a máquina liga, o PostgreSQL sobe, a API espera
+por ele (`Requires=`), o túnel sobe em seguida e os dois temporizadores entram. Nada disso
+depende de alguém logar na caixa.
+
+### Processo vivo não é serviço funcionando
+
+Em 17/11/2026 o túnel ficou `active` para o systemd e **mudo para o mundo**: a Cloudflare
+respondia 530 e ninguém conseguia entrar. Do lado de dentro estava tudo verde — API de pé,
+unidade rodando, nenhuma falha. A causa era o QUIC: `cloudflared` usa UDP/7844 por padrão,
+e link residencial derruba UDP com frequência. O log repetia `failed to dial to edge with
+quic` nas quatro conexões. Com `protocol: http2` no `config.yml`, as quatro registraram em
+segundos.
+
+Como `enable` não cobre esse caso — a unidade estava ativa —, entrou o
+`decko-vigia.timer`: de cinco em cinco minutos ele pergunta pelo **endereço público**, que
+é por onde o cliente chega. Duas falhas seguidas, com a API local respondendo, e ele
+reinicia o túnel. A API local precisa estar de pé para a culpa ser do túnel; se ela também
+estiver fora, quem resolve é o `Restart=always` dela, e reiniciar o túnel não adiantaria.
+Duas falhas, e não uma, porque reiniciar a cada soluço de rede deixaria o túnel subindo e
+descendo o dia inteiro.
+
 ## Conferir que está de pé
 
 ```bash
