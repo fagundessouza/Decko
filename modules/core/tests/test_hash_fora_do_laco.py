@@ -60,9 +60,7 @@ async def _quantos_tiques_durante(fabrica) -> int:
 
 
 async def test_conferir_senha_deixa_o_laco_respirar(alvo: str) -> None:
-    durante = await _quantos_tiques_durante(
-        lambda: security.verify_password_async(SENHA, alvo)
-    )
+    durante = await _quantos_tiques_durante(lambda: security.verify_password_async(SENHA, alvo))
     # Com o cálculo dentro do laço, nenhum tique acontece enquanto ele roda.
     assert durante >= 4, f"o laço ficou parado durante a conferência ({durante} tiques)"
 

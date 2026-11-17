@@ -30,6 +30,13 @@ OptionalCep = Annotated[str | None, BeforeValidator(_so_digitos)]
 
 
 class ClienteIn(BaseModel):
+    # Identidade gerada no aparelho, quando o cadastro nasceu sem rede.
+    #
+    # É o que torna o reenvio idempotente sem inventar um segundo campo de correlação:
+    # mandar o mesmo cadastro duas vezes é mandar a mesma chave primária. Nulo é o caso
+    # de quem está online — aí o servidor gera, como sempre fez. Ver ADR 0019, decisão 2.
+    id: uuid.UUID | None = None
+
     tipo: TipoPessoa = TipoPessoa.FISICA
     nome: str = Field(min_length=1, max_length=200)
     apelido: str | None = Field(default=None, max_length=200)

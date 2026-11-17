@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
@@ -45,10 +45,17 @@ async def criar_cliente(
     payload: ClienteIn,
     session: SessionDep,
     principal: CurrentPrincipal,
+    resposta: Response,
     _: Annotated[object, Depends(require("clientes.cliente.write"))],
 ) -> Cliente:
+    """Cadastra um cliente, ou reconhece um que já chegou antes.
+
+    Quando o aparelho manda a identidade junto e ela já está cadastrada, a resposta é
+    **200 com o cadastro existente**, e não 201 nem erro. É o reenvio de quem estava sem
+    sinal: a requisição saiu, a resposta se perdeu no caminho, e o aparelho tentou de novo.
+    """
     try:
-        return await service.criar(
+        cliente, nasceu_agora = await service.criar(
             session,
             tenant_id=principal.tenant_id,
             user_id=principal.user_id,
@@ -56,6 +63,10 @@ async def criar_cliente(
         )
     except service.ClientesError as exc:
         raise _invalido(exc) from exc
+
+    if not nasceu_agora:
+        resposta.status_code = status.HTTP_200_OK
+    return cliente
 
 
 @router.get("/clientes/{cliente_id}", response_model=ClienteOut)
@@ -82,7 +93,9 @@ async def atualizar_cliente(
             tenant_id=principal.tenant_id,
             user_id=principal.user_id,
             cliente=cliente,
-            dados=payload.model_dump(),
+            # O `id` fica de fora: mudar identidade por formulário de edição seria trocar
+            # a chave primária sem dizer, e quem aponta para o cadastro ficaria órfão.
+            dados=payload.model_dump(exclude={"id"}),
         )
     except service.ClientesError as exc:
         raise _invalido(exc) from exc

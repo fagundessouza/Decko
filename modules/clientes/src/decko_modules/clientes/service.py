@@ -10,6 +10,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko_modules.clientes.models import Cliente
@@ -82,7 +83,26 @@ async def criar(
     tenant_id: uuid.UUID,
     user_id: uuid.UUID | None,
     dados: dict[str, Any],
-) -> Cliente:
+) -> tuple[Cliente, bool]:
+    """Cadastra, ou devolve o que já existe com aquela identidade.
+
+    Devolve `(cliente, nasceu_agora)`. O segundo valor existe para a rota responder 201
+    quando criou e 200 quando reconheceu — a diferença importa para quem está
+    sincronizando uma fila e precisa saber o que de fato entrou.
+
+    **Reenviar o mesmo cadastro não duplica.** Oscilação de sinal faz a mesma requisição
+    chegar duas vezes, e isso é o caso normal de quem opera sem rede, não o excepcional:
+    o aparelho manda, a resposta se perde no caminho, e ele manda de novo. Sem isto, o
+    cliente aparecia duas vezes na carteira e a segunda era recusada pelo documento
+    repetido — erro na tela de quem não errou nada. Ver ADR 0019, decisão 4.
+    """
+    pedido = dados.pop("id", None)
+    if pedido is not None:
+        # Só enxerga desta empresa: a consulta corre sob o isolamento, como todo o resto.
+        ja_existe = await session.get(Cliente, pedido)
+        if ja_existe is not None:
+            return ja_existe, False
+
     cpf_cnpj = dados.get("cpf_cnpj")
     if cpf_cnpj and await _documento_em_uso(session, cpf_cnpj):
         raise ClientesError("Já existe um cliente com este CPF ou CNPJ.")
@@ -90,13 +110,26 @@ async def criar(
     await _recusar_empresa_ja_vinculada(session, dados.get("tenant_assinante_id"))
 
     cliente = Cliente(tenant_id=tenant_id, **dados)
-    session.add(cliente)
-    await session.flush()
+    if pedido is not None:
+        cliente.id = pedido
+
+    # A chave primária agora pode vir de fora, e as conferências acima enxergam só esta
+    # empresa — enquanto a chave é única no banco inteiro. Identidade já usada em outra
+    # empresa chega aqui, e sem este `except` viraria 500 numa rota de escrita: defeito de
+    # servidor causado por entrada de cliente. A recusa não diz de quem é a identidade.
+    try:
+        session.add(cliente)
+        await session.flush()
+    except IntegrityError as exc:
+        raise ClientesError(
+            "Não foi possível registrar este cadastro: outro conflitante chegou ao mesmo "
+            "tempo. Tente de novo."
+        ) from exc
 
     await registrar_na_trilha(
         session, tenant_id=tenant_id, user_id=user_id, acao="cliente.create", cliente=cliente
     )
-    return cliente
+    return cliente, True
 
 
 async def atualizar(
