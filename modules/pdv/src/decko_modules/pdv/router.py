@@ -12,6 +12,7 @@ from decko.db import get_session
 from decko_modules.comercial import service as comercial
 from decko_modules.comercial.models import Produto
 from decko_modules.comercial.schemas import ProdutoOut
+from decko_modules.core import audit
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.pdv import service
 from decko_modules.pdv.models import (
@@ -37,6 +38,7 @@ from decko_modules.pdv.schemas import (
     DevolucaoIn,
     DevolucaoOut,
     DevolucoesDaVendaOut,
+    DivergenciaOut,
     FechamentoCaixaIn,
     IdentificarIn,
     ItemIn,
@@ -49,6 +51,8 @@ from decko_modules.pdv.schemas import (
     PreviaDevolucaoIn,
     PreviaDevolucaoOut,
     RetirarItemIn,
+    VendaDoAparelhoIn,
+    VendaDoAparelhoOut,
     VendaOut,
     VendaResumoOut,
 )
@@ -676,6 +680,89 @@ def _pedir_autorizacao(exc: service.AutorizacaoExigidaError) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_428_PRECONDITION_REQUIRED,
         detail={"detail": str(exc), "acao": exc.acao.value},
+    )
+
+
+@router.post("/vendas/do-aparelho", response_model=VendaDoAparelhoOut)
+async def receber_venda_do_aparelho(
+    payload: VendaDoAparelhoIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("pdv.venda.write"))],
+) -> VendaDoAparelhoOut:
+    """Recebe uma venda que já aconteceu no balcão, sem rede.
+
+    Responde igual na segunda vez: reenvio por oscilação de sinal é o caso normal de quem
+    opera sem rede, e o id vem do aparelho — ver ADR 0019, decisões 2 e 4.
+
+    O estoque pode ficar negativo, e a resposta diz onde: a divergência é o produto, não
+    o defeito. Ela também vira linha na trilha de auditoria, porque quem precisa vê-la é
+    o dono da loja, que não é quem está sincronizando.
+    """
+    try:
+        resultado = await service.sincronizar_venda(
+            session,
+            tenant_id=principal.tenant_id,
+            venda_id=payload.id,
+            itens=[
+                service.ItemDoAparelho(
+                    id=item.id,
+                    produto_id=item.produto_id,
+                    unidade_id=item.unidade_id,
+                    lote_id=item.lote_id,
+                    quantidade=item.quantidade,
+                    preco_unitario=item.preco_unitario,
+                    desconto=item.desconto,
+                    descricao=item.descricao,
+                )
+                for item in payload.itens
+            ],
+            pagamentos=[
+                service.PagamentoDoAparelho(
+                    id=pagamento.id,
+                    forma=pagamento.forma,
+                    valor=pagamento.valor,
+                    conta_id=pagamento.conta_id,
+                )
+                for pagamento in payload.pagamentos
+            ],
+            registrada_no_aparelho_em=payload.registrada_no_aparelho_em,
+            operador_id=principal.user_id,
+            cliente_id=payload.cliente_id,
+            desconto=payload.desconto,
+        )
+    except service.PdvError as exc:
+        raise _invalido(exc) from exc
+
+    for divergencia in resultado.divergencias:
+        audit.registrar(
+            session,
+            tenant_id=principal.tenant_id,
+            user_id=principal.user_id,
+            action="venda.estoque_negativo",
+            entity="pdv_venda",
+            entity_id=str(resultado.venda.id),
+            data={
+                "venda": resultado.venda.numero,
+                "produto_id": str(divergencia.produto_id),
+                "descricao": divergencia.descricao,
+                "vendido": str(divergencia.vendido),
+                "saldo_depois": str(divergencia.saldo_depois),
+            },
+        )
+
+    return VendaDoAparelhoOut(
+        venda=await _ver(session, resultado.venda),
+        ja_existia=resultado.ja_existia,
+        divergencias=[
+            DivergenciaOut(
+                produto_id=d.produto_id,
+                descricao=d.descricao,
+                vendido=d.vendido,
+                saldo_depois=d.saldo_depois,
+            )
+            for d in resultado.divergencias
+        ],
     )
 
 

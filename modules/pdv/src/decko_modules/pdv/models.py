@@ -129,6 +129,16 @@ class Venda(TenantMixin, TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = primary_key()
     numero: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # A hora do **aparelho**, para venda que aconteceu sem rede.
+    #
+    # `created_at` é a hora do servidor, e continua sendo. Uma venda feita às 14h02 no
+    # balcão e sincronizada às 17h30 tem as duas horas verdadeiras, e guardar só uma faz
+    # a trilha mentir. Nula para venda feita com rede, que é a maioria.
+    # Ver docs/adr/0019-offline-first.md.
+    registrada_no_aparelho_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     status: Mapped[StatusVenda] = mapped_column(
         _enum(StatusVenda, "pdv_status_venda"), nullable=False, default=StatusVenda.ABERTA
     )

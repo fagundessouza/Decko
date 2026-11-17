@@ -391,3 +391,68 @@ class RetirarItemIn(BaseModel):
 
 class CancelarVendaIn(BaseModel):
     autorizacao: CredencialIn | None = None
+
+
+# ------------------------------------------------------- a venda que aconteceu sem rede
+
+
+class ItemDoAparelhoIn(BaseModel):
+    """Um item como o aparelho registrou, com o preço que o cliente pagou.
+
+    O preço vem do aparelho de propósito: é o que foi cobrado no balcão, e reprecificar
+    na chegada reescreveria o que aconteceu. Se o preço mudou no servidor desde a última
+    sincronização, quem decide o que fazer é a loja, olhando a venda.
+    """
+
+    id: uuid.UUID
+    produto_id: uuid.UUID
+    unidade_id: uuid.UUID
+    lote_id: uuid.UUID | None = None
+    quantidade: Decimal = Field(gt=0)
+    preco_unitario: Decimal = Field(ge=0)
+    desconto: Decimal = Field(default=Decimal(0), ge=0)
+    descricao: str = Field(min_length=1, max_length=200)
+
+
+class PagamentoDoAparelhoIn(BaseModel):
+    id: uuid.UUID
+    forma: FormaPagamento
+    valor: Decimal = Field(gt=0)
+    conta_id: uuid.UUID | None = None
+
+
+class VendaDoAparelhoIn(BaseModel):
+    """Uma venda inteira, já fechada no balcão, chegando de uma vez.
+
+    Não é a venda sendo feita — é a venda que foi feita. Por isso ela chega completa, num
+    pacote só: não há como abrir, lançar e pagar em requisições separadas quando o que se
+    está contando é um fato do passado.
+    """
+
+    id: uuid.UUID
+    registrada_no_aparelho_em: datetime
+    itens: list[ItemDoAparelhoIn] = Field(min_length=1)
+    pagamentos: list[PagamentoDoAparelhoIn] = Field(min_length=1)
+    desconto: Decimal = Field(default=Decimal(0), ge=0)
+    cliente_id: uuid.UUID | None = None
+
+
+class DivergenciaOut(BaseModel):
+    """Produto que ficou negativo por causa desta venda.
+
+    Vai na resposta, e não só para o banco: a divergência é o produto, não o defeito —
+    ver `docs/adr/0022-offline-first-as-respostas.md`. Quem sincroniza precisa ver o que
+    não bateu, com endereço: qual produto, quanto saiu, com quanto ficou.
+    """
+
+    produto_id: uuid.UUID
+    descricao: str
+    vendido: Decimal
+    saldo_depois: Decimal
+
+
+class VendaDoAparelhoOut(BaseModel):
+    venda: VendaOut
+    # A venda já estava aqui: é reenvio, e nada foi registrado de novo.
+    ja_existia: bool
+    divergencias: list[DivergenciaOut]

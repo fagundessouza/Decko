@@ -6,6 +6,7 @@ conhece conversão de embalagem, exigência de lote e razão de estoque é ele �
 """
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -1279,3 +1280,140 @@ async def catalogo_do_aparelho(session: AsyncSession, *, tenant_id: uuid.UUID) -
         ativos.where(Produto.id.in_(vendidos)).order_by(Produto.nome).limit(TETO_DO_CATALOGO)
     )
     return list(resultado.scalars().all())
+
+
+# ------------------------------------------------------- a venda que aconteceu sem rede
+
+
+@dataclass(frozen=True)
+class ItemDoAparelho:
+    id: uuid.UUID
+    produto_id: uuid.UUID
+    unidade_id: uuid.UUID
+    quantidade: Decimal
+    preco_unitario: Decimal
+    descricao: str
+    lote_id: uuid.UUID | None = None
+    desconto: Decimal = Decimal(0)
+
+
+@dataclass(frozen=True)
+class PagamentoDoAparelho:
+    id: uuid.UUID
+    forma: FormaPagamento
+    valor: Decimal
+    conta_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True)
+class Divergencia:
+    """Saldo que ficou negativo por causa desta venda."""
+
+    produto_id: uuid.UUID
+    descricao: str
+    vendido: Decimal
+    saldo_depois: Decimal
+
+
+@dataclass(frozen=True)
+class VendaSincronizada:
+    venda: Venda
+    ja_existia: bool
+    divergencias: list[Divergencia]
+
+
+async def sincronizar_venda(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    venda_id: uuid.UUID,
+    itens: Sequence[ItemDoAparelho],
+    pagamentos: Sequence[PagamentoDoAparelho],
+    registrada_no_aparelho_em: datetime,
+    operador_id: uuid.UUID | None = None,
+    cliente_id: uuid.UUID | None = None,
+    desconto: Decimal = Decimal(0),
+) -> VendaSincronizada:
+    """Recebe uma venda que **já aconteceu** no balcão, sem rede.
+
+    A diferença para `finalizar_venda` não é técnica, é de tempo verbal: ali a venda está
+    sendo feita e pode ser recusada; aqui ela foi feita, o cliente levou a mercadoria e
+    foi embora. O servidor registra o que aconteceu.
+
+    Por isso o estoque **pode ficar negativo**, e isso não é falha. A decisão é do dono do
+    projeto, em 04/11/2026: recusar a venda por divergência criaria exatamente o que o
+    controle de estoque existe para impedir — mercadoria saindo sem registro. O saldo
+    negativo é um aviso com endereço, e esta função devolve esse endereço em
+    `divergencias`: qual produto, quanto saiu, com quanto ficou.
+
+    Reenviar a mesma venda não duplica: o id vem do aparelho, e a segunda chegada devolve
+    a que já está aqui — ver ADR 0019, decisões 2 e 4.
+
+    O `numero` nasce aqui, e não no aparelho. Dois caixas sem rede não têm como combinar
+    um contador, e o número é o que o cliente vê no cupom. A ADR 0019 já dizia que ele só
+    existe depois da sincronização.
+    """
+    existente = await session.get(Venda, venda_id)
+    if existente is not None:
+        return VendaSincronizada(venda=existente, ja_existia=True, divergencias=[])
+
+    if not itens:
+        raise PdvError("Não dá para registrar uma venda sem itens.")
+
+    venda = Venda(
+        tenant_id=tenant_id,
+        operador_id=operador_id,
+        cliente_id=cliente_id,
+        desconto=_dinheiro(desconto),
+        registrada_no_aparelho_em=registrada_no_aparelho_em,
+    )
+    venda.id = venda_id
+    session.add(venda)
+    await session.flush()
+
+    for item in itens:
+        linha = ItemVenda(
+            tenant_id=tenant_id,
+            venda_id=venda.id,
+            produto_id=item.produto_id,
+            unidade_id=item.unidade_id,
+            lote_id=item.lote_id,
+            quantidade=item.quantidade,
+            preco_unitario=item.preco_unitario,
+            desconto=_dinheiro(item.desconto),
+            total=_dinheiro(item.quantidade * item.preco_unitario - item.desconto),
+            descricao=item.descricao,
+        )
+        linha.id = item.id
+        session.add(linha)
+
+    for pagamento in pagamentos:
+        linha_pg = Pagamento(
+            tenant_id=tenant_id,
+            venda_id=venda.id,
+            forma=pagamento.forma,
+            valor=_dinheiro(pagamento.valor),
+            conta_id=pagamento.conta_id,
+        )
+        linha_pg.id = pagamento.id
+        session.add(linha_pg)
+
+    await session.flush()
+
+    fechamento = await finalizar_venda(session, venda=venda, registrado_por=operador_id)
+
+    # Só depois da baixa dá para saber com quanto cada produto ficou.
+    divergencias = []
+    for item in itens:
+        saldo = await comercial.saldo_do_produto(session, item.produto_id)
+        if saldo < 0:
+            divergencias.append(
+                Divergencia(
+                    produto_id=item.produto_id,
+                    descricao=item.descricao,
+                    vendido=item.quantidade,
+                    saldo_depois=saldo,
+                )
+            )
+
+    return VendaSincronizada(venda=fechamento.venda, ja_existia=False, divergencias=divergencias)
