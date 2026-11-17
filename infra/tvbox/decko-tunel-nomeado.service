@@ -18,6 +18,10 @@ ExecStart=/usr/local/bin/cloudflared tunnel --config /etc/decko/tunel/config.yml
 Restart=always
 RestartSec=10
 
+# Mesmo motivo da API: caixa sozinha nao tem quem mande subir a mao. Sem tunel, o sistema
+# fica no ar sem ninguem conseguir chegar nele — que e indistinguivel de estar fora.
+StartLimitIntervalSec=0
+
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict

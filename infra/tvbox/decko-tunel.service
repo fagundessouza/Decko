@@ -8,6 +8,7 @@ Type=exec
 ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:8000 --no-autoupdate --loglevel info
 Restart=always
 RestartSec=10
+StartLimitIntervalSec=0
 DynamicUser=yes
 NoNewPrivileges=yes
 PrivateTmp=yes

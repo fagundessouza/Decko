@@ -159,6 +159,26 @@ arquivo que vale o domínio inteiro, e por isso ele fica em `/etc/decko/tunel`, 
 `decko` e permissão 600 — usuário sorteado a cada partida não conseguiria lê-lo, e não
 deveria.
 
+## Queda de energia
+
+Em 17/11/2026 um pico derrubou a caixa **duas vezes** na mesma madrugada, às 01h16 e às
+02h16. Ela voltou sozinha nas duas, com banco íntegro, e o backup das 3h30 rodou depois —
+é o comportamento desejado, e está conferido, não suposto.
+
+O que o `systemd` garante: a máquina liga, o PostgreSQL sobe pelo `postgresql.service`, a
+API espera por ele (`Requires=`) e o túnel sobe em seguida. Os três reiniciam sozinhos se
+caírem, e desde esta data com `StartLimitIntervalSec=0` — sem isso, o padrão do systemd
+desiste depois de cinco partidas em dez segundos e deixa a unidade morta até alguém mandar
+subir à mão. Numa caixa atrás de uma tomada, "alguém" não existe.
+
+O que **não** está protegido, e é decisão em aberto: o sistema de arquivos está montado com
+`commit=600,data=writeback`, que é o ajuste do Armbian para poupar cartão. São dez minutos
+de metadados em memória e gravação de dado fora de ordem — o que se perde numa queda. O
+banco não corre esse risco, porque o PostgreSQL faz `fsync` do WAL por conta própria e o
+`synchronous_commit` está ligado; o que pode se perder é arquivo comum escrito nos minutos
+anteriores. Como a escrita medida é de ~225 MiB/dia, o desgaste que esse ajuste evita é
+pequeno perto do que ele custa em queda de luz.
+
 ## Conferir que está de pé
 
 ```bash
