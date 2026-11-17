@@ -7,7 +7,7 @@ conhece conversão de embalagem, exigência de lote e razão de estoque é ele �
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
@@ -1229,3 +1229,53 @@ async def autorizadores(session: AsyncSession, tenant_id: uuid.UUID) -> list[Aut
         )
     ).all()
     return [Autorizador(id=user_id, nome=nome) for user_id, nome in linhas]
+
+
+# ------------------------------------------------------- o catálogo que vai no aparelho
+
+# Quanto tempo para trás conta como "em uso".
+DIAS_DE_CATALOGO = 90
+# Teto do que viaja para o aparelho. O alvo inclui celular fraco e PC de caixa antigo.
+TETO_DO_CATALOGO = 2000
+
+
+async def catalogo_do_aparelho(session: AsyncSession, *, tenant_id: uuid.UUID) -> list[Produto]:
+    """Os produtos que o aparelho guarda para vender sem rede.
+
+    Vender offline exige o catálogo no aparelho, e a ADR 0019 deixou a pergunta em aberto
+    justamente porque "o catálogo inteiro" não é resposta: uma distribuidora tem dezenas
+    de milhares de itens, e baixar isso num celular fraco é o tipo de peso que este
+    projeto trata como defeito. A resposta está na ADR 0022, decisão 3.
+
+    O recorte é por uso, não por tamanho do cadastro:
+
+    - loja pequena, catálogo inteiro cabe: vai inteiro, e não falta nada;
+    - catálogo grande: vão os que **venderam** nos últimos noventa dias, que é o que o
+      balcão alcança de verdade num dia sem rede.
+
+    Quem nunca vendeu também não vai ser vendido offline — e, se for, o produto é
+    digitado pelo código e a descrição chega na sincronização. Não vender o que está na
+    prateleira seria pior do que vender com o nome em branco por algumas horas.
+
+    A contagem de vendas sai das tabelas **do próprio PDV**, e os produtos vêm do modelo
+    do comercial, que o PDV declara em `depends`. Nenhum módulo lê a tabela do outro por
+    fora do que o manifesto autoriza — ver ADR 0007.
+    """
+    ativos = select(Produto).where(Produto.ativo.is_(True))
+
+    quantos = await session.scalar(select(func.count()).select_from(ativos.subquery()))
+    if (quantos or 0) <= TETO_DO_CATALOGO:
+        resultado = await session.execute(ativos.order_by(Produto.nome))
+        return list(resultado.scalars().all())
+
+    corte = datetime.now(UTC) - timedelta(days=DIAS_DE_CATALOGO)
+    vendidos = (
+        select(ItemVenda.produto_id)
+        .join(Venda, Venda.id == ItemVenda.venda_id)
+        .where(Venda.created_at >= corte)
+        .distinct()
+    )
+    resultado = await session.execute(
+        ativos.where(Produto.id.in_(vendidos)).order_by(Produto.nome).limit(TETO_DO_CATALOGO)
+    )
+    return list(resultado.scalars().all())

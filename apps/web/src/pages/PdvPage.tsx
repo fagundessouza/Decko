@@ -21,12 +21,13 @@ import { LarguraDoPapel, Recibo } from "../components/Recibo";
 import { TextField } from "../components/TextField";
 import { clientes } from "../lib/clientes";
 import type { Cliente } from "../lib/clientes";
-import { comercial } from "../lib/comercial";
 import { financeiro } from "../lib/financeiro";
 import type { ContaRecebimento } from "../lib/financeiro";
 import type { Produto } from "../lib/comercial";
 import { brl, num } from "../lib/format";
 import { FORMAS, pdv } from "../lib/pdv";
+import * as catalogo from "../lib/catalogo";
+import { session } from "../lib/session";
 import type { SessionInfo } from "../lib/api";
 import type { Credencial, FormaPagamento, Venda } from "../lib/pdv";
 
@@ -140,6 +141,13 @@ export function PdvPage({
    * Falha de rede ao ler a configuração **destrava**: isto organiza o turno, não guarda
    * dinheiro, e uma loja parada por um soluço de rede seria pior do que o problema. */
   const [travado, setTravado] = useState<boolean | null>(null);
+  /* A busca veio do aparelho, e não do servidor. Quem está vendendo precisa saber: o
+   * preço é o da última sincronização, e produto cadastrado hoje pode não estar ali. */
+  const [semRede, setSemRede] = useState(false);
+  /* O identificador da empresa, e não o nome: `empresa` acima é o nome que sai no recibo.
+   * O armazenamento do aparelho é separado por identificador, o mesmo que a carteira de
+   * clientes usa — duas empresas no mesmo balcão não podem misturar catálogo. */
+  const chaveLocal = session.getTenantSlug();
 
   useEffect(() => {
     let vivo = true;
@@ -165,6 +173,15 @@ export function PdvPage({
 
   /* Retoma a venda aberta em vez de começar outra: recarregar a página não pode perder o
    * que já foi bipado. */
+  /* Renova o catálogo guardado ao abrir o PDV.
+   *
+   * É aqui, e não num relógio de fundo: quem abre o caixa está começando o expediente,
+   * que é exatamente quando vale gastar rede para ficar preparado para a falta dela.
+   * Falha é silenciosa — não ter rede agora é o próprio caso que isto serve. */
+  useEffect(() => {
+    void catalogo.atualizar(chaveLocal).catch(() => undefined);
+  }, [chaveLocal]);
+
   useEffect(() => {
     // Enquanto a trava não for resolvida, nenhuma venda é aberta — ver `travado`.
     if (travado !== false) return;
@@ -270,9 +287,9 @@ export function PdvPage({
     setBusy(true);
     setErro(null);
     try {
-      const produtos = (await comercial.listProdutos(termo)).filter(
-        (item) => item.ativo,
-      );
+      const achado = await catalogo.procurar(chaveLocal, termo);
+      const produtos = achado.produtos.filter((item) => item.ativo);
+      setSemRede(achado.doAparelho);
       if (produtos.length === 0) {
         setErro(`Nenhum produto para “${termo}”.`);
         setAchados(null);
@@ -650,6 +667,15 @@ export function PdvPage({
         description="Bipe o código de barras ou digite o código do produto e dê Enter."
         onBack={onBack}
       />
+
+      {semRede && (
+        <div className="mb-6">
+          <Alert tone="warn">
+            Sem conexão: a busca está usando o catálogo guardado neste aparelho. Os preços
+            são os da última sincronização, e produto cadastrado hoje pode não aparecer.
+          </Alert>
+        </div>
+      )}
 
       {erro && (
         <div className="mb-6">

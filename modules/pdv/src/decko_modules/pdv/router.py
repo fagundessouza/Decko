@@ -10,6 +10,8 @@ from sqlalchemy.orm import selectinload
 
 from decko.db import get_session
 from decko_modules.comercial import service as comercial
+from decko_modules.comercial.models import Produto
+from decko_modules.comercial.schemas import ProdutoOut
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.pdv import service
 from decko_modules.pdv.models import (
@@ -675,6 +677,23 @@ def _pedir_autorizacao(exc: service.AutorizacaoExigidaError) -> HTTPException:
         status_code=status.HTTP_428_PRECONDITION_REQUIRED,
         detail={"detail": str(exc), "acao": exc.acao.value},
     )
+
+
+@router.get("/catalogo-do-aparelho", response_model=list[ProdutoOut])
+async def catalogo_do_aparelho(
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("pdv.venda.write"))],
+) -> list[Produto]:
+    """Os produtos que o aparelho guarda para vender quando a rede cair.
+
+    A permissão é a de operar, e não a de administrar o catálogo: quem precisa disto é
+    quem vende, e exigir permissão de cadastro deixaria o operador sem o que vender
+    justamente no dia sem sinal.
+
+    O recorte e o porquê dele estão em `service.catalogo_do_aparelho` e na ADR 0022.
+    """
+    return await service.catalogo_do_aparelho(session, tenant_id=principal.tenant_id)
 
 
 @router.get("/autorizadores", response_model=list[AutorizadorOut])

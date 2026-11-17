@@ -15,11 +15,13 @@
  * chamou — quem decide o que fazer é a tela, não esta camada.
  */
 
-const VERSAO = 1;
+/* Sobe quando um armazém entra ou sai: `onupgradeneeded` só roda quando a versão muda, e
+ * sem isso o armazém novo não existe no aparelho de quem já usou o sistema antes. */
+const VERSAO = 2;
 
-export type Armazem = "fila" | "clientes";
+export type Armazem = "fila" | "clientes" | "produtos";
 
-const ARMAZENS: Armazem[] = ["fila", "clientes"];
+const ARMAZENS: Armazem[] = ["fila", "clientes", "produtos"];
 
 /** Falha de armazenamento local. Quem chama decide se isso é fatal para a operação. */
 export class LocalIndisponivelError extends Error {

@@ -1,4 +1,5 @@
 import { authedJson } from "./api";
+import type { Produto } from "./comercial";
 
 /** Quem está liberando, e a senha dele.
  *
@@ -366,6 +367,9 @@ export const pdv = {
 
   /** Quem pode liberar o que o operador não faz sozinho. */
   autorizadores: (): Promise<Autorizador[]> => authedJson("/pdv/autorizadores"),
+
+  /** O recorte do catálogo que o aparelho guarda para vender sem rede. Ver ADR 0022. */
+  catalogoDoAparelho: (): Promise<Produto[]> => authedJson("/pdv/catalogo-do-aparelho"),
 
   configuracao: (): Promise<ConfiguracaoPdv> => authedJson("/pdv/configuracao"),
 
