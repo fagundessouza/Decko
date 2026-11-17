@@ -43,17 +43,33 @@ fi
 # ------------------------------------------------------------------ 2. o tunel
 
 passo "tunel '$NOME_TUNEL'"
-if cloudflared tunnel list --output json | grep -q "\"name\":\"$NOME_TUNEL\""; then
+
+# Le o id do tunel pelo nome, com JSON de verdade.
+#
+# A primeira versao disto cortava a saida com grep e tr. Quebrou na primeira execucao: a
+# formatacao do JSON do cloudflared nao e a que o corte supunha, e `tunnel info` nem
+# aceita --output nesta versao. Texto estruturado se le com leitor de texto estruturado.
+id_do_tunel() {
+    cloudflared tunnel list --output json | python3 -c '
+import json, sys
+
+procurado = sys.argv[1]
+for tunel in json.load(sys.stdin):
+    # Tunel apagado continua na lista, com data de remocao. Nao e o nosso.
+    if tunel.get("name") == procurado and not tunel.get("deleted_at"):
+        print(tunel["id"])
+        break
+' "$NOME_TUNEL"
+}
+
+UUID="$(id_do_tunel)"
+if [ -n "$UUID" ]; then
     echo "ja existe."
 else
     cloudflared tunnel create "$NOME_TUNEL"
+    UUID="$(id_do_tunel)"
 fi
-
-# Pergunta o id deste tunel pelo nome. Varrer a lista pegaria o primeiro de todos,
-# que nem sempre e o nosso.
-UUID="$(cloudflared tunnel info "$NOME_TUNEL" --output json | tr ',' '\n' \
-    | grep -m1 '"id"' | cut -d'"' -f4)"
-[ -n "$UUID" ] || erro "nao consegui descobrir o id do tunel."
+[ -n "$UUID" ] || erro "nao consegui descobrir o id do tunel '$NOME_TUNEL'."
 echo "id: $UUID"
 
 CREDENCIAL="/root/.cloudflared/$UUID.json"
