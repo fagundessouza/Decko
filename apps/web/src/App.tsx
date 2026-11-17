@@ -9,6 +9,7 @@ import { ModuleTile } from "./components/ModuleTile";
 import { logout, renewSession, restoreSession, SemRedeError } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
 import { SemConexao } from "./components/SemConexao";
+import { enviarPendentes } from "./lib/carteira";
 import { AtualizacaoDisponivel } from "./components/AtualizacaoDisponivel";
 import type { Plan } from "./lib/agro";
 import { comercial } from "./lib/comercial";
@@ -171,6 +172,21 @@ export default function App() {
       })
       .finally(() => setChecking(false));
   }, [tentativa]);
+
+  /* A fila sobe sozinha: ao entrar e sempre que a rede voltar.
+   *
+   * "Sem a pessoa pedir e sem tela de sincronizando" é a decisão 3 da ADR 0019. Falha
+   * aqui é silenciosa de propósito — quem está sem rede já sabe que está, e a tela de
+   * clientes mostra item por item o que ainda não subiu. */
+  useEffect(() => {
+    const empresa = info?.tenant.slug;
+    if (!empresa) return;
+
+    const esvaziar = () => void enviarPendentes(empresa).catch(() => undefined);
+    esvaziar();
+    window.addEventListener("online", esvaziar);
+    return () => window.removeEventListener("online", esvaziar);
+  }, [info?.tenant.slug]);
 
   /* Busca o pedaço do PDV assim que a sessão existe, se a empresa tiver o módulo.
    *

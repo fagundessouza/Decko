@@ -28,6 +28,9 @@ export interface Cliente {
 
 /** O que a tela manda. Campo em branco vira nulo antes de sair daqui. */
 export interface ClienteIn {
+  /** Identidade gerada no aparelho, quando o cadastro nasceu sem rede. Ausente quando
+   *  quem cadastra está online: aí o servidor gera, como sempre fez. */
+  id?: string;
   tipo: TipoPessoa;
   nome: string;
   apelido?: string | null;

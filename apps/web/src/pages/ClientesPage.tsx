@@ -10,6 +10,9 @@ import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { clientes } from "../lib/clientes";
 import type { Cliente, ClienteIn, TipoPessoa } from "../lib/clientes";
+import { listar as listarCarteira, salvar as salvarNaCarteira } from "../lib/carteira";
+import { EVENTO_FILA } from "../lib/fila";
+import { session } from "../lib/session";
 import { formatCpfCnpj } from "../lib/documents";
 
 interface Props {
@@ -81,10 +84,22 @@ export function ClientesPage({ onBack }: Props) {
   const [form, setForm] = useState<Formulario>(VAZIO);
   const [aberto, setAberto] = useState(false);
 
+  /* O que ainda não chegou ao servidor, e o que ele recusou. Ver
+   * docs/adr/0022-offline-first-as-respostas.md: a divergência aparece, não some. */
+  const [pendentes, setPendentes] = useState<Set<string>>(new Set());
+  const [recusados, setRecusados] = useState<Map<string, string>>(new Map());
+  const [doCache, setDoCache] = useState(false);
+
+  const empresa = session.getTenantSlug();
+
   function recarregar(termo = busca, inativos = incluirInativos) {
-    return clientes
-      .listar(termo, inativos)
-      .then(setLista)
+    return listarCarteira(empresa, termo, inativos)
+      .then((visao) => {
+        setLista(visao.clientes);
+        setPendentes(visao.pendentes);
+        setRecusados(visao.recusados);
+        setDoCache(visao.doCache);
+      })
       .catch((cause) => {
         setLista([]);
         setErro(motivo(cause, "Não foi possível carregar os clientes."));
@@ -94,6 +109,14 @@ export function ClientesPage({ onBack }: Props) {
   useEffect(() => {
     void recarregar("", false);
   }, []);
+
+  /* A fila esvazia sozinha em segundo plano; quando isso acontece, a tela precisa parar
+   * de mostrar "não enviado" sem a pessoa recarregar nada. */
+  useEffect(() => {
+    const atualizar = () => void recarregar();
+    window.addEventListener(EVENTO_FILA, atualizar);
+    return () => window.removeEventListener(EVENTO_FILA, atualizar);
+  });
 
   // Busca no servidor, com uma pausa para não disparar a cada tecla.
   useEffect(() => {
@@ -142,8 +165,8 @@ export function ClientesPage({ onBack }: Props) {
     };
 
     try {
-      if (editando) await clientes.atualizar(editando.id, corpo);
-      else await clientes.criar(corpo);
+      // Sem rede isto entra na fila e a tela segue: é a escrita nascendo no aparelho.
+      await salvarNaCarteira(empresa, corpo, editando ?? undefined);
       setAberto(false);
       await recarregar();
     } catch (cause) {
@@ -189,6 +212,15 @@ export function ClientesPage({ onBack }: Props) {
       {erro && !aberto && (
         <div className="mb-6">
           <Alert tone="danger">{erro}</Alert>
+        </div>
+      )}
+
+      {doCache && (
+        <div className="mb-6">
+          <Alert tone="warn">
+            Sem conexão: esta lista é a última que este aparelho guardou. Cadastro novo
+            continua funcionando e sobe sozinho quando a rede voltar.
+          </Alert>
         </div>
       )}
 
@@ -247,6 +279,14 @@ export function ClientesPage({ onBack }: Props) {
                 </button>
 
                 <div className="flex shrink-0 items-center gap-3">
+                  {/* A divergência aparece: cadastro que não subiu, e cadastro que o
+                      servidor recusou, são estados diferentes e dizem coisas diferentes. */}
+                  {recusados.has(cliente.id) && (
+                    <Badge tone="danger" icon="!">
+                      {recusados.get(cliente.id)}
+                    </Badge>
+                  )}
+                  {pendentes.has(cliente.id) && <Badge tone="warn">Ainda não enviado</Badge>}
                   {!cliente.ativo && <Badge tone="neutral">Inativo</Badge>}
                   <Button
                     variant="ghost"

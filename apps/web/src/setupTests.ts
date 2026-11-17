@@ -1,3 +1,7 @@
+/* O jsdom não implementa IndexedDB, e o navegador implementa. Sem este dublê, toda tela
+ * que guarda algo no aparelho falharia no teste por um motivo que não existe no campo. */
+import "fake-indexeddb/auto";
+
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 
