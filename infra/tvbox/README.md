@@ -105,6 +105,15 @@ que já está no ar.**
 4. **Na Vercel**, acrescente o domínio `decko.app.br` ao projeto, aponte `VITE_API_URL`
    para `https://api.decko.app.br` e promova um build novo da `main`. Valor `VITE_` entra
    no pacote na montagem, então sem build novo nada muda.
+5. **Só então desligue o túnel rápido**, na caixa:
+
+   ```bash
+   sudo systemctl disable --now decko-tunel
+   ```
+
+   Os dois ficam de pé até aqui, e é de propósito: a tela publicada leva a URL sorteada
+   dentro do pacote, então desligar o rápido antes tira o cliente do ar até a Vercel
+   montar de novo. E não há volta barata — parar e religar o rápido sorteia outra URL.
 
 Por que a credencial exige usuário fixo: o túnel rápido roda com `DynamicUser` porque não
 tem segredo nenhum: qualquer um levanta um e recebe uma URL sorteada. O nomeado guarda um

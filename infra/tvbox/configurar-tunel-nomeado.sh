@@ -92,10 +92,15 @@ chmod 640 "$DESTINO/config.yml"
 install -m 644 "$AQUI/$UNIDADE_NOMEADA" /etc/systemd/system/
 systemctl daemon-reload
 
-# ------------------------------------------------------------------ 5. a troca
+# ------------------------------------------------------------------ 5. subir, sem derrubar
 
-passo "trocando o tunel rapido pelo nomeado"
-systemctl disable --now "$UNIDADE_RAPIDA" 2>/dev/null || true
+passo "subindo o tunel nomeado ao lado do rapido"
+# O rapido continua de pe de proposito. A tela publicada ainda leva a URL sorteada dentro
+# do pacote, e derrubar o tunel agora tiraria o cliente do ar ate a Vercel montar de novo.
+# Pior: parar e religar o rapido sorteia outra URL, entao nao ha volta barata.
+#
+# Os dois convivem — sao processos distintos, nenhum escuta porta local. O rapido sai no
+# fim, quando a tela ja estiver no dominio novo.
 systemctl enable --now "$UNIDADE_NOMEADA"
 
 sleep 8
@@ -124,7 +129,14 @@ Pronto. Falta o que mora fora desta caixa:
        DECKO_CORS_ORIGINS=https://decko.app.br,https://decko-web.vercel.app
        systemctl restart decko-api
 
-  2. Na Vercel, aponte VITE_API_URL para https://$HOSTNAME_API e promova um build novo
-     da main — valor VITE_ entra no pacote na montagem, nao em tempo de execucao.
+  2. Na Vercel, acrescente o dominio da tela ao projeto, aponte VITE_API_URL para
+     https://$HOSTNAME_API e promova um build novo da main — valor VITE_ entra no pacote
+     na montagem, nao em tempo de execucao.
+
+  3. So depois que a tela nova estiver no ar e entrando, desligue o tunel rapido:
+
+       systemctl disable --now $UNIDADE_RAPIDA
+
+     Ate la os dois ficam de pe. O rapido ainda e quem serve a tela publicada.
 
 FIM
