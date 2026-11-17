@@ -3,12 +3,22 @@ Description=Decko - tunel Cloudflare
 After=network-online.target decko-api.service
 Wants=network-online.target
 
+# Nunca desistir de tentar.
+#
+# O padrao do systemd para aqui depois de cinco partidas em dez segundos, e deixa a
+# unidade morta ate alguem mandar subir a mao. Numa caixa que fica sozinha atras de uma
+# tomada, "alguem" nao existe: foi o medo depois do pico de energia de 17/11/2026, que
+# derrubou a maquina duas vezes na mesma madrugada.
+#
+# Vai em [Unit], e nao em [Service]: em [Service] o systemd simplesmente ignora, e o
+# limite continua valendo sem ninguem perceber. Conferido com `systemctl show`.
+StartLimitIntervalSec=0
+
 [Service]
 Type=exec
 ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:8000 --no-autoupdate --loglevel info
 Restart=always
 RestartSec=10
-StartLimitIntervalSec=0
 DynamicUser=yes
 NoNewPrivileges=yes
 PrivateTmp=yes
