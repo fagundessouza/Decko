@@ -1179,7 +1179,9 @@ async def exigir_autorizacao(
             await core_service.conferir_pin(session, user=autorizador, pin=credencial.pin)
         except core_service.AuthError as exc:
             raise PdvError(str(exc)) from exc
-    elif not security.verify_password(credencial.senha or "", autorizador.password_hash):
+    elif not await security.verify_password_async(
+        credencial.senha or "", autorizador.password_hash
+    ):
         # Mensagem igual à do supervisor inexistente seria pior aqui do que no login: o
         # operador sabe quem escolheu na lista, e "senha não confere" é o que ele precisa
         # para chamar a pessoa de novo.

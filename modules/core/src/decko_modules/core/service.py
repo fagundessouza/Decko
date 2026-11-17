@@ -82,7 +82,7 @@ async def authenticate(
         select(Tenant).where(Tenant.slug == tenant_slug, Tenant.is_active.is_(True))
     )
     if tenant is None:
-        security.verify_password(password, _DUMMY_HASH)
+        await security.verify_password_async(password, _DUMMY_HASH)
         raise AuthError
 
     # A partir daqui as consultas enxergam apenas esta empresa.
@@ -90,11 +90,11 @@ async def authenticate(
 
     user = await session.scalar(select(User).where(User.email == email))
     if user is None:
-        security.verify_password(password, _DUMMY_HASH)
+        await security.verify_password_async(password, _DUMMY_HASH)
         # Sem ``user_id``: não há conta, e o e-mail digitado não entra na trilha.
         raise AuthError(tenant_id=tenant.id, motivo="usuario_desconhecido")
 
-    if not security.verify_password(password, user.password_hash):
+    if not await security.verify_password_async(password, user.password_hash):
         raise AuthError(tenant_id=tenant.id, user_id=user.id, motivo="senha")
 
     if not user.is_active:
@@ -106,7 +106,7 @@ async def authenticate(
         )
 
     if security.needs_rehash(user.password_hash):
-        user.password_hash = security.hash_password(password)
+        user.password_hash = await security.hash_password_async(password)
 
     user.last_login_at = datetime.now(UTC)
     permissions = await _load_permissions(session, user.id)
@@ -349,7 +349,7 @@ async def criar_membro(
         tenant_id=tenant_id,
         email=endereco,
         full_name=nome,
-        password_hash=security.hash_password(senha_inicial),
+        password_hash=await security.hash_password_async(senha_inicial),
         must_change_password=True,
     )
     session.add(user)
@@ -402,14 +402,14 @@ async def trocar_senha(
     Conferir a atual mesmo quando a troca é obrigatória: sem isso, um terminal deixado
     aberto no balcão permitiria a qualquer um tomar a conta do operador.
     """
-    if not security.verify_password(senha_atual, user.password_hash):
+    if not await security.verify_password_async(senha_atual, user.password_hash):
         raise EquipeError("A senha atual não confere.")
     if nova_senha == senha_atual:
         raise EquipeError("A senha nova precisa ser diferente da atual.")
 
     await recusar_se_vazada(nova_senha, habilitada=breach_check)
 
-    user.password_hash = security.hash_password(nova_senha)
+    user.password_hash = await security.hash_password_async(nova_senha)
     user.must_change_password = False
     await session.flush()
     return user
@@ -445,10 +445,10 @@ async def definir_pin(session: AsyncSession, *, user: User, senha: str, pin: str
     aberto no balcão permitiria a qualquer um gravar um PIN próprio na conta alheia e
     voltar nela quando quisesse.
     """
-    if not security.verify_password(senha, user.password_hash):
+    if not await security.verify_password_async(senha, user.password_hash):
         raise EquipeError("A senha não confere.")
 
-    user.pin_hash = security.hash_password(_pin_bem_formado(pin))
+    user.pin_hash = await security.hash_password_async(_pin_bem_formado(pin))
     user.pin_tentativas = 0
     user.pin_bloqueado_ate = None
     await session.flush()
@@ -524,7 +524,7 @@ async def conferir_pin(session: AsyncSession, *, user: User, pin: str) -> None:
             motivo="pin_bloqueado",
         )
 
-    if not security.verify_password(pin, user.pin_hash):
+    if not await security.verify_password_async(pin, user.pin_hash):
         await _penalizar_pin(tenant_id=user.tenant_id, user_id=user.id)
         raise AuthError(
             "PIN incorreto.",

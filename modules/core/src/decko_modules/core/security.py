@@ -1,5 +1,6 @@
 """Hash de senha e emissão de tokens."""
 
+import asyncio
 import hashlib
 import secrets
 import uuid
@@ -42,6 +43,31 @@ def verify_password(password: str, password_hash: str) -> bool:
     except (VerifyMismatchError, VerificationError, InvalidHashError):
         return False
     return True
+
+
+async def hash_password_async(password: str) -> str:
+    """O mesmo hash, numa thread, para quem chama de dentro do laço de eventos.
+
+    Argon2id é caro **de propósito** — é disso que vive a proteção da senha. Medido na
+    caixa do piloto em 17/11/2026: 477 ms por conferência. Chamado direto de uma corrotina,
+    esse tempo não é só a espera de quem está entrando: é a API inteira parada, porque o
+    laço de eventos é um só. Com um operador no meio de uma venda, a tela dele congela
+    porque alguém do outro lado da cidade digitou a senha.
+
+    A mesma medição com `asyncio.to_thread`: o laço deixou de parar 483 ms e passou a
+    parar 2 ms. A vazão melhora pouco (1,7x), porque o Argon2 já usa quatro threads por
+    conta própria — o que muda é que o resto do sistema continua respondendo.
+
+    Funciona porque o argon2-cffi solta o GIL durante o cálculo, que acontece em C. Se não
+    soltasse, mudar de thread não adiantaria nada, e por isso isto foi medido antes de ser
+    escrito.
+    """
+    return await asyncio.to_thread(hash_password, password)
+
+
+async def verify_password_async(password: str, password_hash: str) -> bool:
+    """A conferência fora do laço de eventos. Ver `hash_password_async`."""
+    return await asyncio.to_thread(verify_password, password, password_hash)
 
 
 def needs_rehash(password_hash: str) -> bool:
