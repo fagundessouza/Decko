@@ -9,8 +9,9 @@
 > **adianta** a escrita; ele não vira dono de nada.
 
 - **Data:** 2026-11-03
-- **Status:** aceito como direção; **bloqueado para implementação** pelas questões da última
-  seção
+- **Status:** aceito como direção. As questões da última seção têm resposta **proposta** na
+  `docs/adr/0022-offline-first-as-respostas.md`, de 17/11/2026 — enquanto ela não for
+  confirmada, a implementação da sincronização continua bloqueada
 - **Depende de:** ADR 0001 (monólito modular), ADR 0008 (ponto de venda)
 - **Atravessa:** ADR 0004 (ativação por empresa), ADR 0015 (modo de implantação, fora do
   tronco), ADR 0018 (modelo fiscal na transição)
