@@ -6,8 +6,10 @@ import { Alert } from "./components/Alert";
 import { Card } from "./components/Card";
 import { ModuleIcon } from "./components/ModuleIcon";
 import { ModuleTile } from "./components/ModuleTile";
-import { logout, renewSession, restoreSession } from "./lib/api";
+import { logout, renewSession, restoreSession, SemRedeError } from "./lib/api";
 import type { SessionInfo } from "./lib/api";
+import { SemConexao } from "./components/SemConexao";
+import { AtualizacaoDisponivel } from "./components/AtualizacaoDisponivel";
 import type { Plan } from "./lib/agro";
 import { comercial } from "./lib/comercial";
 import type { Alertas, Produto } from "./lib/comercial";
@@ -148,6 +150,11 @@ const SECTION: Record<View["name"], string> = {
 export default function App() {
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [checking, setChecking] = useState(true);
+  /* Abriu sem conseguir falar com o servidor. Não é sessão inválida, e por isso não leva
+   * para a tela de entrada: quem está sem sinal não tem como responder a um formulário
+   * de senha — ver `SemRedeError`. */
+  const [semRede, setSemRede] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
   const [view, setView] = useState<View>({ name: "home" });
   /* Empresa nova: a primeira tela é a escolha do ramo, mas quem prefere montar aplicativo
    * por aplicativo troca para a vitrine aqui mesmo, antes de existir menu. */
@@ -155,10 +162,15 @@ export default function App() {
   const [trocando, setTrocando] = useState(false);
 
   useEffect(() => {
+    setChecking(true);
+    setSemRede(false);
     restoreSession()
       .then(setInfo)
+      .catch((causa) => {
+        if (causa instanceof SemRedeError) setSemRede(true);
+      })
       .finally(() => setChecking(false));
-  }, []);
+  }, [tentativa]);
 
   /* Busca o pedaço do PDV assim que a sessão existe, se a empresa tiver o módulo.
    *
@@ -169,6 +181,9 @@ export default function App() {
     if (info?.active_modules.includes("pdv")) void import("./pages/PdvPage");
   }, [info]);
 
+  // Fica fora de todo o resto: versão nova pode chegar com a pessoa em qualquer tela.
+  const aviso = <AtualizacaoDisponivel />;
+
   if (checking) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg">
@@ -177,8 +192,22 @@ export default function App() {
     );
   }
 
+  if (!info && semRede) {
+    return (
+      <>
+        <SemConexao onTentar={() => setTentativa((n) => n + 1)} />
+        {aviso}
+      </>
+    );
+  }
+
   if (!info) {
-    return <LoginPage onSignedIn={setInfo} />;
+    return (
+      <>
+        <LoginPage onSignedIn={setInfo} />
+        {aviso}
+      </>
+    );
   }
 
   // O menu vem dos módulos contratados, não do prefixo das permissões. O administrador
@@ -393,6 +422,8 @@ export default function App() {
   }
 
   return (
+    <>
+    {aviso}
     <AppShell
       tenantName={info.tenant.name}
       userName={info.user.full_name}
@@ -619,6 +650,7 @@ export default function App() {
       />
       </Suspense>
     </AppShell>
+    </>
   );
 }
 

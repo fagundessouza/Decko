@@ -1,9 +1,22 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { registerSW } from "virtual:pwa-register";
+
 import App from "./App";
+import { anunciarAtualizacao } from "./lib/pwa";
 import { recibo, theme } from "./lib/session";
 import "./styles.css";
+
+/* Guarda o pacote no aparelho, para o Decko abrir sem rede.
+ *
+ * `onNeedRefresh` avisa que existe versão nova esperando; quem decide a hora de trocar é
+ * quem está operando, porque recarregar no meio de uma venda perde a tela. */
+const trocarVersao = registerSW({
+  onNeedRefresh() {
+    anunciarAtualizacao(trocarVersao);
+  },
+});
 
 // Aplicado antes do primeiro render: fazer isso dentro de um componente provocaria um
 // clarão branco no modo escuro a cada abertura.

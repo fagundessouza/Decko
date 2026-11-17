@@ -69,6 +69,22 @@ interface TokenPayload {
   expires_in: number;
 }
 
+/** A chamada não chegou ao servidor. É diferente de o servidor ter dito não.
+ *
+ * `fetch` recusa com `TypeError` quando não há rede, quando o DNS não resolve e quando o
+ * servidor está fora. Nenhum desses casos significa que a sessão acabou — e tratá-los
+ * como tal apagaria a sessão de quem só entrou num lugar sem sinal.
+ */
+export class SemRedeError extends Error {
+  readonly causa?: unknown;
+
+  constructor(causa?: unknown) {
+    super("Sem conexão com o servidor.");
+    this.name = "SemRedeError";
+    this.causa = causa;
+  }
+}
+
 export class ApiError extends Error {
   readonly status: number;
 
@@ -141,11 +157,19 @@ async function requestNewTokens(): Promise<boolean> {
   const token = session.getRefreshToken();
   if (!token) return false;
 
-  const response = await fetch(`${CORE}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: token }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${CORE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: token }),
+    });
+  } catch (causa) {
+    /* Sem rede não é sessão inválida, e confundir as duas é grave: a sessão seria
+     * apagada, e quem está sem sinal ficaria com uma tela de entrada que não tem como
+     * responder. O token continua guardado, esperando a rede voltar. */
+    throw new SemRedeError(causa);
+  }
 
   if (!response.ok) {
     session.clear();
