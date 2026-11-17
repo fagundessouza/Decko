@@ -52,7 +52,7 @@ rede local por acidente.
 **Senha nenhuma aparece na tela.** São geradas na própria máquina e vão para
 `/etc/decko/decko.env`, com permissão 600 — regra 3 do `CLAUDE.md`.
 
-## Backup, e o que ele ainda não cobre
+## Backup
 
 `decko-backup.timer` roda às 3h30, guarda 14 dias no **disco externo** e recusa um dump que
 não abra. Cópia diária é escrita sequencial de madrugada, então lentidão ali não atrapalha
@@ -61,8 +61,46 @@ ninguém — e o ponto é que os dados ficam num dispositivo e a cópia em outro
 `decko-testar-restauracao.sh` restaura a cópia mais recente num banco descartável e compara
 tabelas e linhas, porque backup que nunca foi restaurado não é backup.
 
-**O que falta:** nada sai da máquina. Perder o box leva dado e cópia juntos. Enquanto isso
-não for resolvido, o item de backup do `docs/NEGOCIO.md` continua aberto.
+### Fazer a cópia sair da caixa
+
+Disco que morre, o de cima resolve. Box que some, não: perda, roubo ou incêndio levavam
+dado e cópia juntos, e desde 13/11/2026 há dado de cliente de verdade ali.
+
+```bash
+sudo ./configurar-backup-remoto.sh
+```
+
+O script instala o `rclone` e o `gpg`, sorteia a senha do cofre, conduz a autenticação na
+conta de nuvem e, no fim, **faz a prova real**: envia uma cópia, baixa de volta, decifra e
+abre como dump. Arquivo que sobe mas não volta a ser um dump legível é um backup que só
+falha no dia em que for preciso.
+
+Três decisões dentro dele:
+
+**O que sai da caixa é cifrado; o que fica, não.** A cópia local mora num diretório 700 de
+um disco que só sai de casa junto com o box; a remota atravessa a internet e dorme no
+servidor de outra empresa. O dump tem CPF, CNPJ, cadastro de cliente e trilha de auditoria
+— é a regra 2 do `CLAUDE.md`, e ela não termina quando o arquivo sai do banco.
+
+**A senha não viaja junto.** Fica em `/etc/decko/backup.pass`, com 600, e **precisa de uma
+cópia fora desta máquina**. Backup que carrega a própria chave não protege de quem leva o
+backup; mas caixa perdida com a única cópia da senha transforma tudo o que está na nuvem em
+arquivo embaralhado. O script para e exige confirmação escrita nesse ponto.
+
+**Falha ao enviar derruba a execução; falta de configuração, não.** Sem
+`/etc/decko/backup-remoto.env` o backup local continua e o log diz, em voz alta, que nada
+saiu da máquina. Com ele configurado, qualquer erro no envio termina em erro — backup que
+falha calado é pior do que backup que não existe, porque dá a impressão de existir.
+
+### O que ainda não está coberto
+
+O dump é só o banco. `/etc/decko/` — com as senhas do PostgreSQL, a chave de assinatura dos
+tokens e a credencial do túnel — não sai daqui. Nenhum desses é insubstituível: numa caixa
+nova eles se geram de novo, e o custo é que todo mundo precisa entrar outra vez. O que não
+se recria é o banco, e esse agora tem cópia fora.
+
+Restaurar continua sendo trabalho manual: instalar do zero, apontar o `decko-admin` e
+subir o dump. Não há caixa reserva esperando.
 
 ## O túnel
 
