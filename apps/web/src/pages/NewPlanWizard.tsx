@@ -6,9 +6,10 @@ import { Page, PageHeader } from "../components/AppShell";
 import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { Wizard } from "../components/Wizard";
-import { agro } from "../lib/agro";
 import type { AgroClient, AgroProperty, Plan } from "../lib/agro";
 import { todayLocal } from "../lib/format";
+import { cadastros, salvarPlano } from "../lib/lavoura";
+import { session } from "../lib/session";
 
 const STEPS = ["Onde foi a aplicação", "O que foi aplicado", "Limites da aplicação"];
 
@@ -37,6 +38,10 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
   const [properties, setProperties] = useState<AgroProperty[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /* Os cadastros vieram do aparelho: contratante criado hoje por outra pessoa pode não
+   * estar na lista, e o planejamento vai ficar esperando a rede. */
+  const [semRede, setSemRede] = useState(false);
+  const empresa = session.getTenantSlug();
 
   const [clientId, setClientId] = useState("");
   const [propertyId, setPropertyId] = useState("");
@@ -49,14 +54,18 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
   const [temperaturaMax, setTemperaturaMax] = useState("30");
   const [umidadeMin, setUmidadeMin] = useState("50");
 
+  /* Os cadastros vêm pela lavoura, e não direto do servidor: ela cai no que está
+   * guardado neste aparelho quando não há rede. Sem contratante e propriedade não existe
+   * planejamento nenhum — os dois vínculos são obrigatórios. */
   useEffect(() => {
-    Promise.all([agro.listClients(), agro.listProperties()])
-      .then(([loadedClients, loadedProperties]) => {
-        setClients(loadedClients);
-        setProperties(loadedProperties);
+    cadastros(empresa)
+      .then((guardados) => {
+        setClients(guardados.contratantes);
+        setProperties(guardados.propriedades);
+        setSemRede(guardados.doCache);
       })
       .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
-  }, []);
+  }, [empresa]);
 
   const propertiesOfClient = properties.filter((p) => p.client_id === clientId);
 
@@ -75,7 +84,7 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
 
     setBusy(true);
     try {
-      const plan = await agro.createPlan({
+      const { plano } = await salvarPlano(empresa, {
         client_id: clientId,
         property_id: propertyId,
         data_aplicacao: dataAplicacao || null,
@@ -86,7 +95,7 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
         param_temperatura_maxima_c: temperaturaMax ? Number(temperaturaMax) : null,
         param_umidade_relativa_min_pct: umidadeMin ? Number(umidadeMin) : null,
       });
-      onCreated(plan);
+      onCreated(plano);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível criar.");
     } finally {
@@ -99,6 +108,18 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
   return (
     <Page>
       <PageHeader title="Novo planejamento" onBack={onCancel} />
+
+      {semRede && (
+        <div className="mb-6">
+          <Alert tone="warn">
+            Sem conexão: contratantes e propriedades são os guardados neste aparelho, e
+            cadastro feito hoje por outra pessoa pode não aparecer. O planejamento fica
+            guardado aqui e sobe sozinho quando a rede voltar — o número do documento nasce
+            no servidor.
+          </Alert>
+        </div>
+      )}
+
       <Wizard
         steps={STEPS}
         current={step}
@@ -131,6 +152,11 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
                   setRegistering(null);
                 }}
               />
+            ) : semRede ? (
+              <p className="text-sm text-ink-muted">
+                Cadastrar contratante exige conexão. Sem rede dá para planejar para quem já
+                está na lista.
+              </p>
             ) : (
               <Link onClick={() => setRegistering("client")}>
                 Cadastrar um contratante
@@ -165,6 +191,10 @@ export function NewPlanWizard({ onCancel, onCreated }: Props) {
                     setRegistering(null);
                   }}
                 />
+              ) : semRede ? (
+                <p className="text-sm text-ink-muted">
+                  Cadastrar propriedade exige conexão.
+                </p>
               ) : (
                 <Link onClick={() => setRegistering("property")}>
                   Cadastrar uma propriedade

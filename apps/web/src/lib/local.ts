@@ -17,7 +17,7 @@
 
 /* Sobe quando um armazém entra ou sai: `onupgradeneeded` só roda quando a versão muda, e
  * sem isso o armazém novo não existe no aparelho de quem já usou o sistema antes. */
-const VERSAO = 4;
+const VERSAO = 5;
 
 export type Armazem =
   | "fila"
@@ -25,7 +25,10 @@ export type Armazem =
   | "produtos"
   | "avisos"
   | "configuracao"
-  | "sessao";
+  | "sessao"
+  | "planos"
+  | "contratantes"
+  | "propriedades";
 
 const ARMAZENS: Armazem[] = [
   "fila",
@@ -34,6 +37,9 @@ const ARMAZENS: Armazem[] = [
   "avisos",
   "configuracao",
   "sessao",
+  "planos",
+  "contratantes",
+  "propriedades",
 ];
 
 /** Falha de armazenamento local. Quem chama decide se isso é fatal para a operação. */

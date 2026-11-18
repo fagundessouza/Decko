@@ -60,8 +60,15 @@ em grau decimal.
 | `GET` | `/plans/{plan_id}/weather` | `agro.plan.read` |
 | `GET` | `/plans/{plan_id}/pdf` | `agro.plan.export` |
 
-`PlanIn` aceita os vínculos (`client_id`, `property_id`, `aircraft_id?`), os dados da
-aplicação (`data_aplicacao?`, `cultura?`, `cultura_outras_texto?`, `tipos_aplicacao?`,
+`POST /plans` responde **201** quando o planejamento nasceu agora e **200** quando
+reconheceu um reenvio. O reenvio existe porque o planejamento é preenchido na lavoura, sem
+sinal: `PlanIn` aceita um `id` escolhido pelo aparelho, e mandar o mesmo pacote duas vezes
+devolve o que já está aqui em vez de gastar outro número de documento. Quem está online
+não manda `id` — o servidor gera, como sempre fez. Ver a fatia 6 da
+`docs/adr/0022-offline-first-as-respostas.md`.
+
+`PlanIn` aceita a identidade opcional (`id`), os vínculos (`client_id`, `property_id`,
+`aircraft_id?`), os dados da aplicação (`data_aplicacao?`, `cultura?`, `cultura_outras_texto?`, `tipos_aplicacao?`,
 `area_ha?`, `latitude?`, `longitude?`) e os parâmetros que definem a janela de aplicação:
 
 - `param_temperatura_maxima_c`

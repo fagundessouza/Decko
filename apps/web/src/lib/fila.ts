@@ -13,7 +13,11 @@ import { apagar, gravar, lerTodos, type Armazem } from "./local";
 
 const ARMAZEM: Armazem = "fila";
 
-export type Acao = "cliente.criar" | "cliente.atualizar" | "venda.sincronizar";
+export type Acao =
+  | "cliente.criar"
+  | "cliente.atualizar"
+  | "venda.sincronizar"
+  | "plano.criar";
 
 export interface Pendente {
   /** A identidade da **entidade**, não da operação.

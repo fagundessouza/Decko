@@ -203,6 +203,29 @@ Em fatias que valem sozinhas, na ordem:
 
 Cada fatia é uma alteração própria, com teste e checagem por mutação.
 
-**O que continua faltando para a operação inteira:** a tela de **pulverização** sem rede. A
-resposta 5 põe três telas no escopo, e duas estão de pé — ponto de venda e clientes. Lançar
-planejamento e campo sem sinal é a próxima, e é a que o piloto usa de verdade na lavoura.
+6. **Pulverização sem rede — o planejamento.** ✅ feita em 17/11/2026. É a terceira das três
+   telas da resposta 5. O planejamento operacional é preenchido na lavoura: contratantes,
+   propriedades e os planejamentos ficam guardados no aparelho, o formulário funciona sem
+   sinal, e o planejamento entra na mesma fila da venda e do cadastro. A identidade vem do
+   aparelho e o `POST /plans` reconhece o reenvio com **200** em vez de gastar outro número
+   — número de planejamento é o que o produtor recebe no documento, e dois números para o
+   mesmo voo é defeito que chega ao cliente.
+
+**O que continua faltando na pulverização, e por quê:**
+
+- **A captura meteorológica sem rede não foi feita, porque ela não é decisão técnica.** A
+  leitura hoje vem de um provedor na internet, e é isso que a torna defensável em disputa de
+  deriva (ADR 0003: fica guardado o payload íntegro, com fonte e hora). Sem rede, a única
+  coisa possível é o piloto **digitar** temperatura, umidade e vento — e o Nathan disse o
+  contrário disso no discovery, em 27/10/2026: *"o ideal é teu aplicativo fique conectado com
+  algum programa de monitoramento do clima, que já vai dar em tempo real essa informação,
+  sem precisar informar manualmente."* Aceitar leitura digitada é decidir que um número sem
+  procedência entra num documento que pode virar prova. **Pergunta aberta para o dono do
+  projeto**, e o modelo já comporta a resposta: `WeatherSource.manual` existe no enum desde o
+  começo.
+- **Cadastrar contratante e propriedade sem rede** também não entra ainda: as rotas são de
+  cadastro e precisariam aceitar identidade do aparelho, como `clientes` já aceita. Hoje a
+  tela diz que isso exige conexão, em vez de oferecer um caminho que termina em erro. Dá
+  para planejar para quem já está na lista.
+- **Croqui, assinatura e PDF** continuam exigindo rede, de propósito: upload de arquivo,
+  credencial e geração de documento são do servidor.

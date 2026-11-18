@@ -299,9 +299,17 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
         guarda a sessão que o servidor confirmou e reabre com ela dentro do prazo. O custo
         está escrito na ADR: dados de quem entrou no disco por 30 dias, e quem estiver com
         o tablet alcança a operação sem digitar nada nesse período
-  - [ ] **Pulverização sem rede.** A resposta 5 da ADR põe três telas no escopo; duas estão
-        de pé (ponto de venda e clientes). Lançar planejamento e campo sem sinal é a que o
-        piloto usa de verdade na lavoura, e é a que falta
+  - [x] **Pulverização sem rede — o planejamento** (17/11/2026). Contratantes, propriedades
+        e planejamentos ficam guardados no aparelho; o formulário funciona sem sinal e o
+        planejamento entra na mesma fila da venda. A identidade vem do aparelho, e o
+        servidor reconhece o reenvio com 200 em vez de gastar outro número de documento
+  - [ ] **Captura meteorológica sem rede.** Depende de uma decisão do dono do projeto, não
+        de código: a leitura hoje vem de provedor na internet, e é isso que a torna
+        defensável em disputa de deriva (ADR 0003). Sem rede só resta o piloto digitar o
+        número — e o Nathan pediu justamente o contrário no discovery. `WeatherSource.manual`
+        já existe no modelo
+  - [ ] Cadastrar contratante e propriedade sem rede: as rotas precisariam aceitar
+        identidade do aparelho, como `clientes` já aceita
   - [ ] **Liberação de supervisor sem rede não tem resposta.** Hoje o aparelho obedece ao
         que a loja declarou na última sincronização e recusa o que ela exige supervisor para
         fazer, dizendo o motivo. É remendo, não decisão

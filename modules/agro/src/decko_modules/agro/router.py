@@ -135,17 +135,44 @@ async def create_plan(
     payload: PlanIn,
     session: SessionDep,
     principal: CurrentPrincipal,
+    resposta: Response,
     _: Annotated[object, Depends(require("agro.plan.write"))],
 ) -> OperationalPlan:
+    """Cria o planejamento, ou devolve o que já existe com aquela identidade.
+
+    Responde **200** no reenvio e 201 quando nasceu agora. A diferença importa para quem
+    está esvaziando uma fila de aparelho e precisa saber o que de fato entrou.
+
+    O planejamento preenchido na lavoura chega com o `id` escolhido pelo aparelho. Sem
+    isto, oscilação de sinal criaria dois planejamentos do mesmo voo, cada um com o seu
+    número — e número de planejamento é o que o produtor recebe no documento.
+    """
+    dados = payload.model_dump()
+    pedido = dados.pop("id", None)
+
+    if pedido is not None:
+        # Enxerga só esta empresa: a consulta corre sob o Row Level Security, como o resto.
+        existente = await session.get(OperationalPlan, pedido)
+        if existente is not None:
+            resposta.status_code = status.HTTP_200_OK
+            return existente
+
     plan = OperationalPlan(
         tenant_id=principal.tenant_id,
         numero=await service.next_plan_number(session, principal.tenant_id),
-        **payload.model_dump(),
+        **dados,
     )
+    if pedido is not None:
+        plan.id = pedido
+
     session.add(plan)
     try:
         await session.flush()
     except IntegrityError as exc:
+        # A chave primária agora pode vir de fora, e ela é única no banco inteiro: uma
+        # identidade já usada em outra empresa cai aqui junto com o vínculo inexistente.
+        # A recusa não diz qual dos dois foi, porque dizer "esta identidade é de outra
+        # empresa" já seria contar que ela existe.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Contratante, propriedade, aeronave ou receituário não encontrados.",

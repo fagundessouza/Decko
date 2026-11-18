@@ -557,3 +557,120 @@ async def test_planejamento_guarda_quem_voou(scenario: Scenario) -> None:
 
     assert plano.status_code == 201, plano.text
     assert plano.json()["pilot_id"] == piloto_id
+
+
+# ------------------------------------------- o planejamento preenchido na lavoura, sem rede
+
+
+async def _dados_do_plano(scenario: Scenario) -> dict[str, object]:
+    """O corpo que o aparelho manda: os vínculos que ele já tinha guardados."""
+    plano = await scenario.client.get(f"{BASE}/plans", headers=scenario.first.auth)
+    primeiro = plano.json()[0]
+    return {
+        "client_id": primeiro["client_id"],
+        "property_id": primeiro["property_id"],
+        "cultura": "milho",
+        "area_ha": 42.5,
+        "param_velocidade_vento_max_kmh": 10,
+    }
+
+
+async def test_a_identidade_do_planejamento_pode_vir_do_aparelho(scenario: Scenario) -> None:
+    """Fatia 6 da ADR 0022: o planejamento é preenchido na lavoura, onde não há sinal."""
+    escolhida = str(uuid.uuid4())
+
+    criado = await scenario.client.post(
+        f"{BASE}/plans",
+        headers=scenario.first.auth,
+        json={**await _dados_do_plano(scenario), "id": escolhida},
+    )
+
+    assert criado.status_code == 201, criado.text
+    assert criado.json()["id"] == escolhida
+    # O número continua nascendo aqui: dois aparelhos sem rede não combinam um contador, e
+    # é o número que o produtor recebe no documento.
+    assert criado.json()["numero"] >= 1
+
+
+async def test_reenviar_o_mesmo_planejamento_nao_gasta_outro_numero(
+    scenario: Scenario,
+) -> None:
+    """O caso normal de quem opera sem sinal: a resposta se perde e o aparelho repete.
+
+    Sem isto, o mesmo voo viraria dois planejamentos, cada um com o seu número — e o
+    produtor receberia dois documentos do mesmo serviço.
+    """
+    escolhida = str(uuid.uuid4())
+    corpo = {**await _dados_do_plano(scenario), "id": escolhida}
+
+    primeiro = await scenario.client.post(
+        f"{BASE}/plans", headers=scenario.first.auth, json=corpo
+    )
+    assert primeiro.status_code == 201, primeiro.text
+
+    segundo = await scenario.client.post(
+        f"{BASE}/plans", headers=scenario.first.auth, json=corpo
+    )
+
+    # 200, e não 201: quem esvazia a fila precisa saber o que de fato entrou.
+    assert segundo.status_code == 200, segundo.text
+    assert segundo.json()["numero"] == primeiro.json()["numero"]
+
+    listados = await scenario.client.get(f"{BASE}/plans", headers=scenario.first.auth)
+    iguais = [p for p in listados.json() if p["id"] == escolhida]
+    assert len(iguais) == 1, "o reenvio criou um segundo planejamento"
+
+
+async def test_quem_esta_online_continua_sem_mandar_identidade(scenario: Scenario) -> None:
+    """Sem `id`, o servidor gera — é o caminho de hoje, e ele não mudou."""
+    criado = await scenario.client.post(
+        f"{BASE}/plans", headers=scenario.first.auth, json=await _dados_do_plano(scenario)
+    )
+
+    assert criado.status_code == 201, criado.text
+    assert uuid.UUID(criado.json()["id"])
+
+
+async def test_o_reenvio_nao_atravessa_a_fronteira_da_empresa(scenario: Scenario) -> None:
+    """A identidade de outra empresa não pode virar "já existe" aqui.
+
+    A chave primária é única no banco inteiro, e o isolamento não deixa enxergar a linha da
+    vizinha. Se o reconhecimento do reenvio olhasse além do tenant, o aparelho de uma
+    empresa receberia de volta o planejamento de outra.
+    """
+    da_vizinha = str(uuid.uuid4())
+    na_vizinha = await scenario.client.post(
+        f"{BASE}/clients",
+        headers=scenario.second.auth,
+        json={"nome": "Fazenda da Vizinha", "cpf_cnpj": "98765432000198"},
+    )
+    propriedade = await scenario.client.post(
+        f"{BASE}/properties",
+        headers=scenario.second.auth,
+        json={
+            "client_id": na_vizinha.json()["id"],
+            "nome": "Talhao Sul",
+            "municipio": "Rio Verde",
+            "uf": "GO",
+        },
+    )
+    dela = await scenario.client.post(
+        f"{BASE}/plans",
+        headers=scenario.second.auth,
+        json={
+            "id": da_vizinha,
+            "client_id": na_vizinha.json()["id"],
+            "property_id": propriedade.json()["id"],
+        },
+    )
+    assert dela.status_code == 201, dela.text
+
+    recusado = await scenario.client.post(
+        f"{BASE}/plans",
+        headers=scenario.first.auth,
+        json={**await _dados_do_plano(scenario), "id": da_vizinha},
+    )
+
+    # Recusa, e não "já existe": nada da empresa vizinha volta para este aparelho.
+    assert recusado.status_code == 409, recusado.text
+    assert "Vizinha" not in recusado.text

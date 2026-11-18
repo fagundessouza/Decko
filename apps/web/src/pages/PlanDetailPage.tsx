@@ -219,14 +219,23 @@ export function PlanDetailPage({ plan, onBack }: Props) {
       <PlanProducts planId={plan.id} prescriptionId={plan.prescription_id} />
 
       <div className="mt-6">
-        <Button
-          variant="ghost"
-          onClick={() => {
-            void agro.downloadPdf(plan.id, plan.numero);
-          }}
-        >
-          Baixar relatório em PDF
-        </Button>
+        {/* Planejamento que ainda não subiu não tem número nem PDF: o documento é gerado
+            no servidor, e o número é dele. Ver a fatia 6 da ADR 0022. */}
+        {plan.numero === null ? (
+          <p className="text-base text-ink-muted">
+            Este planejamento ainda está neste aparelho, esperando a rede. O relatório sai
+            depois que ele subir, com o número do documento.
+          </p>
+        ) : (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              void agro.downloadPdf(plan.id, plan.numero as number);
+            }}
+          >
+            Baixar relatório em PDF
+          </Button>
+        )}
       </div>
     </Page>
   );

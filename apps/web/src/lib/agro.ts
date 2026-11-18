@@ -80,7 +80,9 @@ export interface Consolidation {
 
 export interface Plan {
   id: string;
-  numero: number;
+  /** Nulo enquanto o planejamento ainda não subiu: o número é do servidor, e é ele que
+   *  vai no documento do produtor — ver a fatia 6 da ADR 0022. */
+  numero: number | null;
   status: string;
   client_id: string;
   property_id: string;

@@ -5,9 +5,11 @@ import { Page, PageHeader } from "../components/AppShell";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card, Row } from "../components/Card";
-import { agro } from "../lib/agro";
 import type { Plan } from "../lib/agro";
+import { EVENTO_FILA } from "../lib/fila";
 import { dateBr, num } from "../lib/format";
+import { listarPlanos } from "../lib/lavoura";
+import { session } from "../lib/session";
 
 interface Props {
   onOpen: (plan: Plan) => void;
@@ -26,16 +28,40 @@ const STATUS_TONE: Record<string, "neutral" | "info" | "success"> = {
 export function PlansPage({ onOpen, onCreate, onConsolidate, onPilotos }: Props) {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /* Os que ainda não chegaram ao servidor, e os que ele recusou. Sem isto, o planejamento
+   * preenchido na lavoura apareceria igual aos outros e o piloto iria embora achando que
+   * o documento já existe — ver a fatia 6 da ADR 0022. */
+  const [pendentes, setPendentes] = useState<Set<string>>(new Set());
+  const [recusados, setRecusados] = useState<Map<string, string>>(new Map());
+  const [doCache, setDoCache] = useState(false);
+  const empresa = session.getTenantSlug();
 
-  useEffect(() => {
-    agro
-      .listPlans()
-      .then(setPlans)
+  function recarregar() {
+    return listarPlanos(empresa)
+      .then((visao) => {
+        setPlans(visao.planos);
+        setPendentes(visao.pendentes);
+        setRecusados(visao.recusados);
+        setDoCache(visao.doCache);
+        setError(null);
+      })
       .catch((cause) => {
         setPlans([]);
         setError(cause instanceof Error ? cause.message : String(cause));
       });
+  }
+
+  useEffect(() => {
+    void recarregar();
   }, []);
+
+  /* A fila sobe sozinha em segundo plano; quando isso acontece, a tela precisa parar de
+   * dizer "esperando a rede" sem a pessoa recarregar nada. */
+  useEffect(() => {
+    const atualizar = () => void recarregar();
+    window.addEventListener(EVENTO_FILA, atualizar);
+    return () => window.removeEventListener(EVENTO_FILA, atualizar);
+  });
 
   return (
     <Page wide>
@@ -63,6 +89,25 @@ export function PlansPage({ onOpen, onCreate, onConsolidate, onPilotos }: Props)
           <Alert tone="danger">{error}</Alert>
         </div>
       )}
+
+      {doCache && (
+        <div className="mb-6">
+          <Alert tone="warn">
+            Sem conexão: esta lista é a que está guardada neste aparelho. Dá para criar
+            planejamento — ele sobe sozinho quando a rede voltar, e é lá que o número do
+            documento nasce.
+          </Alert>
+        </div>
+      )}
+
+      {[...recusados].map(([id, motivo]) => (
+        <div className="mb-6" key={id}>
+          <Alert tone="danger">
+            Um planejamento deste aparelho não foi aceito pelo servidor: {motivo} Ele
+            continua guardado aqui.
+          </Alert>
+        </div>
+      ))}
 
       {plans === null && (
         <p className="animate-fade text-base text-ink-muted">Carregando…</p>
@@ -96,11 +141,11 @@ export function PlansPage({ onOpen, onCreate, onConsolidate, onPilotos }: Props)
                     aria-hidden="true"
                     className="tabular hidden size-10 shrink-0 items-center justify-center rounded-dk bg-brand-soft text-sm font-semibold text-brand-link sm:flex"
                   >
-                    {plan.numero}
+                    {plan.numero ?? "—"}
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-ink">
-                      Nº {plan.numero}
+                      {plan.numero === null ? "Sem número ainda" : `Nº ${plan.numero}`}
                       {plan.cultura ? ` · ${plan.cultura}` : ""}
                     </span>
                     <span className="block truncate text-sm text-ink-muted">
@@ -111,6 +156,7 @@ export function PlansPage({ onOpen, onCreate, onConsolidate, onPilotos }: Props)
                 </button>
 
                 <div className="flex shrink-0 items-center gap-3">
+                  {pendentes.has(plan.id) && <Badge tone="warn">esperando a rede</Badge>}
                   <Badge tone={STATUS_TONE[plan.status] ?? "neutral"}>{plan.status}</Badge>
                   <span aria-hidden="true" className="text-ink-faint">
                     ›

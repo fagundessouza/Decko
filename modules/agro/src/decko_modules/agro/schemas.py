@@ -97,6 +97,16 @@ class PropertyOut(BaseModel):
 
 
 class PlanIn(BaseModel):
+    """O planejamento como ele chega. A identidade pode vir do aparelho.
+
+    `id` é opcional e existe para o planejamento preenchido **sem rede**: o aparelho
+    escolhe a identidade, e reenviar o mesmo pacote devolve o que já está aqui em vez de
+    criar um segundo planejamento com outro número. É a decisão 2 da
+    `docs/adr/0019-offline-first.md`, a mesma já usada no cadastro de cliente e na venda
+    de balcão. Quem está online não manda nada: o servidor gera, como sempre fez.
+    """
+
+    id: uuid.UUID | None = None
     client_id: uuid.UUID
     property_id: uuid.UUID
     aircraft_id: uuid.UUID | None = None

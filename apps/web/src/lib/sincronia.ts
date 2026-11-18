@@ -1,5 +1,6 @@
 import * as balcao from "./balcao";
 import { enviarCliente } from "./carteira";
+import * as lavoura from "./lavoura";
 import { sincronizar, type Resultado } from "./fila";
 
 /* Quem esvazia a fila do aparelho.
@@ -17,6 +18,10 @@ export function enviarPendentes(empresa: string): Promise<Resultado> {
   return sincronizar(empresa, async (item) => {
     if (item.acao === balcao.ACAO_VENDA) {
       await balcao.enviar(empresa, item);
+      return;
+    }
+    if (item.acao === lavoura.ACAO_PLANO) {
+      await lavoura.enviar(empresa, item);
       return;
     }
     await enviarCliente(empresa, item);
