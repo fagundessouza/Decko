@@ -1,6 +1,7 @@
 import uuid
 from base64 import b64decode
 from binascii import Error as BinasciiError
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -9,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import get_session
-from decko_modules.agro import consolidation, croqui, pdf, service
+from decko_modules.agro import consolidation, croqui, pdf, service, smartfarm
 from decko_modules.agro.models import (
     Aircraft,
     Client,
@@ -25,6 +26,7 @@ from decko_modules.agro.models import (
 from decko_modules.agro.schemas import (
     AircraftIn,
     AircraftOut,
+    AplicacaoDoVooOut,
     AssinaturaIn,
     AssinaturaOut,
     ClientIn,
@@ -33,6 +35,8 @@ from decko_modules.agro.schemas import (
     ConsolidationOut,
     CroquiIn,
     CroquiOut,
+    FlightLogIn,
+    FlightLogOut,
     MonthlyReportOut,
     MonthlyReportRowOut,
     PilotIn,
@@ -673,3 +677,74 @@ def _check_month(ano: int, mes: int) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Ano deve ser {ANO_MINIMO} ou posterior.",
         )
+
+
+@router.post("/flight-log", response_model=FlightLogOut)
+async def read_flight_log(
+    payload: FlightLogIn,
+    _: Annotated[object, Depends(require("agro.plan.write"))],
+) -> FlightLogOut:
+    """Lê a planilha de voos do SmartFarm e devolve as aplicações que ela descreve.
+
+    **Não grava nada.** É o pedido do Nathan, de 13/11/2026 — não redigitar horário de
+    início, fim e área aplicada —, e a forma é a da entrada por nota do módulo `compras`
+    (ADR 0009): o sistema lê, propõe, e quem operou confirma.
+
+    Não gravar é decisão, e o motivo é o relatório mensal: ele é obrigatório, vai ao
+    SIPEAGRO até o dia 15 do mês seguinte (Portaria MAPA 298/2021, art. 11 e art. 19, I),
+    e a sanção por irregularidade é multa, suspensão ou cancelamento do registro (Decreto
+    86.765/1981, art. 30). Gravar sozinho o que um arquivo de terceiro disse é o caminho
+    mais curto para um relatório divergente — e a divergência só apareceria lá.
+
+    A rota não toca no banco, então não há sessão: ela é uma leitura de arquivo. A
+    permissão é a de quem preenche planejamento.
+    """
+    try:
+        conteudo = b64decode(payload.planilha, validate=True)
+    except BinasciiError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="O arquivo chegou corrompido. Tente enviar de novo.",
+        ) from exc
+
+    try:
+        leitura = smartfarm.ler(conteudo)
+    except smartfarm.PlanilhaInvalidaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+    return FlightLogOut(
+        unidade_de_area=leitura.unidade_de_area,
+        voos_sem_aplicacao=leitura.voos_sem_aplicacao,
+        avisos=leitura.avisos,
+        aplicacoes=[
+            AplicacaoDoVooOut(
+                plot_id=aplicacao.plot_id,
+                talhao=aplicacao.talhao,
+                dia=aplicacao.dia,
+                comecou_em=aplicacao.comecou_em,
+                terminou_em=aplicacao.terminou_em,
+                area_ha=aplicacao.area_ha,
+                volume_l=aplicacao.volume_l,
+                volume_por_ha=aplicacao.volume_por_ha,
+                duracao_segundos=int(aplicacao.duracao.total_seconds()),
+                voos=aplicacao.voos,
+                aeronave=aplicacao.aeronave,
+                equipamento_serie=aplicacao.equipamento_serie,
+                piloto=aplicacao.piloto,
+                local=aplicacao.local,
+                largura_faixa_m=aplicacao.largura_faixa_m,
+                altura_voo_m=aplicacao.altura_voo_m,
+                largura_faixa_min=_ponta(aplicacao.largura_faixa_intervalo, 0),
+                largura_faixa_max=_ponta(aplicacao.largura_faixa_intervalo, 1),
+                altura_voo_min=_ponta(aplicacao.altura_voo_intervalo, 0),
+                altura_voo_max=_ponta(aplicacao.altura_voo_intervalo, 1),
+            )
+            for aplicacao in leitura.aplicacoes
+        ],
+    )
+
+
+def _ponta(intervalo: tuple[Decimal, Decimal] | None, qual: int) -> Decimal | None:
+    return None if intervalo is None else intervalo[qual]

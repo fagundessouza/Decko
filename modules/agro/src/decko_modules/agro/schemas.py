@@ -382,3 +382,57 @@ class ConferenciaAssinaturasOut(BaseModel):
     """
 
     divergentes: list[SignatureRole]
+
+
+class FlightLogIn(BaseModel):
+    """A planilha de voos exportada pelo SmartFarm, em base64.
+
+    Base64 porque ``.xlsx`` é binário — é zip de XML. Vai num campo explícito, como o
+    croqui, e não em multipart: o resto desta API é JSON, e uma rota diferente das outras
+    custa mais do que o que economiza.
+    """
+
+    planilha: str = Field(min_length=1, description="O .xlsx dos voos, em base64.")
+
+
+class AplicacaoDoVooOut(BaseModel):
+    """Uma aplicação: os voos de um mesmo talhão, no mesmo dia, somados."""
+
+    plot_id: str
+    talhao: str | None
+    dia: date
+    comecou_em: datetime
+    terminou_em: datetime
+    area_ha: Decimal
+    volume_l: Decimal
+    volume_por_ha: Decimal | None
+    #: Horas de execução, que o relatório mensal exige (Portaria 298/2021, art. 11, III).
+    duracao_segundos: int
+    voos: int
+    aeronave: str
+    #: O número de série do equipamento. É o que casa com a aeronave cadastrada — o nome
+    #: que aparece no aplicativo é apelido, e apelido não identifica ARP para o MAPA.
+    equipamento_serie: str | None
+    piloto: str | None
+    local: str | None
+    largura_faixa_m: Decimal | None
+    altura_voo_m: Decimal | None
+    largura_faixa_min: Decimal | None
+    largura_faixa_max: Decimal | None
+    altura_voo_min: Decimal | None
+    altura_voo_max: Decimal | None
+
+
+class FlightLogOut(BaseModel):
+    """O que o sistema entendeu da planilha. **Nada foi gravado.**
+
+    A leitura propõe e a pessoa confirma, como na entrada por nota do módulo `compras`
+    (ADR 0009) e na importação do croqui. Em documento que vai ao MAPA, gravar sozinho o
+    que um arquivo de terceiro disse é o caminho mais curto para um relatório divergente.
+    """
+
+    #: Como o arquivo mede área: "mu", "ha" ou "acre". Lida do cabeçalho, nunca suposta.
+    unidade_de_area: str
+    aplicacoes: list[AplicacaoDoVooOut]
+    voos_sem_aplicacao: int
+    avisos: list[str]

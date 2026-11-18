@@ -9,6 +9,8 @@ que o modelo aceita os dados, não que o operador em campo consegue cadastrá-lo
 """
 
 import uuid
+import zipfile
+from base64 import b64encode
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from io import BytesIO
@@ -674,3 +676,159 @@ async def test_o_reenvio_nao_atravessa_a_fronteira_da_empresa(scenario: Scenario
     # Recusa, e não "já existe": nada da empresa vizinha volta para este aparelho.
     assert recusado.status_code == 409, recusado.text
     assert "Vizinha" not in recusado.text
+
+
+# ------------------------------------------- a planilha de voos do SmartFarm, pela API
+
+CABECALHO_DE_VOO = [
+    "Flight time",
+    "Sprayed area",
+    "Total Amount(L/Kg)",
+    "Usage Per Mu(L/Kg/Mu)",
+    "Flight duration(min:sec)",
+    "Aircraft name",
+    "Pliot Name",
+    "Field Name",
+    "Body Code",
+    "Plot ID",
+]
+
+
+def _planilha_de_voo(linhas: list[list[str]]) -> str:
+    """Um .xlsx mínimo, em base64, com texto embutido. Só o que o leitor precisa ver."""
+    ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+
+    def coluna(indice: int) -> str:
+        nome = ""
+        indice += 1
+        while indice:
+            indice, resto = divmod(indice - 1, 26)
+            nome = chr(65 + resto) + nome
+        return nome
+
+    corpo = []
+    for numero, linha in enumerate(linhas, start=1):
+        celulas = "".join(
+            f'<c r="{coluna(i)}{numero}" t="inlineStr"><is><t>{valor}</t></is></c>'
+            for i, valor in enumerate(linha)
+            if valor
+        )
+        corpo.append(f'<row r="{numero}">{celulas}</row>')
+
+    pacote = BytesIO()
+    with zipfile.ZipFile(pacote, "w") as zf:
+        zf.writestr(
+            "xl/workbook.xml",
+            f'<workbook xmlns="{ns}"><sheets><sheet name="voos" sheetId="1"/></sheets></workbook>',
+        )
+        zf.writestr(
+            "xl/worksheets/sheet1.xml",
+            f'<worksheet xmlns="{ns}"><sheetData>{"".join(corpo)}</sheetData></worksheet>',
+        )
+    return b64encode(pacote.getvalue()).decode()
+
+
+async def test_a_planilha_de_voo_e_lida_e_nada_e_gravado(scenario: Scenario) -> None:
+    """O pedido do Nathan: não redigitar início, fim e área aplicada.
+
+    A rota lê e propõe; gravar é outro passo, com confirmação. Em documento que vai ao
+    MAPA, gravar sozinho o que um arquivo de terceiro disse é o caminho mais curto para um
+    relatório divergente.
+    """
+    antes = await scenario.client.get(f"{BASE}/plans", headers=scenario.first.auth)
+
+    resposta = await scenario.client.post(
+        f"{BASE}/flight-log",
+        headers=scenario.first.auth,
+        json={
+            "planilha": _planilha_de_voo(
+                [
+                    CABECALHO_DE_VOO,
+                    [
+                        "2026-08-15 18:51:36-18:58:23",
+                        "150",
+                        "60",
+                        "",
+                        "06:47",
+                        "Valkyria",
+                        "Piloto de Teste",
+                        "Milho 1",
+                        "B26WN5P0025A3T",
+                        "plot-a",
+                    ],
+                    [
+                        "2026-08-15 19:03:16-19:10:57",
+                        "333",
+                        "130",
+                        "",
+                        "07:41",
+                        "Valkyria",
+                        "Piloto de Teste",
+                        "Milho 1",
+                        "B26WN5P0025A3T",
+                        "plot-a",
+                    ],
+                ]
+            )
+        },
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+    assert corpo["unidade_de_area"] == "mu"
+    assert len(corpo["aplicacoes"]) == 1
+    aplicacao = corpo["aplicacoes"][0]
+    # 483 mu são 32,2 ha. Lidos como hectare, o relatório diria quinze vezes a área.
+    assert aplicacao["area_ha"] == "32.2000"
+    assert aplicacao["voos"] == 2
+    assert aplicacao["duracao_segundos"] == 868
+    assert aplicacao["equipamento_serie"] == "B26WN5P0025A3T"
+
+    # Nada entrou: a lista de planejamentos é a mesma de antes.
+    depois = await scenario.client.get(f"{BASE}/plans", headers=scenario.first.auth)
+    assert len(depois.json()) == len(antes.json())
+
+
+async def test_arquivo_que_nao_e_planilha_de_voo_e_recusado_com_motivo(
+    scenario: Scenario,
+) -> None:
+    resposta = await scenario.client.post(
+        f"{BASE}/flight-log",
+        headers=scenario.first.auth,
+        json={"planilha": b64encode(b"isto nao e um zip").decode()},
+    )
+
+    assert resposta.status_code == 422, resposta.text
+    assert "planilha do Excel" in resposta.json()["detail"]
+
+
+async def test_planilha_sem_a_unidade_da_area_e_recusada_pela_api(
+    scenario: Scenario,
+) -> None:
+    """A recusa chega à tela com o motivo, em vez de uma área convertida por palpite."""
+    cabecalho = [c for c in CABECALHO_DE_VOO if not c.startswith("Usage Per")]
+    resposta = await scenario.client.post(
+        f"{BASE}/flight-log",
+        headers=scenario.first.auth,
+        json={
+            "planilha": _planilha_de_voo(
+                [
+                    cabecalho,
+                    [
+                        "2026-08-15 18:51:36-18:58:23",
+                        "150",
+                        "60",
+                        "06:47",
+                        "Valkyria",
+                        "Piloto de Teste",
+                        "Milho 1",
+                        "B26WN5P0025A3T",
+                        "plot-a",
+                    ],
+                ]
+            )
+        },
+    )
+
+    assert resposta.status_code == 422, resposta.text
+    assert "unidade" in resposta.json()["detail"]

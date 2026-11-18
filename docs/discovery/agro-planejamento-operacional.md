@@ -393,11 +393,129 @@ como se fosse nossa.
 
 ### 7.4 O que falta perguntar ao Nathan
 
-1. **Qual é exatamente o arquivo** que o SmartFarm exporta hoje? Uma planilha de exemplo
-   responde o formato, as colunas e a unidade da área — e sem ela qualquer leitor é
-   suposição.
-2. **Um voo é um planejamento?** Uma aplicação pode ser vários voos (recarga, talhão
-   dividido), e o relatório é por aplicação. Como ele junta hoje?
+1. ~~**Qual é exatamente o arquivo** que o SmartFarm exporta hoje?~~ **Respondida em
+   17/11/2026**, com a planilha dele em mãos — seção 7.5. A unidade da área era mesmo o
+   ponto, e ela não é hectare.
+2. ~~**Um voo é um planejamento?**~~ **Respondida pela planilha:** não. Um voo é uma
+   bateria, e os voos da mesma aplicação compartilham o `Plot ID` — seção 7.5.
 3. **O que vale quando divergem?** O painel diz uma área e o planejamento diz outra. A
    regra do `compras` é "o sistema propõe, a pessoa confirma", e aqui provavelmente é a
    mesma — mas isso é decisão dele, não minha.
+
+### 7.5 A planilha real — 17/11/2026
+
+O Nathan mandou o arquivo: `2026_11_17 18_51.xlsx`, uma aba chamada `flight record`, 30
+voos entre 19/07 e 15/08/2026. Ele responde a pergunta 1 e a pergunta 2 da seção 7.4, e
+mostra duas armadilhas que nenhuma suposição teria encontrado.
+
+**As 21 colunas, como elas vêm:**
+
+| Coluna | O que é | Para onde vai |
+|---|---|---|
+| `Flight time` | `2026-08-15 19:47:45-19:48:09` — início e fim, **sem fuso** | hora de início e de fim |
+| `Location` | endereço geocodificado ao contrário, em texto | nada: o talão pede coordenada decimal, e ela não vem |
+| `Aircraft name` | apelido que o operador deu ("Valkyria") | nada: apelido não identifica ARP |
+| `Body Code` | número de série do equipamento | é ele que casa com `aircraft`, onde está a identificação da ANAC |
+| `Task Type` | `Spraying` | nada: não diz se é agrotóxico, fertilizante ou corretivo |
+| `Sprayed area` | área, **em mu** | `area_ha`, convertida |
+| `Total Amount(L/Kg)` | volume de calda do voo | volume aplicado |
+| `Usage Per Mu(L/Kg/Mu)` | consumo por área | **é só este cabeçalho que diz a unidade** |
+| `Flight duration(min:sec)` | duração do voo | horas de execução, exigidas no relatório mensal |
+| `Crop` | vem `other` — ele não preenche | nada: a cultura é do planejamento |
+| `Pliot Name` (a grafia é do arquivo) | nome do piloto | nome na assinatura do piloto; o CANAC não vem |
+| `Field Name` | nome livre do talhão ("Ronan milho 1") | pista para casar com a propriedade — não é cadastro |
+| `Plot ID` | identificador do talhão no aplicativo | **é o que agrupa os voos de uma aplicação** |
+| `Height` | altura voada, por voo | `param_altura_voo_m` |
+| `Row Spacing` | largura da faixa, em metros | `param_largura_faixa_m` |
+| `Speed` | `19.2` — **unidade não declarada** | nada, até alguém confirmar se é km/h ou m/s. **Não é velocidade do vento** |
+| `Serial Number` | série do registro de voo, diferente em cada linha | nada |
+| `Starting/Ending Battery Level`, `Battery SN` | bateria | nada |
+| `Team Name` | conta do aplicativo | nada |
+
+#### Armadilha 1 — a área está em **mu**, não em hectare
+
+A coluna de área não traz unidade. Quem traz é a vizinha: `Usage Per Mu(L/Kg/Mu)`. A conta
+confere linha por linha — `Total Amount ÷ Sprayed area = Usage Per Mu` —, então a área
+está em **mu**, a unidade chinesa de 1/15 de hectare, porque é assim que a conta do
+aplicativo dele está configurada.
+
+A aplicação do talhão "Ronan 2", em 15/08, são cinco voos somando **482,94 mu = 32,20 ha**,
+com 290,34 L de calda — 9,02 L/ha, que é dose de drone. Lida como hectare, a mesma
+aplicação viraria **482,94 ha a 0,60 L/ha** no relatório: área quinze vezes maior do que a
+aplicada, e uma dosagem que não existe em lavoura nenhuma.
+
+É o pior tipo de erro possível neste produto, porque não dá erro em tela: dá um número
+errado com cara de certo, dentro de um documento que vai ao MAPA e pode virar prova em
+disputa de deriva.
+
+**Decisão:** a unidade é **lida do cabeçalho**, nunca suposta, e cabeçalho que o sistema
+não reconhece faz a importação ser **recusada** em vez de convertida por palpite. O
+aplicativo permite trocar a unidade da conta, então o mesmo cliente pode mandar um arquivo
+em hectare no mês seguinte.
+
+#### Armadilha 2 — os horários provavelmente estão em UTC
+
+O arquivo não traz fuso. As aplicações de 15/08 aparecem entre 18:51 e 19:48, e as de
+19/07 entre 09:56 e 10:11. Em Goiás, em agosto, o sol se põe perto das 18:20 — pulverizar
+às 19:48 seria no escuro. Com `-03:00`, os mesmos voos caem às 15:51–16:48 e 06:56–07:11:
+fim de tarde e começo de manhã, que é quando se pulveriza.
+
+**Então os horários são provavelmente UTC** — mas isso é dedução, não leitura, e três horas
+de erro deslocam o horário declarado **e** a leitura meteorológica que confronta aquele
+horário. A importação devolve o instante como está no arquivo e **avisa**; a conversão é
+confirmada por quem conhece a operação, uma vez.
+
+#### Resposta da pergunta 2 — *"um voo é um planejamento?"*
+
+**Não.** Um voo é uma bateria. Os voos da mesma aplicação compartilham o `Plot ID`, e é por
+ele — mais o dia — que se agrupa:
+
+| Dia | Talhão | Voos | Área | Calda | Dose | Execução |
+|---|---|---|---|---|---|---|
+| 07/08 | Ronan milho 1 | 5 | 32,46 ha | 311,94 L | 9,61 L/ha | 36 min |
+| 15/08 | Ronan 2 | 5 | 32,20 ha | 290,34 L | 9,02 L/ha | 34 min |
+| 15/08 | Ronan milho 1 | 1 | 2,27 ha | 20,75 L | 9,12 L/ha | 2 min |
+| 19/07 | band final | 1 | 1,16 ha | 16,79 L | 14,43 L/ha | 3 min |
+| 19/07 | band final 2 | 1 | 1,63 ha | 27,98 L | 17,17 L/ha | 5 min |
+
+Dos 30 voos, **17 não pulverizaram nada**: área zero, sem `Plot ID` — translado, teste,
+decolagem abortada. Somá-los poria no relatório voo que não aplicou; apagá-los em silêncio
+faria a planilha ter mais linhas do que o relatório, sem explicação. Eles são contados e
+deixados de fora, com aviso.
+
+#### O que isto preenche do relatório mensal, e o que não preenche
+
+O relatório mensal exige cinco informações (Portaria 298/2021, art. 11 — ver
+`agro-normas-mapa.md`, seção 3):
+
+| Exigido | A planilha dá? |
+|---|---|
+| I — município/UF | só como texto geocodificado; o município confiável é o da propriedade cadastrada |
+| II — aeronave (identificação da ARP) | **não** — dá apelido e número de série. A identificação da ANAC está no cadastro da aeronave, casada pelo série |
+| III — total da área aplicada (ha) | **sim**, convertida de mu |
+| III — **horas de execução** | **sim**, somando a duração dos voos. É o dado que o CSV de hoje não tem |
+| IV — tipo de atividade | **não** — `Task Type` diz `Spraying`, e não se é agrotóxico, fertilizante ou corretivo |
+| V — marca comercial, volume e dosagem | **volume de calda, sim**; marca e dosagem do produto, não — isso é receituário |
+
+E não preenche nada do que torna o documento defensável: produto, receituário, clima,
+croqui, assinaturas, coordenadas. **A planilha é o registro do equipamento, não o
+documento.** O que ela tira de cima dele é a redigitação de horário, área e horas — que é
+exactamente o que ele pediu.
+
+### 7.6 O que ainda é pergunta, depois da planilha
+
+1. **O fuso.** Os horários são UTC? Uma aplicação com horário conhecido confirma: basta
+   dizer a que hora começou o voo de 15/08 do talhão "Ronan 2".
+2. **O que vale quando divergem** (continua aberta, da seção 7.4). O planejamento diz uma
+   área, o equipamento diz outra. A regra do `compras` é "o sistema propõe, a pessoa
+   confirma", e aqui a área que vale deveria ser a **aplicada** — ele mesmo disse isso na
+   Q9, sobre dose × área. Falta ele confirmar que é assim, e se a área do equipamento pode
+   substituir a digitada ou só aparecer ao lado.
+3. **A unidade da velocidade** (`Speed`): km/h ou m/s? Ela não entra em campo nenhum do
+   talão hoje, então não bloqueia — mas entra na conversa quando alguém quiser usá-la.
+4. **O apelido da aeronave.** O arquivo traz "Valkyria" e o número de série; o cadastro do
+   Decko precisa guardar o série para o casamento ser automático. Hoje `aircraft` tem
+   `prefixo`, `modelo` e `fabricante` — falta o série.
+5. **`Crop` vem `other` sempre.** Vale a pena ele preencher a cultura no aplicativo, ou a
+   cultura fica sempre do planejamento? A segunda é mais segura; a primeira pouparia um
+   campo.

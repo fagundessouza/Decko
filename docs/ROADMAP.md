@@ -439,6 +439,14 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       caminho viável é importar a planilha que ele já exporta, como o `compras` faz com o
       XML. Apuração e perguntas em aberto na seção 7 do
       `docs/discovery/agro-planejamento-operacional.md`
+  - [x] **A planilha dele em mãos, e o leitor** (17/11/2026). `POST /agro/flight-log` lê o
+        `.xlsx`, agrupa os voos do mesmo talhão no mesmo dia e devolve área em hectare,
+        calda, dose e **horas de execução** — que o relatório mensal exige e o CSV de hoje
+        não tem. Nada é gravado: lê e propõe. Duas armadilhas do arquivo estão na seção 7.5
+        do discovery, e a primeira é séria: **a área vem em `mu`**, 1/15 de hectare, e lê-la
+        como hectare poria no relatório do MAPA área quinze vezes maior
+  - [ ] Casar a leitura com o planejamento e gravar com confirmação. Falta a regra de
+        divergência (pergunta 2 da seção 7.6) e o fuso dos horários (pergunta 1)
 - [ ] OCR de receituário e nota fiscal (Tesseract + MinIO)
 - [ ] Extração estruturada via LLM local (Ollama), sempre com confirmação humana
 - [ ] Busca semântica no catálogo (Qdrant + rerank)

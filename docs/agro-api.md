@@ -104,6 +104,42 @@ Respostas de erro:
 `Content-Disposition: attachment; filename="planejamento-operacional-{numero}.pdf"`.
 Estrutura e motivos em `docs/adr/0016-geracao-do-pdf.md`.
 
+## Registro de voo do drone — `POST /flight-log`
+
+| Método | Rota | Permissão |
+|---|---|---|
+| `POST` | `/flight-log` | `agro.plan.write` |
+
+Lê a planilha de voos exportada pelo DJI SmartFarm e devolve as **aplicações** que ela
+descreve. `FlightLogIn`: `planilha`, o `.xlsx` em base64 — binário não vai como texto.
+
+**Esta rota não grava nada e não toca no banco.** Ela propõe; confirmar é outro passo. O
+motivo está no destino do dado: o relatório mensal é obrigatório, vai ao SIPEAGRO até o dia
+15 do mês seguinte, e a sanção por irregularidade é multa, suspensão ou cancelamento do
+registro. Gravar sozinho o que um arquivo de terceiro disse é o caminho mais curto para um
+relatório divergente.
+
+O que ela resolve, e as duas armadilhas do arquivo, estão na seção 7.5 do
+`docs/discovery/agro-planejamento-operacional.md`:
+
+- **A área vem em `mu`** (1/15 de hectare) quando a conta do aplicativo está assim
+  configurada, e a unidade só aparece no cabeçalho da coluna de consumo. `unidade_de_area`
+  na resposta diz qual foi lida. Cabeçalho que o leitor não reconhece devolve **422** em
+  vez de converter por palpite.
+- **Um voo não é uma aplicação.** Os voos do mesmo `Plot ID` no mesmo dia são somados numa
+  `AplicacaoDoVooOut`: área em hectare, volume de calda, duração somada (as *horas de
+  execução* que o relatório mensal exige), início do primeiro voo e fim do último. Voo sem
+  área aplicada é contado em `voos_sem_aplicacao` e fica de fora.
+
+`avisos` traz o que quem confirma precisa saber antes de confirmar — unidade convertida,
+ausência de fuso nos horários, voos descartados, aeronave trocada no meio da aplicação.
+
+Respostas de erro:
+
+| Código | Quando |
+|---|---|
+| `422` | o arquivo não é uma planilha de voos legível, ou a unidade da área é desconhecida |
+
 ## Conjuntos fechados
 
 Os valores vêm do talão em uso. Acrescentar um exige migração, de propósito — ver
