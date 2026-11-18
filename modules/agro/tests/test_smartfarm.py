@@ -18,10 +18,11 @@ XML, com textos compartilhados, como o SmartFarm exporta. Nenhum dado de cliente
 repositório.
 """
 
+import csv
 import zipfile
 from datetime import timedelta
 from decimal import Decimal
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import pytest
 
@@ -373,7 +374,9 @@ def test_voo_sem_area_fica_de_fora_e_e_contado() -> None:
 
     assert len(leitura.aplicacoes) == 1
     assert leitura.voos_sem_aplicacao == 2
-    assert any("sem área aplicada" in aviso for aviso in leitura.avisos)
+    assert any("não pulverizaram área" in aviso for aviso in leitura.avisos)
+    # Eles continuam inteiros na leitura: é deles que sai o horímetro da frota.
+    assert [voo.duracao.total_seconds() for voo in leitura.voos_auxiliares] == [7.0, 37.0]
 
 
 # ----------------------------------------------------------------- os parâmetros do voo
@@ -531,8 +534,8 @@ def test_voo_que_atravessa_a_meia_noite_nao_termina_antes_de_comecar() -> None:
     assert aplicacao.terminou_em.isoformat() == "2026-08-16T00:04:00"
 
 
-def test_arquivo_que_nao_e_planilha_e_recusado_com_recado_de_gente() -> None:
-    with pytest.raises(smartfarm.PlanilhaInvalidaError, match="planilha do Excel"):
+def test_arquivo_que_nao_e_planilha_nem_csv_e_recusado_com_recado_de_gente() -> None:
+    with pytest.raises(smartfarm.PlanilhaInvalidaError, match="planilha nem um CSV"):
         smartfarm.ler(b"isto aqui nao e um zip")
 
 
@@ -583,3 +586,129 @@ def test_o_que_variou_entre_voos_aparece_como_intervalo() -> None:
 
     assert aplicacao.altura_voo_m is None
     assert aplicacao.altura_voo_intervalo == (Decimal("5.8"), Decimal("6.3"))
+
+
+# ----------------------------------------------------------------- o horímetro da frota
+
+
+def test_voo_auxiliar_nao_some_e_vai_para_o_horimetro() -> None:
+    """Translado e calibração desgastam motor, hélice e bateria igual.
+
+    Descartá-los faria a revisão vencer sem o sistema saber. O relatório do MAPA leva só a
+    aplicação; a manutenção leva tudo — e por isso são duas listas, não uma filtrada.
+    """
+    arquivo = _planilha(
+        [
+            CABECALHO,
+            _voo(
+                quando="2026-08-15 18:51:36-18:58:23",
+                area="150",
+                volume="60",
+                duracao="06:47",
+                talhao="Milho 1",
+                plot="plot-a",
+            ),
+            _voo(quando="2026-08-15 19:25:14-19:33:35", area="0.0", volume="0.0", duracao="08:21"),
+        ]
+    )
+
+    leitura = smartfarm.ler(arquivo)
+
+    assert len(leitura.aplicacoes) == 1
+    assert len(leitura.voos_auxiliares) == 1
+    assert leitura.voos_auxiliares[0].duracao == timedelta(minutes=8, seconds=21)
+
+    horimetro = leitura.horimetro[0]
+    assert horimetro.voos == 2
+    assert horimetro.duracao_total == timedelta(minutes=15, seconds=8)
+    assert horimetro.duracao_aplicando == timedelta(minutes=6, seconds=47)
+    assert horimetro.duracao_auxiliar == timedelta(minutes=8, seconds=21)
+
+
+def test_o_horimetro_e_por_equipamento_e_nao_por_apelido() -> None:
+    """Duas aeronaves no mesmo arquivo são dois horímetros.
+
+    A conta é pelo número de série, porque é ele que identifica o equipamento: apelido o
+    operador troca, e trocar o apelido não zera a hora de uso de nada.
+    """
+    primeira = _voo(
+        quando="2026-08-15 18:51:36-18:58:23",
+        area="150",
+        volume="60",
+        duracao="06:00",
+        talhao="Milho 1",
+        plot="plot-a",
+    )
+    segunda = _voo(
+        quando="2026-07-19 10:02:05-10:05:59",
+        area="0.0",
+        volume="0.0",
+        duracao="03:53",
+        aeronave="Predador",
+    )
+    segunda[19] = "OUTRO-EQUIPAMENTO"
+
+    leitura = smartfarm.ler(_planilha([CABECALHO, primeira, segunda]))
+
+    assert len(leitura.horimetro) == 2
+    por_serie = {h.equipamento_serie: h for h in leitura.horimetro}
+    assert por_serie["B26WN5P0025A3T"].duracao_aplicando == timedelta(minutes=6)
+    assert por_serie["OUTRO-EQUIPAMENTO"].duracao_aplicando == timedelta()
+    assert por_serie["OUTRO-EQUIPAMENTO"].duracao_auxiliar == timedelta(minutes=3, seconds=53)
+
+
+# ----------------------------------------------------------------- o mesmo dado em CSV
+
+
+def _csv(linhas: list[list[str]], separador: str = ",") -> bytes:
+    """Escrito como o aplicativo escreve: com aspas onde o texto tem o separador dentro.
+
+    O endereço do voo tem vírgula ("Piracanjuba, Goias, Brazil"), e é isso que separa o
+    CSV de verdade do ingênuo — que juntaria os campos e deslocaria todas as colunas.
+    """
+    saida = StringIO()
+    csv.writer(saida, delimiter=separador, lineterminator="\n").writerows(linhas)
+    return saida.getvalue().encode()
+
+
+def test_o_mesmo_registro_em_csv_le_igual() -> None:
+    """O aplicativo também exporta CSV, e o operador manda o que tiver na mão."""
+    linhas = [
+        CABECALHO,
+        _voo(
+            quando="2026-08-15 18:51:36-18:58:23",
+            area="483",
+            volume="290.34",
+            duracao="06:47",
+            talhao="Milho 1",
+            plot="plot-a",
+        ),
+    ]
+
+    leitura = smartfarm.ler(_csv(linhas))
+
+    assert leitura.unidade_de_area == "mu"
+    assert leitura.aplicacoes[0].area_ha == Decimal("32.2000")
+
+
+def test_csv_com_ponto_e_virgula_tambem_le() -> None:
+    """Planilha salva em computador com configuração brasileira sai assim.
+
+    Ler uma com a regra da outra devolveria uma coluna só — e a tela diria "faltam as
+    colunas de voo" para quem não errou nada.
+    """
+    linhas = [
+        CABECALHO,
+        _voo(
+            quando="2026-08-15 18:51:36-18:58:23",
+            area="483",
+            volume="290.34",
+            duracao="06:47",
+            talhao="Milho 1",
+            plot="plot-a",
+        ),
+    ]
+
+    leitura = smartfarm.ler(_csv(linhas, separador=";"))
+
+    assert leitura.aplicacoes[0].area_ha == Decimal("32.2000")

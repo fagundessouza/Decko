@@ -40,6 +40,9 @@ class AircraftIn(BaseModel):
     prefixo: str = Field(min_length=1, max_length=20)
     modelo: str | None = Field(default=None, max_length=120)
     fabricante: str | None = Field(default=None, max_length=120)
+    #: O série do equipamento, que é o que casa com o registro de voo importado. O apelido
+    #: que aparece no aplicativo não serve: quem identifica a ARP para o MAPA é o prefixo.
+    numero_serie: str | None = Field(default=None, max_length=60)
 
 
 class AircraftOut(BaseModel):
@@ -49,6 +52,7 @@ class AircraftOut(BaseModel):
     prefixo: str
     modelo: str | None
     fabricante: str | None
+    numero_serie: str | None
     is_active: bool
 
 
@@ -384,15 +388,54 @@ class ConferenciaAssinaturasOut(BaseModel):
     divergentes: list[SignatureRole]
 
 
-class FlightLogIn(BaseModel):
-    """A planilha de voos exportada pelo SmartFarm, em base64.
+class FlightLogPreviewIn(BaseModel):
+    """O registro de voo exportado pelo aplicativo do drone, em base64.
 
-    Base64 porque ``.xlsx`` é binário — é zip de XML. Vai num campo explícito, como o
-    croqui, e não em multipart: o resto desta API é JSON, e uma rota diferente das outras
-    custa mais do que o que economiza.
+    Base64 porque ``.xlsx`` é binário — é zip de XML. CSV vai pelo mesmo campo: quem
+    descobre o formato é o conteúdo, não a extensão, que no caminho de um arquivo que
+    atravessa celular, WhatsApp e computador quase sempre mente.
     """
 
-    planilha: str = Field(min_length=1, description="O .xlsx dos voos, em base64.")
+    arquivo: str = Field(min_length=1, description="O .xlsx ou .csv dos voos, em base64.")
+    #: Quanto somar ao horário do arquivo para chegar ao horário local, em minutos.
+    #:
+    #: O arquivo não declara fuso. A dedução — pelo horário do pôr do sol em Goiás — é que
+    #: ele está em UTC, e por isso o padrão é -180 (três horas a menos). **É sugestão, e a
+    #: resposta devolve os dois horários** para a tela oferecer o controle de alternar;
+    #: converter calado erraria também a leitura de clima daquele horário.
+    fuso_minutos: int = Field(default=-180, ge=-840, le=840)
+
+
+class VooAuxiliarOut(BaseModel):
+    """Voo que não pulverizou: translado, calibração, teste, decolagem abortada.
+
+    **Não é descarte.** Ele desgasta motor, hélice e bateria igual, e é por isso que a
+    revisão vence — entra no horímetro da aeronave e fica de fora do relatório do MAPA.
+    """
+
+    comecou_em: datetime
+    terminou_em: datetime
+    comecou_em_ajustado: datetime
+    terminou_em_ajustado: datetime
+    duracao_segundos: int
+    aeronave: str
+    equipamento_serie: str | None
+    piloto: str | None
+    lugar: str | None
+
+
+class HorasDoEquipamentoOut(BaseModel):
+    """O que cada equipamento voou no arquivo, para o horímetro e a manutenção."""
+
+    equipamento_serie: str | None
+    aeronave: str
+    #: A aeronave cadastrada que tem este número de série, quando existe.
+    aircraft_id: uuid.UUID | None
+    prefixo: str | None
+    voos: int
+    duracao_total_segundos: int
+    duracao_aplicando_segundos: int
+    duracao_auxiliar_segundos: int
 
 
 class AplicacaoDoVooOut(BaseModel):
@@ -401,8 +444,12 @@ class AplicacaoDoVooOut(BaseModel):
     plot_id: str
     talhao: str | None
     dia: date
+    #: Como está no arquivo, sem fuso.
     comecou_em: datetime
     terminou_em: datetime
+    #: Com o deslocamento aplicado. É o que a tela mostra por padrão.
+    comecou_em_ajustado: datetime
+    terminou_em_ajustado: datetime
     area_ha: Decimal
     volume_l: Decimal
     volume_por_ha: Decimal | None
@@ -413,8 +460,11 @@ class AplicacaoDoVooOut(BaseModel):
     #: O número de série do equipamento. É o que casa com a aeronave cadastrada — o nome
     #: que aparece no aplicativo é apelido, e apelido não identifica ARP para o MAPA.
     equipamento_serie: str | None
+    #: A aeronave cadastrada, quando o série bate com alguma.
+    aircraft_id: uuid.UUID | None
+    prefixo: str | None
     piloto: str | None
-    local: str | None
+    lugar: str | None
     largura_faixa_m: Decimal | None
     altura_voo_m: Decimal | None
     largura_faixa_min: Decimal | None
@@ -423,8 +473,8 @@ class AplicacaoDoVooOut(BaseModel):
     altura_voo_max: Decimal | None
 
 
-class FlightLogOut(BaseModel):
-    """O que o sistema entendeu da planilha. **Nada foi gravado.**
+class FlightLogPreviewOut(BaseModel):
+    """O que o sistema entendeu do arquivo. **Nada foi gravado.**
 
     A leitura propõe e a pessoa confirma, como na entrada por nota do módulo `compras`
     (ADR 0009) e na importação do croqui. Em documento que vai ao MAPA, gravar sozinho o
@@ -433,6 +483,14 @@ class FlightLogOut(BaseModel):
 
     #: Como o arquivo mede área: "mu", "ha" ou "acre". Lida do cabeçalho, nunca suposta.
     unidade_de_area: str
+    #: O deslocamento aplicado nos horários "ajustados", em minutos.
+    fuso_minutos: int
     aplicacoes: list[AplicacaoDoVooOut]
-    voos_sem_aplicacao: int
+    voos_auxiliares: list[VooAuxiliarOut]
+    horimetro: list[HorasDoEquipamentoOut]
+    #: Séries de equipamento que o arquivo traz e nenhuma aeronave cadastrada tem.
+    #:
+    #: A tela oferece o cadastro rápido com eles: sem a aeronave, o relatório mensal não
+    #: tem o que pôr no campo de identificação da ARP (Portaria 298/2021, art. 11, II).
+    series_sem_aeronave: list[str]
     avisos: list[str]

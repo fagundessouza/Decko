@@ -480,8 +480,13 @@ ele — mais o dia — que se agrupa:
 
 Dos 30 voos, **17 não pulverizaram nada**: área zero, sem `Plot ID` — translado, teste,
 decolagem abortada. Somá-los poria no relatório voo que não aplicou; apagá-los em silêncio
-faria a planilha ter mais linhas do que o relatório, sem explicação. Eles são contados e
-deixados de fora, com aviso.
+faria a planilha ter mais linhas do que o relatório, sem explicação.
+
+**Decisão do dono do projeto, 17/11/2026:** eles não são descartados. Vão separados, como
+voos auxiliares, e alimentam o **horímetro e a manutenção da frota** — translado e
+calibração desgastam motor, hélice e bateria igual, e é por isso que a revisão vence. Só a
+aplicação entra no relatório do MAPA. A importação devolve as duas listas e, por
+equipamento, quanto do tempo foi aplicando e quanto não foi.
 
 #### O que isto preenche do relatório mensal, e o que não preenche
 
@@ -506,6 +511,11 @@ exactamente o que ele pediu.
 
 1. **O fuso.** Os horários são UTC? Uma aplicação com horário conhecido confirma: basta
    dizer a que hora começou o voo de 15/08 do talhão "Ronan 2".
+
+   **Encaminhamento, 17/11/2026 (dono do projeto):** a importação devolve os **dois**
+   horários — o do arquivo e o ajustado em `-03:00`, que é a dedução — e a tela de revisão
+   tem o controle de alternar. Assim o sistema não aposta, e a resposta do Nathan vira o
+   padrão em vez de virar correção de dado já gravado.
 2. **O que vale quando divergem** (continua aberta, da seção 7.4). O planejamento diz uma
    área, o equipamento diz outra. A regra do `compras` é "o sistema propõe, a pessoa
    confirma", e aqui a área que vale deveria ser a **aplicada** — ele mesmo disse isso na
@@ -513,9 +523,10 @@ exactamente o que ele pediu.
    substituir a digitada ou só aparecer ao lado.
 3. **A unidade da velocidade** (`Speed`): km/h ou m/s? Ela não entra em campo nenhum do
    talão hoje, então não bloqueia — mas entra na conversa quando alguém quiser usá-la.
-4. **O apelido da aeronave.** O arquivo traz "Valkyria" e o número de série; o cadastro do
-   Decko precisa guardar o série para o casamento ser automático. Hoje `aircraft` tem
-   `prefixo`, `modelo` e `fabricante` — falta o série.
+4. ~~**O apelido da aeronave.**~~ **Resolvido em 17/11/2026:** `aircraft.numero_serie`
+   entrou (único por empresa, opcional), e a importação casa por ele. Série que não bate
+   com nenhuma aeronave volta na resposta para a tela oferecer o cadastro rápido — com
+   prefixo, que é o que identifica a ARP para o MAPA.
 5. **`Crop` vem `other` sempre.** Vale a pena ele preencher a cultura no aplicativo, ou a
    cultura fica sempre do planejamento? A segunda é mais segura; a primeira pouparia um
    campo.

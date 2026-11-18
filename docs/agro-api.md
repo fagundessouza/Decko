@@ -47,8 +47,13 @@ em grau decimal.
 | `GET` | `/aircraft` | `agro.aircraft.read` |
 | `POST` | `/aircraft` | `agro.aircraft.write` |
 
-`AircraftIn`: `prefixo`, `modelo?`, `fabricante?`. `AircraftOut` acrescenta `id` e
-`is_active`.
+`AircraftIn`: `prefixo`, `modelo?`, `fabricante?`, `numero_serie?`. `AircraftOut`
+acrescenta `id` e `is_active`.
+
+`numero_serie` é o série do equipamento como o aplicativo do fabricante o escreve, e existe
+para o registro de voo importado encontrar a aeronave — ver `POST /flight-log/preview`. É
+único por empresa e opcional, porque aeronave cadastrada antes da importação não tem como
+saber o número.
 
 ## Planejamento Operacional — `agro.plan.*`
 
@@ -104,41 +109,64 @@ Respostas de erro:
 `Content-Disposition: attachment; filename="planejamento-operacional-{numero}.pdf"`.
 Estrutura e motivos em `docs/adr/0016-geracao-do-pdf.md`.
 
-## Registro de voo do drone — `POST /flight-log`
+## Registro de voo do drone — `POST /flight-log/preview`
 
 | Método | Rota | Permissão |
 |---|---|---|
-| `POST` | `/flight-log` | `agro.plan.write` |
+| `POST` | `/flight-log/preview` | `agro.plan.write` |
 
-Lê a planilha de voos exportada pelo DJI SmartFarm e devolve as **aplicações** que ela
-descreve. `FlightLogIn`: `planilha`, o `.xlsx` em base64 — binário não vai como texto.
+Lê o registro de voo exportado pelo DJI SmartFarm — **`.xlsx` ou `.csv`** — e devolve o que
+ele descreve, para revisão. `FlightLogPreviewIn`:
 
-**Esta rota não grava nada e não toca no banco.** Ela propõe; confirmar é outro passo. O
-motivo está no destino do dado: o relatório mensal é obrigatório, vai ao SIPEAGRO até o dia
-15 do mês seguinte, e a sanção por irregularidade é multa, suspensão ou cancelamento do
-registro. Gravar sozinho o que um arquivo de terceiro disse é o caminho mais curto para um
-relatório divergente.
+- `arquivo`: o conteúdo em base64. Quem descobre o formato é o conteúdo, não a extensão.
+- `fuso_minutos`: quanto somar ao horário do arquivo para chegar ao horário local. Padrão
+  `-180`.
 
-O que ela resolve, e as duas armadilhas do arquivo, estão na seção 7.5 do
+**Esta rota não grava nada.** Ela propõe; confirmar é outro passo. O motivo está no destino
+do dado: o relatório mensal é obrigatório, vai ao SIPEAGRO até o dia 15 do mês seguinte, e a
+sanção por irregularidade é multa, suspensão ou cancelamento do registro. Gravar sozinho o
+que um arquivo de terceiro disse é o caminho mais curto para um relatório divergente.
+
+O que ela resolve, e as armadilhas do arquivo, estão na seção 7.5 do
 `docs/discovery/agro-planejamento-operacional.md`:
 
 - **A área vem em `mu`** (1/15 de hectare) quando a conta do aplicativo está assim
   configurada, e a unidade só aparece no cabeçalho da coluna de consumo. `unidade_de_area`
-  na resposta diz qual foi lida. Cabeçalho que o leitor não reconhece devolve **422** em
-  vez de converter por palpite.
+  diz qual foi lida. Cabeçalho que o leitor não reconhece devolve **422** em vez de
+  converter por palpite.
 - **Um voo não é uma aplicação.** Os voos do mesmo `Plot ID` no mesmo dia são somados numa
-  `AplicacaoDoVooOut`: área em hectare, volume de calda, duração somada (as *horas de
-  execução* que o relatório mensal exige), início do primeiro voo e fim do último. Voo sem
-  área aplicada é contado em `voos_sem_aplicacao` e fica de fora.
+  `AplicacaoDoVooOut`: área em hectare, volume de calda, dose por hectare, duração somada
+  (as *horas de execução* do art. 11, III) e o início do primeiro voo com o fim do último.
+- **O horário vem dos dois jeitos.** `comecou_em` é o do arquivo, que não declara fuso;
+  `comecou_em_ajustado` tem o deslocamento aplicado. A tela oferece o controle de alternar,
+  porque errar o fuso desloca o horário declarado **e** a leitura de clima que o confronta.
+- **Voo que não pulverizou não é descartado.** Translado, calibração, teste e decolagem
+  abortada vão em `voos_auxiliares` e entram no `horimetro` — eles desgastam motor, hélice e
+  bateria igual, e é por isso que a revisão vence. Só a aplicação vai ao relatório do MAPA.
+- **A aeronave é encontrada pelo número de série** (`Aircraft.numero_serie`), não pelo
+  apelido que aparece no aplicativo: apelido não identifica ARP. `aircraft_id` e `prefixo`
+  vêm preenchidos quando o série bate; `series_sem_aeronave` lista o que não bateu, para a
+  tela oferecer o cadastro rápido.
+
+`horimetro` traz, por equipamento: `voos`, `duracao_total_segundos`,
+`duracao_aplicando_segundos` e `duracao_auxiliar_segundos`.
 
 `avisos` traz o que quem confirma precisa saber antes de confirmar — unidade convertida,
-ausência de fuso nos horários, voos descartados, aeronave trocada no meio da aplicação.
+ausência de fuso nos horários, voos sem aplicação, aeronave trocada no meio da aplicação.
 
 Respostas de erro:
 
 | Código | Quando |
 |---|---|
-| `422` | o arquivo não é uma planilha de voos legível, ou a unidade da área é desconhecida |
+| `422` | o arquivo não é um registro de voo legível, ou a unidade da área é desconhecida |
+
+### Ainda sem rota: `POST /flight-log/confirm`
+
+Gravar o que foi revisado — criar as aplicações, vincular o receituário, somar as horas na
+aeronave e, quando houver, dar baixa nos insumos — **não existe ainda**, e depende de duas
+coisas que não são código: a regra de divergência entre a área planejada e a aplicada
+(pergunta 2 da seção 7.6 do discovery) e `comercial` entrar no `depends` do módulo, porque
+baixa de estoque é serviço dele — ver `docs/adr/0007-dependencia-entre-modulos.md`.
 
 ## Conjuntos fechados
 

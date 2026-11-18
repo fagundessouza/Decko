@@ -35,12 +35,13 @@ leitura meteorológica que confronta aquele horário.
 entidade externa — então o XML é lido com ``defusedxml``, como o da NF-e.
 """
 
+import csv
 import zipfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from io import BytesIO
+from io import BytesIO, StringIO
 
 from defusedxml import ElementTree
 
@@ -133,14 +134,41 @@ class AplicacaoLida:
 
 
 @dataclass(frozen=True)
+class HorasDoEquipamento:
+    """O que um equipamento voou no arquivo, para o horímetro e a manutenção.
+
+    Separa o que pulverizou do que não pulverizou **sem descartar nada**: translado,
+    calibração e decolagem abortada desgastam motor, hélice e bateria igual, e é por isso
+    que a revisão vence. O relatório do MAPA leva só a aplicação; a manutenção leva tudo.
+    """
+
+    equipamento_serie: str | None
+    aeronave: str
+    voos: int
+    duracao_total: timedelta
+    duracao_aplicando: timedelta
+    duracao_auxiliar: timedelta
+
+
+@dataclass(frozen=True)
 class Leitura:
     #: Como o arquivo mede área: "mu", "ha" ou "acre". Lida do cabeçalho.
     unidade_de_area: str
     aplicacoes: list[AplicacaoLida]
-    #: Voos que não pulverizaram: translado, teste, decolagem abortada.
-    voos_sem_aplicacao: int
+    #: Voos que não pulverizaram: translado, calibração, teste, decolagem abortada.
+    #:
+    #: Eles **não** são descartados. Ficam aqui inteiros porque alimentam o horímetro da
+    #: frota — e porque sumir com linha de um arquivo que o operador está conferindo é a
+    #: melhor forma de ele deixar de confiar no que o sistema leu.
+    voos_auxiliares: list[VooLido]
+    #: Por equipamento: o que voou, e quanto disso foi aplicando.
+    horimetro: list[HorasDoEquipamento]
     #: O que quem for confirmar precisa saber antes de confirmar.
     avisos: list[str]
+
+    @property
+    def voos_sem_aplicacao(self) -> int:
+        return len(self.voos_auxiliares)
 
 
 # ------------------------------------------------------------------ o arquivo
@@ -405,21 +433,52 @@ def _concordam(valores: Iterable[Decimal | None]) -> Decimal | None:
     return distintos.pop() if len(distintos) == 1 else None
 
 
+#: Todo zip começa assim, e um .xlsx é um zip. É como se sabe qual dos dois formatos veio.
+ASSINATURA_ZIP = b"PK"
+
+
+def _linhas_do_csv(conteudo: bytes) -> list[list[str]]:
+    """O mesmo conteúdo em texto separado por vírgula ou ponto e vírgula.
+
+    O separador é descoberto pela primeira linha, e não suposto: planilha salva em
+    computador com configuração brasileira sai com ponto e vírgula, e ler uma com a regra
+    da outra devolveria uma coluna só — o que viraria "faltam as colunas de voo" numa tela
+    de quem não errou nada.
+    """
+    for codificacao in ("utf-8-sig", "utf-8", "latin-1"):
+        try:
+            texto = conteudo.decode(codificacao)
+            break
+        except UnicodeDecodeError:
+            continue
+    else:  # pragma: no cover - latin-1 aceita qualquer byte
+        raise PlanilhaInvalidaError("Não consegui ler este arquivo como texto.")
+
+    primeira = texto.splitlines()[0] if texto.splitlines() else ""
+    separador = ";" if primeira.count(";") > primeira.count(",") else ","
+    return [
+        [celula.strip() for celula in linha]
+        for linha in csv.reader(StringIO(texto), delimiter=separador)
+        if any(celula.strip() for celula in linha)
+    ]
+
+
 def ler(conteudo: bytes) -> Leitura:
-    """Lê a planilha de voos e devolve as aplicações que ela descreve.
+    """Lê o registro de voo — `.xlsx` ou `.csv` — e devolve as aplicações que ele descreve.
 
     Não grava nada e não decide nada: o casamento com o planejamento e a confirmação são
     de quem operou.
     """
-    try:
-        zf = zipfile.ZipFile(BytesIO(conteudo))
-    except zipfile.BadZipFile as exc:
+    if conteudo.startswith(ASSINATURA_ZIP):
+        with zipfile.ZipFile(BytesIO(conteudo)) as zf:
+            linhas = _celulas(zf)
+    elif b"," in conteudo[:4096] or b";" in conteudo[:4096]:
+        linhas = _linhas_do_csv(conteudo)
+    else:
         raise PlanilhaInvalidaError(
-            "Este arquivo não é uma planilha do Excel. Exporte os voos do SmartFarm em .xlsx."
-        ) from exc
-
-    with zf:
-        linhas = _celulas(zf)
+            "Este arquivo não é uma planilha nem um CSV. Exporte os voos do SmartFarm "
+            "em .xlsx ou .csv."
+        )
 
     if not linhas:
         raise PlanilhaInvalidaError("Esta planilha está vazia.")
@@ -433,7 +492,8 @@ def ler(conteudo: bytes) -> Leitura:
         raise PlanilhaInvalidaError("Esta planilha tem o cabeçalho de voos, mas nenhum voo.")
 
     aplicacoes, avisos = _agrupar(voos, unidade)
-    sem_aplicacao = sum(1 for voo in voos if not voo.aplicou)
+    auxiliares = [voo for voo in voos if not voo.aplicou]
+    sem_aplicacao = len(auxiliares)
 
     if unidade != "ha":
         avisos.append(
@@ -446,8 +506,9 @@ def ler(conteudo: bytes) -> Leitura:
     )
     if sem_aplicacao:
         avisos.append(
-            f"{sem_aplicacao} voo(s) sem área aplicada ficaram de fora: são translado, "
-            "teste ou decolagem sem pulverização."
+            f"{sem_aplicacao} voo(s) não pulverizaram área: são translado, calibração, "
+            "teste ou decolagem abortada. Não entram no relatório do MAPA, e entram no "
+            "horímetro da aeronave."
         )
     if not aplicacoes:
         avisos.append("Nenhum voo desta planilha pulverizou área.")
@@ -455,6 +516,30 @@ def ler(conteudo: bytes) -> Leitura:
     return Leitura(
         unidade_de_area=unidade,
         aplicacoes=aplicacoes,
-        voos_sem_aplicacao=sem_aplicacao,
+        voos_auxiliares=auxiliares,
+        horimetro=_horimetro(voos),
         avisos=avisos,
     )
+
+
+def _horimetro(voos: list[VooLido]) -> list[HorasDoEquipamento]:
+    """Soma as horas por equipamento, separando o que aplicou do que não aplicou."""
+    por_equipamento: dict[str | None, list[VooLido]] = {}
+    for voo in voos:
+        por_equipamento.setdefault(voo.equipamento_serie, []).append(voo)
+
+    horas = []
+    for serie, do_equipamento in por_equipamento.items():
+        aplicando = sum((voo.duracao for voo in do_equipamento if voo.aplicou), timedelta())
+        total = sum((voo.duracao for voo in do_equipamento), timedelta())
+        horas.append(
+            HorasDoEquipamento(
+                equipamento_serie=serie,
+                aeronave=next((voo.aeronave for voo in do_equipamento if voo.aeronave), ""),
+                voos=len(do_equipamento),
+                duracao_total=total,
+                duracao_aplicando=aplicando,
+                duracao_auxiliar=total - aplicando,
+            )
+        )
+    return sorted(horas, key=lambda h: h.equipamento_serie or "")

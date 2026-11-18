@@ -1,6 +1,7 @@
 import uuid
 from base64 import b64decode
 from binascii import Error as BinasciiError
+from datetime import timedelta
 from decimal import Decimal
 from typing import Annotated
 
@@ -35,8 +36,9 @@ from decko_modules.agro.schemas import (
     ConsolidationOut,
     CroquiIn,
     CroquiOut,
-    FlightLogIn,
-    FlightLogOut,
+    FlightLogPreviewIn,
+    FlightLogPreviewOut,
+    HorasDoEquipamentoOut,
     MonthlyReportOut,
     MonthlyReportRowOut,
     PilotIn,
@@ -52,6 +54,7 @@ from decko_modules.agro.schemas import (
     ProductOut,
     PropertyIn,
     PropertyOut,
+    VooAuxiliarOut,
     WeatherCaptureIn,
     WeatherCaptureOut,
     WeatherReadingOut,
@@ -679,12 +682,13 @@ def _check_month(ano: int, mes: int) -> None:
         )
 
 
-@router.post("/flight-log", response_model=FlightLogOut)
-async def read_flight_log(
-    payload: FlightLogIn,
+@router.post("/flight-log/preview", response_model=FlightLogPreviewOut)
+async def preview_flight_log(
+    payload: FlightLogPreviewIn,
+    session: SessionDep,
     _: Annotated[object, Depends(require("agro.plan.write"))],
-) -> FlightLogOut:
-    """Lê a planilha de voos do SmartFarm e devolve as aplicações que ela descreve.
+) -> FlightLogPreviewOut:
+    """Lê o registro de voo do drone e devolve o que ele descreve, para revisão.
 
     **Não grava nada.** É o pedido do Nathan, de 13/11/2026 — não redigitar horário de
     início, fim e área aplicada —, e a forma é a da entrada por nota do módulo `compras`
@@ -694,13 +698,18 @@ async def read_flight_log(
     SIPEAGRO até o dia 15 do mês seguinte (Portaria MAPA 298/2021, art. 11 e art. 19, I),
     e a sanção por irregularidade é multa, suspensão ou cancelamento do registro (Decreto
     86.765/1981, art. 30). Gravar sozinho o que um arquivo de terceiro disse é o caminho
-    mais curto para um relatório divergente — e a divergência só apareceria lá.
+    mais curto para um relatório divergente.
 
-    A rota não toca no banco, então não há sessão: ela é uma leitura de arquivo. A
-    permissão é a de quem preenche planejamento.
+    Três coisas que esta resposta traz e o arquivo não tem:
+
+    - **A aeronave cadastrada**, encontrada pelo número de série do equipamento. O apelido
+      que aparece no aplicativo não identifica ARP; o prefixo, que está no cadastro, sim.
+    - **Os horários ajustados**, ao lado dos do arquivo. O arquivo não declara fuso.
+    - **O horímetro**, separando o que pulverizou do que não pulverizou — sem descartar o
+      que não pulverizou, que é o que desgasta a frota.
     """
     try:
-        conteudo = b64decode(payload.planilha, validate=True)
+        conteudo = b64decode(payload.arquivo, validate=True)
     except BinasciiError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -714,10 +723,25 @@ async def read_flight_log(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
 
-    return FlightLogOut(
+    deslocamento = timedelta(minutes=payload.fuso_minutos)
+    series = {
+        serie
+        for serie in (
+            [aplicacao.equipamento_serie for aplicacao in leitura.aplicacoes]
+            + [voo.equipamento_serie for voo in leitura.voos_auxiliares]
+        )
+        if serie
+    }
+    aeronaves = await service.aeronaves_por_serie(session, series)
+
+    def cadastrada(serie: str | None) -> Aircraft | None:
+        return aeronaves.get(serie) if serie else None
+
+    return FlightLogPreviewOut(
         unidade_de_area=leitura.unidade_de_area,
-        voos_sem_aplicacao=leitura.voos_sem_aplicacao,
+        fuso_minutos=payload.fuso_minutos,
         avisos=leitura.avisos,
+        series_sem_aeronave=sorted(serie for serie in series if serie not in aeronaves),
         aplicacoes=[
             AplicacaoDoVooOut(
                 plot_id=aplicacao.plot_id,
@@ -725,6 +749,8 @@ async def read_flight_log(
                 dia=aplicacao.dia,
                 comecou_em=aplicacao.comecou_em,
                 terminou_em=aplicacao.terminou_em,
+                comecou_em_ajustado=aplicacao.comecou_em + deslocamento,
+                terminou_em_ajustado=aplicacao.terminou_em + deslocamento,
                 area_ha=aplicacao.area_ha,
                 volume_l=aplicacao.volume_l,
                 volume_por_ha=aplicacao.volume_por_ha,
@@ -732,8 +758,10 @@ async def read_flight_log(
                 voos=aplicacao.voos,
                 aeronave=aplicacao.aeronave,
                 equipamento_serie=aplicacao.equipamento_serie,
+                aircraft_id=getattr(cadastrada(aplicacao.equipamento_serie), "id", None),
+                prefixo=getattr(cadastrada(aplicacao.equipamento_serie), "prefixo", None),
                 piloto=aplicacao.piloto,
-                local=aplicacao.local,
+                lugar=aplicacao.local,
                 largura_faixa_m=aplicacao.largura_faixa_m,
                 altura_voo_m=aplicacao.altura_voo_m,
                 largura_faixa_min=_ponta(aplicacao.largura_faixa_intervalo, 0),
@@ -742,6 +770,33 @@ async def read_flight_log(
                 altura_voo_max=_ponta(aplicacao.altura_voo_intervalo, 1),
             )
             for aplicacao in leitura.aplicacoes
+        ],
+        voos_auxiliares=[
+            VooAuxiliarOut(
+                comecou_em=voo.comecou_em,
+                terminou_em=voo.terminou_em,
+                comecou_em_ajustado=voo.comecou_em + deslocamento,
+                terminou_em_ajustado=voo.terminou_em + deslocamento,
+                duracao_segundos=int(voo.duracao.total_seconds()),
+                aeronave=voo.aeronave,
+                equipamento_serie=voo.equipamento_serie,
+                piloto=voo.piloto,
+                lugar=voo.local,
+            )
+            for voo in leitura.voos_auxiliares
+        ],
+        horimetro=[
+            HorasDoEquipamentoOut(
+                equipamento_serie=horas.equipamento_serie,
+                aeronave=horas.aeronave,
+                aircraft_id=getattr(cadastrada(horas.equipamento_serie), "id", None),
+                prefixo=getattr(cadastrada(horas.equipamento_serie), "prefixo", None),
+                voos=horas.voos,
+                duracao_total_segundos=int(horas.duracao_total.total_seconds()),
+                duracao_aplicando_segundos=int(horas.duracao_aplicando.total_seconds()),
+                duracao_auxiliar_segundos=int(horas.duracao_auxiliar.total_seconds()),
+            )
+            for horas in leitura.horimetro
         ],
     )
 

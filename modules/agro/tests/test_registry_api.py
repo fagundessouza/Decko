@@ -605,14 +605,10 @@ async def test_reenviar_o_mesmo_planejamento_nao_gasta_outro_numero(
     escolhida = str(uuid.uuid4())
     corpo = {**await _dados_do_plano(scenario), "id": escolhida}
 
-    primeiro = await scenario.client.post(
-        f"{BASE}/plans", headers=scenario.first.auth, json=corpo
-    )
+    primeiro = await scenario.client.post(f"{BASE}/plans", headers=scenario.first.auth, json=corpo)
     assert primeiro.status_code == 201, primeiro.text
 
-    segundo = await scenario.client.post(
-        f"{BASE}/plans", headers=scenario.first.auth, json=corpo
-    )
+    segundo = await scenario.client.post(f"{BASE}/plans", headers=scenario.first.auth, json=corpo)
 
     # 200, e não 201: quem esvazia a fila precisa saber o que de fato entrou.
     assert segundo.status_code == 200, segundo.text
@@ -678,7 +674,7 @@ async def test_o_reenvio_nao_atravessa_a_fronteira_da_empresa(scenario: Scenario
     assert "Vizinha" not in recusado.text
 
 
-# ------------------------------------------- a planilha de voos do SmartFarm, pela API
+# ------------------------------------------- o registro de voo do drone, pela API
 
 CABECALHO_DE_VOO = [
     "Flight time",
@@ -692,6 +688,21 @@ CABECALHO_DE_VOO = [
     "Body Code",
     "Plot ID",
 ]
+
+SERIE = "B26WN5P0025A3T"
+
+
+def _linha_de_voo(
+    *,
+    quando: str,
+    area: str,
+    volume: str,
+    duracao: str,
+    talhao: str = "",
+    plot: str = "",
+    serie: str = SERIE,
+) -> list[str]:
+    return [quando, area, volume, "", duracao, "Valkyria", "Piloto de Teste", talhao, serie, plot]
 
 
 def _planilha_de_voo(linhas: list[list[str]]) -> str:
@@ -719,7 +730,8 @@ def _planilha_de_voo(linhas: list[list[str]]) -> str:
     with zipfile.ZipFile(pacote, "w") as zf:
         zf.writestr(
             "xl/workbook.xml",
-            f'<workbook xmlns="{ns}"><sheets><sheet name="voos" sheetId="1"/></sheets></workbook>',
+            f'<workbook xmlns="{ns}"><sheets>'
+            '<sheet name="voos" sheetId="1"/></sheets></workbook>',
         )
         zf.writestr(
             "xl/worksheets/sheet1.xml",
@@ -728,7 +740,44 @@ def _planilha_de_voo(linhas: list[list[str]]) -> str:
     return b64encode(pacote.getvalue()).decode()
 
 
-async def test_a_planilha_de_voo_e_lida_e_nada_e_gravado(scenario: Scenario) -> None:
+#: Uma aplicação de dois voos, mais um translado que não pulverizou nada.
+UM_DIA_DE_VOO = [
+    CABECALHO_DE_VOO,
+    _linha_de_voo(
+        quando="2026-08-15 18:51:36-18:58:23",
+        area="150",
+        volume="60",
+        duracao="06:47",
+        talhao="Milho 1",
+        plot="plot-a",
+    ),
+    _linha_de_voo(
+        quando="2026-08-15 19:03:16-19:10:57",
+        area="333",
+        volume="130",
+        duracao="07:41",
+        talhao="Milho 1",
+        plot="plot-a",
+    ),
+    _linha_de_voo(
+        quando="2026-08-15 19:25:14-19:33:35", area="0.0", volume="0.0", duracao="08:21"
+    ),
+]
+
+
+async def _preview(
+    scenario: Scenario, linhas: list[list[str]], **extra: object
+) -> dict[str, object]:
+    resposta = await scenario.client.post(
+        f"{BASE}/flight-log/preview",
+        headers=scenario.first.auth,
+        json={"arquivo": _planilha_de_voo(linhas), **extra},
+    )
+    assert resposta.status_code == 200, resposta.text
+    return resposta.json()
+
+
+async def test_o_registro_de_voo_e_lido_e_nada_e_gravado(scenario: Scenario) -> None:
     """O pedido do Nathan: não redigitar início, fim e área aplicada.
 
     A rota lê e propõe; gravar é outro passo, com confirmação. Em documento que vai ao
@@ -737,44 +786,8 @@ async def test_a_planilha_de_voo_e_lida_e_nada_e_gravado(scenario: Scenario) -> 
     """
     antes = await scenario.client.get(f"{BASE}/plans", headers=scenario.first.auth)
 
-    resposta = await scenario.client.post(
-        f"{BASE}/flight-log",
-        headers=scenario.first.auth,
-        json={
-            "planilha": _planilha_de_voo(
-                [
-                    CABECALHO_DE_VOO,
-                    [
-                        "2026-08-15 18:51:36-18:58:23",
-                        "150",
-                        "60",
-                        "",
-                        "06:47",
-                        "Valkyria",
-                        "Piloto de Teste",
-                        "Milho 1",
-                        "B26WN5P0025A3T",
-                        "plot-a",
-                    ],
-                    [
-                        "2026-08-15 19:03:16-19:10:57",
-                        "333",
-                        "130",
-                        "",
-                        "07:41",
-                        "Valkyria",
-                        "Piloto de Teste",
-                        "Milho 1",
-                        "B26WN5P0025A3T",
-                        "plot-a",
-                    ],
-                ]
-            )
-        },
-    )
+    corpo = await _preview(scenario, UM_DIA_DE_VOO)
 
-    assert resposta.status_code == 200, resposta.text
-    corpo = resposta.json()
     assert corpo["unidade_de_area"] == "mu"
     assert len(corpo["aplicacoes"]) == 1
     aplicacao = corpo["aplicacoes"][0]
@@ -782,52 +795,139 @@ async def test_a_planilha_de_voo_e_lida_e_nada_e_gravado(scenario: Scenario) -> 
     assert aplicacao["area_ha"] == "32.2000"
     assert aplicacao["voos"] == 2
     assert aplicacao["duracao_segundos"] == 868
-    assert aplicacao["equipamento_serie"] == "B26WN5P0025A3T"
+    assert aplicacao["equipamento_serie"] == SERIE
 
     # Nada entrou: a lista de planejamentos é a mesma de antes.
     depois = await scenario.client.get(f"{BASE}/plans", headers=scenario.first.auth)
     assert len(depois.json()) == len(antes.json())
 
 
-async def test_arquivo_que_nao_e_planilha_de_voo_e_recusado_com_motivo(
+async def test_o_voo_que_nao_pulverizou_vai_para_o_horimetro(scenario: Scenario) -> None:
+    """Translado e calibração não entram no relatório do MAPA e não são descartados.
+
+    Eles desgastam motor, hélice e bateria igual, e é por isso que a revisão vence. O
+    relatório leva só a aplicação; a manutenção leva tudo.
+    """
+    corpo = await _preview(scenario, UM_DIA_DE_VOO)
+
+    assert len(corpo["voos_auxiliares"]) == 1
+    assert corpo["voos_auxiliares"][0]["duracao_segundos"] == 501
+
+    horimetro = corpo["horimetro"][0]
+    assert horimetro["voos"] == 3
+    assert horimetro["duracao_aplicando_segundos"] == 868
+    assert horimetro["duracao_auxiliar_segundos"] == 501
+    assert horimetro["duracao_total_segundos"] == 1369
+
+
+async def test_a_aeronave_e_encontrada_pelo_numero_de_serie(scenario: Scenario) -> None:
+    """O arquivo traz apelido e série; quem identifica a ARP para o MAPA é o prefixo.
+
+    Sem este casamento, o relatório mensal ficaria sem o campo de identificação da
+    aeronave (Portaria 298/2021, art. 11, II) — e alguém o preencheria à mão.
+    """
+    cadastrada = await scenario.client.post(
+        f"{BASE}/aircraft",
+        headers=scenario.first.auth,
+        json={
+            "prefixo": "PP-ABC",
+            "modelo": "T50",
+            "fabricante": "DJI",
+            "numero_serie": SERIE,
+        },
+    )
+    assert cadastrada.status_code == 201, cadastrada.text
+
+    corpo = await _preview(scenario, UM_DIA_DE_VOO)
+
+    assert corpo["aplicacoes"][0]["prefixo"] == "PP-ABC"
+    assert corpo["aplicacoes"][0]["aircraft_id"] == cadastrada.json()["id"]
+    assert corpo["horimetro"][0]["prefixo"] == "PP-ABC"
+    assert corpo["series_sem_aeronave"] == []
+
+
+async def test_serie_sem_aeronave_volta_para_o_cadastro_rapido(scenario: Scenario) -> None:
+    """Equipamento novo aparece no arquivo antes de alguém cadastrá-lo. É o caso comum."""
+    corpo = await _preview(scenario, UM_DIA_DE_VOO)
+
+    assert corpo["series_sem_aeronave"] == [SERIE]
+    assert corpo["aplicacoes"][0]["aircraft_id"] is None
+    assert corpo["aplicacoes"][0]["prefixo"] is None
+
+
+async def test_a_aeronave_de_outra_empresa_nao_casa(scenario: Scenario) -> None:
+    """O mesmo equipamento pode estar cadastrado na empresa vizinha, e isso não vaza.
+
+    O isolamento é do PostgreSQL, e esta consulta corre sob ele como todas as outras.
+    """
+    cadastrada = await scenario.client.post(
+        f"{BASE}/aircraft",
+        headers=scenario.second.auth,
+        json={"prefixo": "PP-XYZ", "numero_serie": SERIE},
+    )
+    assert cadastrada.status_code == 201, cadastrada.text
+
+    corpo = await _preview(scenario, UM_DIA_DE_VOO)
+
+    assert corpo["series_sem_aeronave"] == [SERIE]
+    assert corpo["aplicacoes"][0]["prefixo"] is None
+
+
+async def test_o_horario_vem_dos_dois_jeitos_para_a_tela_escolher(scenario: Scenario) -> None:
+    """O arquivo não declara fuso, e a dedução é que ele está em UTC.
+
+    Converter calado erraria o horário declarado **e** a leitura de clima que confronta
+    aquele horário. Então os dois vêm, e quem confirma decide — é a seção 7.5 do
+    discovery.
+    """
+    corpo = await _preview(scenario, UM_DIA_DE_VOO)
+
+    aplicacao = corpo["aplicacoes"][0]
+    assert aplicacao["comecou_em"] == "2026-08-15T18:51:36"
+    assert aplicacao["comecou_em_ajustado"] == "2026-08-15T15:51:36"
+    assert corpo["fuso_minutos"] == -180
+
+
+async def test_o_deslocamento_do_fuso_e_escolha_de_quem_confirma(scenario: Scenario) -> None:
+    corpo = await _preview(scenario, UM_DIA_DE_VOO, fuso_minutos=0)
+
+    aplicacao = corpo["aplicacoes"][0]
+    assert aplicacao["comecou_em_ajustado"] == aplicacao["comecou_em"]
+    assert corpo["voos_auxiliares"][0]["comecou_em_ajustado"] == (
+        corpo["voos_auxiliares"][0]["comecou_em"]
+    )
+
+
+async def test_arquivo_que_nao_e_registro_de_voo_e_recusado_com_motivo(
     scenario: Scenario,
 ) -> None:
     resposta = await scenario.client.post(
-        f"{BASE}/flight-log",
+        f"{BASE}/flight-log/preview",
         headers=scenario.first.auth,
-        json={"planilha": b64encode(b"isto nao e um zip").decode()},
+        json={"arquivo": b64encode(b"isto nao e um zip").decode()},
     )
 
     assert resposta.status_code == 422, resposta.text
-    assert "planilha do Excel" in resposta.json()["detail"]
+    assert "planilha nem um CSV" in resposta.json()["detail"]
 
 
-async def test_planilha_sem_a_unidade_da_area_e_recusada_pela_api(
-    scenario: Scenario,
-) -> None:
+async def test_arquivo_sem_a_unidade_da_area_e_recusado_pela_api(scenario: Scenario) -> None:
     """A recusa chega à tela com o motivo, em vez de uma área convertida por palpite."""
     cabecalho = [c for c in CABECALHO_DE_VOO if not c.startswith("Usage Per")]
+    linha = _linha_de_voo(
+        quando="2026-08-15 18:51:36-18:58:23",
+        area="150",
+        volume="60",
+        duracao="06:47",
+        talhao="Milho 1",
+        plot="plot-a",
+    )
+    del linha[3]  # a coluna de consumo sai da linha também
+
     resposta = await scenario.client.post(
-        f"{BASE}/flight-log",
+        f"{BASE}/flight-log/preview",
         headers=scenario.first.auth,
-        json={
-            "planilha": _planilha_de_voo(
-                [
-                    cabecalho,
-                    [
-                        "2026-08-15 18:51:36-18:58:23",
-                        "150",
-                        "60",
-                        "06:47",
-                        "Valkyria",
-                        "Piloto de Teste",
-                        "Milho 1",
-                        "B26WN5P0025A3T",
-                        "plot-a",
-                    ],
-                ]
-            )
-        },
+        json={"arquivo": _planilha_de_voo([cabecalho, linha])},
     )
 
     assert resposta.status_code == 422, resposta.text

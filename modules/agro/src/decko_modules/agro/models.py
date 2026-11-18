@@ -97,12 +97,22 @@ class Aircraft(TenantMixin, TimestampMixin, Base):
     __tablename__ = "agro_aircraft"
     __table_args__ = (
         UniqueConstraint("tenant_id", "prefixo", name="uq_agro_aircraft_tenant_id_prefixo"),
+        UniqueConstraint(
+            "tenant_id", "numero_serie", name="uq_agro_aircraft_tenant_id_numero_serie"
+        ),
     )
 
     id: Mapped[uuid.UUID] = primary_key()
     prefixo: Mapped[str] = mapped_column(String(20), nullable=False)
     modelo: Mapped[str | None] = mapped_column(String(120), nullable=True)
     fabricante: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    #: O número de série do equipamento, como o aplicativo do fabricante o escreve.
+    #:
+    #: É por ele que o registro de voo importado encontra a aeronave. O nome que aparece no
+    #: aplicativo ("Valkyria") é apelido que o operador escolhe, e apelido não identifica
+    #: ARP para o MAPA — quem identifica é o prefixo, que fica aqui do lado. Opcional
+    #: porque aeronave cadastrada antes desta importação não tem como saber o série.
+    numero_serie: Mapped[str | None] = mapped_column(String(60), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 

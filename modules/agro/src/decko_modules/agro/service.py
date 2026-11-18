@@ -3,6 +3,7 @@
 import hashlib
 import json
 import uuid
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
@@ -592,3 +593,28 @@ async def conferir_assinaturas(session: AsyncSession, plan: OperationalPlan) -> 
         and assinatura.documento_hash is not None
         and assinatura.documento_hash != atual
     ]
+
+
+async def aeronaves_por_serie(session: AsyncSession, series: Iterable[str]) -> dict[str, Aircraft]:
+    """As aeronaves desta empresa que têm estes números de série.
+
+    É o casamento entre o registro de voo importado e o cadastro. O arquivo do aplicativo
+    traz o apelido que o operador deu ao equipamento ("Valkyria") e o número de série;
+    apelido não identifica ARP para o MAPA, e o prefixo que identifica está aqui.
+
+    Série que não bate com nada volta de fora como ausente — e aí a tela oferece o
+    cadastro rápido. Sem a aeronave, o relatório mensal fica sem o que pôr no campo de
+    identificação (Portaria 298/2021, art. 11, II).
+
+    A consulta corre sob o Row Level Security, como todo o resto: só enxerga esta empresa.
+    """
+    procurados = {serie for serie in series if serie}
+    if not procurados:
+        return {}
+
+    resultado = await session.execute(select(Aircraft).where(Aircraft.numero_serie.in_(procurados)))
+    return {
+        aircraft.numero_serie: aircraft
+        for aircraft in resultado.scalars().all()
+        if aircraft.numero_serie is not None
+    }
