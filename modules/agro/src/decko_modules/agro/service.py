@@ -774,8 +774,10 @@ async def confirmar_voos(
             gravados += 1
 
         if plano is not None:
-            avisos.extend(_atualizar_plano(plano, aplicacao))
-            planos.append(plano.id)
+            assinado = await _assinaturas_lancadas(session, plano)
+            avisos.extend(_atualizar_plano(plano, aplicacao, assinado=assinado))
+            if not assinado:
+                planos.append(plano.id)
 
         for insumo in aplicacao.insumos:
             await _baixar_insumo(
@@ -831,16 +833,43 @@ async def confirmar_voos(
     )
 
 
-def _atualizar_plano(plano: OperationalPlan, aplicacao: AplicacaoParaGravar) -> list[str]:
+async def _assinaturas_lancadas(session: AsyncSession, plano: OperationalPlan) -> bool:
+    """Este planejamento já tem assinatura lançada?"""
+    alguma = await session.scalar(
+        select(Signature.id).where(
+            Signature.plan_id == plano.id, Signature.assinado_em.is_not(None)
+        )
+    )
+    return alguma is not None
+
+
+def _atualizar_plano(
+    plano: OperationalPlan, aplicacao: AplicacaoParaGravar, *, assinado: bool
+) -> list[str]:
     """Põe no planejamento o que foi executado, e diz o que mudou.
 
     A divergência não é escondida nem recusada: ela é dita. O Nathan já havia descrito a
     regra na Q9 do discovery — *"você informa a dose x área, nesse caso você faz o mapa da
     área. Essa informação pode ser preenchida após a aplicação"* —, e o dono do projeto a
     confirmou em 17/11/2026: o executado prevalece.
+
+    **Planejamento já assinado é exceção, e a única.** Mudar a área de um documento
+    assinado quebraria a correspondência entre a assinatura e o conteúdo — o Decko detecta
+    isso (`conferir_assinaturas`), mas detectar depois não é o mesmo que não fazer. Então o
+    voo entra, o vínculo com o planejamento fica registrado, e a área do documento não é
+    tocada: o que muda é que alguém é avisado de que os dois números não batem.
     """
     avisos: list[str] = []
     anterior = plano.area_ha
+
+    if assinado:
+        if anterior != aplicacao.area_ha:
+            avisos.append(
+                f"O planejamento {plano.numero} já está assinado e dizia {anterior} ha, "
+                f"enquanto o equipamento mediu {aplicacao.area_ha} ha. A área do documento "
+                "não foi alterada, para não invalidar a assinatura — confira o documento."
+            )
+        return avisos
 
     if anterior is not None and anterior != aplicacao.area_ha:
         avisos.append(

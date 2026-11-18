@@ -28,7 +28,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.db import SessionFactory, bind_tenant
 from decko_modules.agro import service
-from decko_modules.agro.models import Aircraft, Client, Flight, OperationalPlan, Property
+from decko_modules.agro.enums import SignatureRole
+from decko_modules.agro.models import (
+    Aircraft,
+    Client,
+    Flight,
+    OperationalPlan,
+    Property,
+    Signature,
+)
 from decko_modules.comercial import service as comercial
 from decko_modules.comercial.models import Produto, TipoMovimento, Unidade
 from decko_modules.core.models import Tenant
@@ -452,3 +460,66 @@ async def test_aeronave_sem_voo_tem_horimetro_zerado(session: AsyncSession) -> N
     assert horas.voos == 0
     assert horas.segundos_total == 0
     assert horas.ultimo_voo is None
+
+
+# ----------------------------------------------------------------- o plano assinado
+
+
+async def test_planejamento_assinado_nao_tem_a_area_trocada(session: AsyncSession) -> None:
+    """Mudar a área de um documento assinado quebraria a assinatura.
+
+    O Decko detecta isso depois (`conferir_assinaturas`), mas detectar não é o mesmo que
+    não fazer: o voo entra, o vínculo fica, a área do documento não é tocada, e alguém é
+    avisado de que os dois números não batem.
+    """
+    operacao = await _operacao(session)
+    session.add(
+        Signature(
+            tenant_id=operacao.tenant.id,
+            plan_id=operacao.plano.id,
+            papel=SignatureRole.ENG_AGRONOMO,
+            nome="Responsável do teste",
+            assinado_em=datetime.now(UTC),
+            documento_hash="hash-de-quando-assinou",
+        )
+    )
+    await session.flush()
+
+    resultado = await service.confirmar_voos(
+        session,
+        tenant_id=operacao.tenant.id,
+        aplicacoes=[_aplicacao(operacao, plan_id=operacao.plano.id)],
+        auxiliares=[],
+    )
+
+    # A área do documento ficou como estava.
+    assert operacao.plano.area_ha == Decimal("30.0000")
+    assert resultado.planos_atualizados == []
+    assert any("já está assinado" in aviso for aviso in resultado.avisos)
+    # E o voo entrou, com o vínculo: o que aconteceu não deixa de ter acontecido.
+    linhas = (await session.execute(select(Flight))).scalars().all()
+    assert len(linhas) == 2
+    assert all(linha.plan_id == operacao.plano.id for linha in linhas)
+
+
+async def test_assinatura_sem_data_nao_tranca_a_area(session: AsyncSession) -> None:
+    """Linha de assinatura criada e não assinada ainda é campo em branco no papel."""
+    operacao = await _operacao(session)
+    session.add(
+        Signature(
+            tenant_id=operacao.tenant.id,
+            plan_id=operacao.plano.id,
+            papel=SignatureRole.PILOTO_AGRICOLA,
+            nome="Piloto do teste",
+        )
+    )
+    await session.flush()
+
+    await service.confirmar_voos(
+        session,
+        tenant_id=operacao.tenant.id,
+        aplicacoes=[_aplicacao(operacao, plan_id=operacao.plano.id)],
+        auxiliares=[],
+    )
+
+    assert operacao.plano.area_ha == Decimal("32.2000")

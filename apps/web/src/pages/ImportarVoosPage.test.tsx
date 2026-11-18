@@ -26,6 +26,11 @@ vi.mock("../lib/agro", async (original) => ({
     lerRegistroDeVoo: vi.fn(),
     confirmarRegistroDeVoo: vi.fn(),
     createAircraft: vi.fn(),
+    // A tela também carrega o que serve para vincular o planejamento.
+    listPlans: vi.fn(),
+    listProperties: vi.fn(),
+    listProducts: vi.fn(),
+    listPlanProducts: vi.fn(),
   },
 }));
 
@@ -143,6 +148,11 @@ beforeEach(() => {
   vi.mocked(agro.lerRegistroDeVoo).mockResolvedValue(umaLeitura());
   // Empresa sem estoque de defensivo montado é o padrão: a escolha nem aparece.
   vi.mocked(comercial.listProdutos).mockResolvedValue([]);
+  // Sem planejamento aberto é o padrão: o seletor nem aparece.
+  vi.mocked(agro.listPlans).mockResolvedValue([]);
+  vi.mocked(agro.listProperties).mockResolvedValue([]);
+  vi.mocked(agro.listProducts).mockResolvedValue([]);
+  vi.mocked(agro.listPlanProducts).mockResolvedValue([]);
   vi.mocked(agro.confirmarRegistroDeVoo).mockResolvedValue({
     aplicacoes: 1,
     voos_gravados: 2,
@@ -368,4 +378,176 @@ it("sem produto no estoque, a escolha do defensivo não aparece", async () => {
   await screen.findByText("Milho 1 · PP-ABC");
 
   expect(screen.queryByLabelText("Defensivo usado")).toBeNull();
+});
+
+/* O vínculo com o planejamento, na tela.
+ *
+ * Vincular tem consequência: o servidor põe no planejamento a área que o equipamento
+ * mediu, porque o executado prevalece sobre o planejado. Então o que se afirma aqui é que
+ * a escolha é da pessoa — nada é vinculado sozinho —, que o receituário preenche a dose em
+ * vez de alguém digitar, e que voo sem planejamento continua entrando. */
+
+const PLANO = {
+  id: "plano-1",
+  numero: 12,
+  status: "rascunho",
+  client_id: "cliente-1",
+  property_id: "propriedade-1",
+  prescription_id: null,
+  data_aplicacao: "2026-08-15",
+  cultura: "milho",
+  area_ha: "30.0000",
+  param_temperatura_maxima_c: null,
+  param_umidade_relativa_min_pct: null,
+  param_velocidade_vento_max_kmh: null,
+};
+
+const PROPRIEDADE = {
+  id: "propriedade-1",
+  client_id: "cliente-1",
+  nome: "Milho 1",
+  municipio: "Jataí",
+  uf: "GO",
+  latitude: null,
+  longitude: null,
+};
+
+function comPlanejamento() {
+  vi.mocked(agro.listPlans).mockResolvedValue([PLANO as never]);
+  vi.mocked(agro.listProperties).mockResolvedValue([PROPRIEDADE as never]);
+}
+
+it("o planejamento é oferecido, e nada é vinculado sozinho", async () => {
+  /* A sugestão aparece marcada porque o nome do talhão bate com a propriedade — mas
+   * escolher é de quem confirma: vincular troca a área de um documento. */
+  const usuario = userEvent.setup();
+  comPlanejamento();
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+
+  const seletor = (await screen.findByLabelText("Planejamento")) as HTMLSelectElement;
+  expect(seletor.value).toBe("");
+  expect(screen.getByRole("option", { name: /sugerido pelo talhão/ })).toBeTruthy();
+
+  await usuario.click(
+    screen.getByRole("button", { name: "Confirmar e registrar aplicação" }),
+  );
+  await waitFor(() => expect(agro.confirmarRegistroDeVoo).toHaveBeenCalled());
+  const corpo = vi.mocked(agro.confirmarRegistroDeVoo).mock.calls[0][0];
+  expect(corpo.aplicacoes[0].plan_id).toBeNull();
+});
+
+it("planejamento assinado não é oferecido", async () => {
+  /* O servidor recusa mudar a área de documento assinado, para não quebrar a assinatura.
+   * Oferecer na tela o que vai ser recusado é desperdiçar o tempo de quem confere. */
+  const usuario = userEvent.setup();
+  vi.mocked(agro.listPlans).mockResolvedValue([
+    { ...PLANO, status: "assinado" } as never,
+  ]);
+  vi.mocked(agro.listProperties).mockResolvedValue([PROPRIEDADE as never]);
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+  await screen.findByText("Milho 1 · PP-ABC");
+
+  expect(screen.queryByLabelText("Planejamento")).toBeNull();
+});
+
+it("vincular traz a dose do receituário e o defensivo que bate no estoque", async () => {
+  /* É o que fecha o fluxo: a dose sai do receituário em vez de alguém digitar de memória.
+   * O defensivo vem por nome **exato**, porque o cadastro do receituário e o do estoque
+   * são tabelas diferentes e sem vínculo — adivinhar por semelhança daria baixa no produto
+   * errado, erro que só aparece na contagem do estoque, semanas depois. */
+  const usuario = userEvent.setup();
+  comPlanejamento();
+  vi.mocked(agro.listProducts).mockResolvedValue([
+    { id: "do-receituario", nome_comercial: "Inseticida do teste" } as never,
+  ]);
+  vi.mocked(comercial.listProdutos).mockResolvedValue([
+    { id: "do-estoque", nome: "Inseticida do teste" } as never,
+  ]);
+  vi.mocked(agro.listPlanProducts).mockResolvedValue([
+    { id: "linha-1", product_id: "do-receituario", dosagem_ha: "1.5000" } as never,
+  ]);
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+
+  await usuario.selectOptions(await screen.findByLabelText("Planejamento"), "plano-1");
+
+  // A dose veio do receituário, e o defensivo foi casado pelo nome.
+  await waitFor(() =>
+    expect((screen.getByLabelText("Dose por ha") as HTMLInputElement).value).toBe("1.5000"),
+  );
+  expect((screen.getByLabelText("Defensivo usado") as HTMLSelectElement).value).toBe(
+    "do-estoque",
+  );
+
+  await usuario.click(
+    screen.getByRole("button", { name: "Confirmar e registrar aplicação" }),
+  );
+
+  await waitFor(() => expect(agro.confirmarRegistroDeVoo).toHaveBeenCalled());
+  const aplicacao = vi.mocked(agro.confirmarRegistroDeVoo).mock.calls[0][0].aplicacoes[0];
+  expect(aplicacao.plan_id).toBe("plano-1");
+  // 1,5 L/ha em 32,2 ha medidos.
+  expect(aplicacao.insumos).toEqual([
+    { produto_id: "do-estoque", quantidade: "48.3000" },
+  ]);
+});
+
+it("defensivo do receituário sem igual no estoque deixa a escolha em branco", async () => {
+  /* Nome que não bate não é palpite: fica vazio, e quem confirma escolhe. A dose, que é
+   * número e não nome, vem do receituário mesmo assim. */
+  const usuario = userEvent.setup();
+  comPlanejamento();
+  vi.mocked(agro.listProducts).mockResolvedValue([
+    { id: "do-receituario", nome_comercial: "Fungicida XZ" } as never,
+  ]);
+  vi.mocked(comercial.listProdutos).mockResolvedValue([
+    { id: "do-estoque", nome: "Outro produto qualquer" } as never,
+  ]);
+  vi.mocked(agro.listPlanProducts).mockResolvedValue([
+    { id: "linha-1", product_id: "do-receituario", dosagem_ha: "2.0000" } as never,
+  ]);
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+
+  await usuario.selectOptions(await screen.findByLabelText("Planejamento"), "plano-1");
+
+  await waitFor(() =>
+    expect((screen.getByLabelText("Dose por ha") as HTMLInputElement).value).toBe("2.0000"),
+  );
+  expect((screen.getByLabelText("Defensivo usado") as HTMLSelectElement).value).toBe("");
+});
+
+it("a dose trazida do receituário continua editável", async () => {
+  // Ajuste de campo acontece: o receituário prescreve, o campo decide, e o documento
+  // registra o que foi feito.
+  const usuario = userEvent.setup();
+  comPlanejamento();
+  vi.mocked(agro.listProducts).mockResolvedValue([
+    { id: "do-receituario", nome_comercial: "Inseticida do teste" } as never,
+  ]);
+  vi.mocked(comercial.listProdutos).mockResolvedValue([
+    { id: "do-estoque", nome: "Inseticida do teste" } as never,
+  ]);
+  vi.mocked(agro.listPlanProducts).mockResolvedValue([
+    { id: "linha-1", product_id: "do-receituario", dosagem_ha: "1.5000" } as never,
+  ]);
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+  await usuario.selectOptions(await screen.findByLabelText("Planejamento"), "plano-1");
+  await waitFor(() =>
+    expect((screen.getByLabelText("Dose por ha") as HTMLInputElement).value).toBe("1.5000"),
+  );
+
+  await usuario.clear(screen.getByLabelText("Dose por ha"));
+  await usuario.type(screen.getByLabelText("Dose por ha"), "2");
+
+  await usuario.click(
+    screen.getByRole("button", { name: "Confirmar e registrar aplicação" }),
+  );
+  await waitFor(() => expect(agro.confirmarRegistroDeVoo).toHaveBeenCalled());
+  expect(
+    vi.mocked(agro.confirmarRegistroDeVoo).mock.calls[0][0].aplicacoes[0].insumos,
+  ).toEqual([{ produto_id: "do-estoque", quantidade: "64.4000" }]);
 });

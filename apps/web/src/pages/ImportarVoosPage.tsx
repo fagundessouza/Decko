@@ -13,10 +13,14 @@ import { comercial } from "../lib/comercial";
 import type { Produto } from "../lib/comercial";
 import { escalar, escrever, aoCentavo } from "../lib/dinheiro";
 import type {
+  AgroProperty,
   AplicacaoConfirmada,
+  Plan,
+  PlanProduct,
+  Product as ProdutoDoReceituario,
   RegistroDeVooLido,
-  VooDoRegistro,
   VooConfirmado,
+  VooDoRegistro,
   VooRegistrado,
 } from "../lib/agro";
 import { dateBr, num } from "../lib/format";
@@ -60,6 +64,12 @@ export function ImportarVoosPage({ onBack }: Props) {
    * não deve travar a importação. */
   const [insumos, setInsumos] = useState<Record<string, Insumo>>({});
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  /* O planejamento vinculado a cada aplicação. Opcional: voo avulso existe, e exigir
+   * planejamento faria o operador inventar um para poder registrar o que aconteceu. */
+  const [planos, setPlanos] = useState<Record<string, string>>({});
+  const [planejamentos, setPlanejamentos] = useState<Plan[]>([]);
+  const [propriedades, setPropriedades] = useState<AgroProperty[]>([]);
+  const [doReceituario, setDoReceituario] = useState<ProdutoDoReceituario[]>([]);
   const [registrado, setRegistrado] = useState<VooRegistrado | null>(null);
   const campo = useRef<HTMLInputElement>(null);
 
@@ -72,6 +82,21 @@ export function ImportarVoosPage({ onBack }: Props) {
       .listProdutos()
       .then(setProdutos)
       .catch(() => setProdutos([]));
+  }, []);
+
+  /* Os planejamentos para vincular, as propriedades para sugerir pelo nome do talhão, e o
+   * cadastro de produtos do receituário para dizer qual defensivo foi prescrito.
+   *
+   * Falha em silêncio pelo mesmo motivo do estoque: sem planejamento a importação continua
+   * valendo — ela só não vincula nada. */
+  useEffect(() => {
+    void Promise.all([agro.listPlans(), agro.listProperties(), agro.listProducts()])
+      .then(([abertos, areas, cadastro]) => {
+        setPlanejamentos(abertos);
+        setPropriedades(areas);
+        setDoReceituario(cadastro);
+      })
+      .catch(() => undefined);
   }, []);
 
   async function importar(arquivo: File) {
@@ -138,6 +163,7 @@ export function ImportarVoosPage({ onBack }: Props) {
         voos: aplicacao.voos_detalhados.map((voo) =>
           comoVoo(voo, aplicacao.aircraft_id),
         ),
+        plan_id: planos[chaveDaAplicacao(aplicacao)] || null,
         insumos: insumoDaAplicacao(aplicacao),
       }));
 
@@ -186,6 +212,69 @@ export function ImportarVoosPage({ onBack }: Props) {
     if (!escolha?.produtoId) return [];
     const quantidade = quantidadeDoInsumo(escolha.dosePorHa, aplicacao.area_ha);
     return quantidade === null ? [] : [{ produto_id: escolha.produtoId, quantidade }];
+  }
+
+  /** Os planejamentos que podem receber uma aplicação importada.
+   *
+   * Assinado e enviado ficam de fora: mudar a área de um documento assinado quebraria a
+   * correspondência com a assinatura, e o servidor recusa fazer isso — oferecer na tela o
+   * que vai ser recusado é desperdiçar o tempo de quem está conferindo.
+   */
+  const vinculaveis = planejamentos.filter(
+    (plano) => plano.status === "rascunho" || plano.status === "concluido",
+  );
+
+  /** O planejamento cuja propriedade tem o nome do talhão do arquivo.
+   *
+   * Sugestão, e só: o nome do talhão no aplicativo é livre ("Ronan milho 1"), e o do
+   * cadastro é da propriedade. Quando um só bate, ele aparece marcado — mas **não é
+   * escolhido sozinho**, porque vincular troca a área de um documento, e isso é decisão de
+   * quem está conferindo.
+   */
+  function sugerido(talhao: string | null): string | null {
+    if (!talhao) return null;
+    const alvo = semAcento(talhao);
+    const batem = vinculaveis.filter((plano) => {
+      const propriedade = propriedades.find((area) => area.id === plano.property_id);
+      if (!propriedade) return false;
+      const nome = semAcento(propriedade.nome);
+      return nome.length > 2 && (alvo.includes(nome) || nome.includes(alvo));
+    });
+    return batem.length === 1 ? batem[0].id : null;
+  }
+
+  /** Vincula o planejamento e traz dele a dose e o defensivo do receituário. */
+  async function vincular(chave: string, planId: string, areaHa: string) {
+    setPlanos((atual) => ({ ...atual, [chave]: planId }));
+    if (!planId) return;
+
+    try {
+      const linhas = await agro.listPlanProducts(planId);
+      const prescrito = linhas.find((linha) => linha.dosagem_ha !== null) ?? linhas[0];
+      if (!prescrito) return;
+      mexerNoInsumo(chave, {
+        dosePorHa: prescrito.dosagem_ha ?? "",
+        produtoId: doEstoque(prescrito) ?? "",
+      });
+    } catch {
+      /* Receituário que não carrega não impede o vínculo: a dose fica para quem confirma
+       * digitar, como era antes desta fatia. */
+    }
+    void areaHa;
+  }
+
+  /** O produto do estoque que tem o mesmo nome do prescrito no receituário.
+   *
+   * O cadastro do receituário e o do estoque são tabelas diferentes, e não há vínculo
+   * entre elas — então o que existe é o nome. A correspondência é **exata**, e fica à
+   * vista para quem confirma: adivinhar por semelhança daria baixa no produto errado, que
+   * é o tipo de erro que só aparece na contagem do estoque, semanas depois.
+   */
+  function doEstoque(linha: PlanProduct): string | null {
+    const prescrito = doReceituario.find((item) => item.id === linha.product_id);
+    if (!prescrito) return null;
+    const alvo = semAcento(prescrito.nome_comercial);
+    return produtos.find((produto) => semAcento(produto.nome) === alvo)?.id ?? null;
   }
 
   function mexerNoInsumo(chave: string, parte: Partial<Insumo>) {
@@ -399,6 +488,16 @@ export function ImportarVoosPage({ onBack }: Props) {
                       outro, e uma escolha só para o arquivo poria a baixa no produto
                       errado. */}
                   <div className="w-full basis-full">
+                    <Planejamento
+                      chave={chaveDaAplicacao(aplicacao)}
+                      escolhido={planos[chaveDaAplicacao(aplicacao)] ?? ""}
+                      opcoes={vinculaveis}
+                      sugerido={sugerido(aplicacao.talhao)}
+                      areaMedida={aplicacao.area_ha}
+                      onVincular={(chave, planId) =>
+                        void vincular(chave, planId, aplicacao.area_ha)
+                      }
+                    />
                     <Insumos
                       chave={chaveDaAplicacao(aplicacao)}
                       areaHa={aplicacao.area_ha}
@@ -648,6 +747,68 @@ function Insumos({
           ? `Sai do estoque: ${num(quantidade, 3)} para ${num(areaHa, 2)} ha.`
           : "A quantidade é a dose vezes a área medida pelo equipamento."}
       </p>
+    </div>
+  );
+}
+
+/** Sem acento, minúsculo e sem espaço nas pontas: é como dois nomes digitados em lugares
+ *  diferentes conseguem ser comparados sem fingir precisão que não existe. */
+function semAcento(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+/* O vínculo da aplicação importada com um planejamento.
+ *
+ * É opcional de propósito: voo avulso existe, e exigir planejamento faria o operador
+ * inventar um para poder registrar o que aconteceu — o oposto do que esta tela serve.
+ *
+ * Vincular tem consequência: o servidor põe no planejamento a área que o equipamento
+ * mediu, porque o executado prevalece sobre o planejado. Por isso o número da área medida
+ * aparece aqui, ao lado da escolha, e por isso nada é escolhido sozinho. */
+function Planejamento({
+  chave,
+  escolhido,
+  opcoes,
+  sugerido,
+  areaMedida,
+  onVincular,
+}: {
+  chave: string;
+  escolhido: string;
+  opcoes: Plan[];
+  sugerido: string | null;
+  areaMedida: string;
+  onVincular: (chave: string, planId: string) => void;
+}) {
+  if (opcoes.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-col gap-3 border-t border-line-subtle pt-3 sm:flex-row sm:items-end">
+      <div className="min-w-0 flex-1">
+        <Select
+          label="Planejamento"
+          value={escolhido}
+          onChange={(valor) => onVincular(chave, valor)}
+          options={opcoes.map((plano) => ({
+            value: plano.id,
+            label:
+              `Nº ${plano.numero ?? "—"}` +
+              (plano.cultura ? ` · ${plano.cultura}` : "") +
+              (plano.area_ha ? ` · ${num(plano.area_ha, 2)} ha` : "") +
+              (plano.id === sugerido ? " · sugerido pelo talhão" : ""),
+          }))}
+          placeholder="Voo sem planejamento"
+          hint={
+            escolhido
+              ? `A área do planejamento passa a ser a medida: ${num(areaMedida, 2)} ha.`
+              : "Vincular traz a dose do receituário e atualiza a área do documento."
+          }
+        />
+      </div>
     </div>
   );
 }

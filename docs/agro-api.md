@@ -189,6 +189,13 @@ hora de voo**: os repetidos voltam contados em `voos_repetidos`.
 recebe as horas de execução, e a divergência volta em `avisos` — *"o planejamento 12 dizia
 30 ha e o equipamento mediu 32,2 ha"*. Ela não é escondida nem recusada: é dita.
 
+**Planejamento já assinado é a única exceção.** Mudar a área de um documento assinado
+quebraria a correspondência entre a assinatura e o conteúdo — o Decko detecta isso em
+`GET /plans/{id}/signatures/check`, mas detectar depois não é o mesmo que não fazer. Então
+o voo entra, o vínculo com o planejamento fica registrado, a área do documento **não** é
+tocada, e o aviso diz que os dois números não batem. O planejamento não aparece em
+`planos_atualizados`.
+
 `insumos` é a baixa de estoque, feita pelo serviço do `comercial`
 (ADR 0007 — `comercial` está no `depends` do módulo desde 17/11/2026). A quantidade é a
 **do produto**, nunca a de calda: calda é mistura, e quase toda ela é água. Na tela, quem

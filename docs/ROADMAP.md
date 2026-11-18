@@ -466,9 +466,15 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
   - [x] **As baterias desmembradas** (18/11/2026). O preview devolve cada voo da aplicação
         e a tela manda todos: a contagem de pousos e decolagens do horímetro passa a bater
         com a operação, e não só o total de horas
-  - [ ] Vincular o **receituário** à aplicação importada, o que exige casar a aplicação com
-        o planejamento — hoje a tela não escolhe planejamento, então a dose é digitada em
-        vez de vir do receituário
+  - [x] **O vínculo com o planejamento** (18/11/2026). A tela oferece os planejamentos em
+        aberto, marca o que tem a propriedade com o nome do talhão do arquivo, e ao vincular
+        traz a dose do receituário — o defensivo vem junto quando o nome bate **exato** com
+        um produto do estoque, porque os dois cadastros são tabelas sem vínculo entre si.
+        Nada é vinculado sozinho: vincular troca a área de um documento. Planejamento
+        assinado não é oferecido, e o servidor também o protege
+  - [ ] Ligar o cadastro de produto do receituário ao produto do estoque. Hoje o casamento
+        é por nome exato, feito na hora da importação; uma coluna de vínculo resolveria de
+        vez, e precisa de onde preenchê-la
   - [ ] O relatório mensal do SIPEAGRO passar a somar destes voos, com as **horas de
         execução** que ele exige e que o CSV de hoje não traz
 - [ ] OCR de receituário e nota fiscal (Tesseract + MinIO)
