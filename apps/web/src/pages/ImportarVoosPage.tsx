@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "../components/Alert";
 import { Page, PageHeader } from "../components/AppShell";
@@ -6,12 +6,16 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader, Row } from "../components/Card";
 import { Modal } from "../components/Modal";
+import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
 import { agro } from "../lib/agro";
+import { comercial } from "../lib/comercial";
+import type { Produto } from "../lib/comercial";
+import { escalar, escrever, aoCentavo } from "../lib/dinheiro";
 import type {
   AplicacaoConfirmada,
   RegistroDeVooLido,
-  VooAuxiliar,
+  VooDoRegistro,
   VooConfirmado,
   VooRegistrado,
 } from "../lib/agro";
@@ -48,8 +52,27 @@ export function ImportarVoosPage({ onBack }: Props) {
    * e a troca não refaz a requisição: os dois horários já vieram. */
   const [usarAjustado, setUsarAjustado] = useState(true);
   const [cadastrando, setCadastrando] = useState<string | null>(null);
+  /* O defensivo que saiu do estoque em cada aplicação, escolhido por quem confirma.
+   *
+   * Fica por aplicação, e não uma escolha para o arquivo inteiro: um dia de voo pode ter
+   * passado inseticida num talhão e fungicida no outro, e uma escolha só poria a baixa no
+   * produto errado. Vazio é válido — aplicação de quem não controla estoque de defensivo
+   * não deve travar a importação. */
+  const [insumos, setInsumos] = useState<Record<string, Insumo>>({});
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [registrado, setRegistrado] = useState<VooRegistrado | null>(null);
   const campo = useRef<HTMLInputElement>(null);
+
+  /* Os produtos do estoque, para a escolha do defensivo.
+   *
+   * Falha em silêncio de propósito: a empresa pode não ter o estoque montado, e sem
+   * produto a importação continua valendo — ela só não dá baixa em nada. */
+  useEffect(() => {
+    comercial
+      .listProdutos()
+      .then(setProdutos)
+      .catch(() => setProdutos([]));
+  }, []);
 
   async function importar(arquivo: File) {
     setBusy(true);
@@ -81,10 +104,7 @@ export function ImportarVoosPage({ onBack }: Props) {
     return new Date(usarAjustado ? ajustado : doArquivo).toISOString();
   }
 
-  function comoVoo(
-    linha: { comecou_em: string; terminou_em: string; comecou_em_ajustado: string; terminou_em_ajustado: string; duracao_segundos: number; equipamento_serie: string | null; aeronave: string; piloto: string | null; lugar: string | null },
-    aircraftId: string | null,
-  ): VooConfirmado {
+  function comoVoo(linha: VooDoRegistro, aircraftId: string | null): VooConfirmado {
     return {
       comecou_em: instante(linha.comecou_em_ajustado, linha.comecou_em),
       terminou_em: instante(linha.terminou_em_ajustado, linha.terminou_em),
@@ -112,11 +132,13 @@ export function ImportarVoosPage({ onBack }: Props) {
         volume_l: aplicacao.volume_l,
         largura_faixa_m: aplicacao.largura_faixa_m,
         altura_voo_m: aplicacao.altura_voo_m,
-        /* Um voo por aplicação na chamada: o servidor reconhece pelo instante do arquivo,
-         * e o que ele precisa saber é quanto tempo a aplicação levou — que já está
-         * somado. O detalhe voo a voo da aplicação fica no arquivo, que o operador
-         * guarda; o que entra aqui é o que vai ao documento. */
-        voos: [comoVoo(aplicacao, aplicacao.aircraft_id)],
+        /* Todos os voos da aplicação, um por bateria. Cinco baterias são cinco pousos e
+         * cinco decolagens, e mandar uma linha só faria o horímetro da aeronave mentir
+         * sobre o uso — mesmo com o total de horas certo. */
+        voos: aplicacao.voos_detalhados.map((voo) =>
+          comoVoo(voo, aplicacao.aircraft_id),
+        ),
+        insumos: insumoDaAplicacao(aplicacao),
       }));
 
       const resultado = await agro.confirmarRegistroDeVoo({
@@ -134,8 +156,47 @@ export function ImportarVoosPage({ onBack }: Props) {
     }
   }
 
+  /** Quanto do defensivo saiu: a dose por hectare vezes a área que o drone mediu.
+   *
+   * A conta é em inteiros, pela mesma razão do caixa: dose com casas decimais vezes área
+   * com casas decimais em ponto flutuante erra na última casa, e aqui a última casa é
+   * litro de defensivo saindo do estoque de alguém.
+   *
+   * O que sai é **o produto**, nunca a calda: calda é mistura, e quase toda ela é água.
+   * Dar baixa dos litros de calda poria no estoque uma saída que não aconteceu.
+   */
+  function quantidadeDoInsumo(dosePorHa: string, areaHa: string): string | null {
+    try {
+      const dose = escalar(dosePorHa, 4);
+      const area = escalar(areaHa, 4);
+      if (dose <= 0n) return null;
+      return escrever(aoCentavo(dose * area, 10_000n), 4);
+    } catch {
+      // Dose que não é número ainda está sendo digitada; não é erro de tela.
+      return null;
+    }
+  }
+
+  function insumoDaAplicacao(aplicacao: {
+    plot_id: string;
+    dia: string;
+    area_ha: string;
+  }): { produto_id: string; quantidade: string }[] {
+    const escolha = insumos[chaveDaAplicacao(aplicacao)];
+    if (!escolha?.produtoId) return [];
+    const quantidade = quantidadeDoInsumo(escolha.dosePorHa, aplicacao.area_ha);
+    return quantidade === null ? [] : [{ produto_id: escolha.produtoId, quantidade }];
+  }
+
+  function mexerNoInsumo(chave: string, parte: Partial<Insumo>) {
+    setInsumos((atual) => {
+      const anterior: Insumo = atual[chave] ?? { produtoId: "", dosePorHa: "" };
+      return { ...atual, [chave]: { ...anterior, ...parte } };
+    });
+  }
+
   /** A aeronave do voo auxiliar, achada pelo série no horímetro que o servidor montou. */
-  function aeronaveDoVoo(voo: VooAuxiliar): string | null {
+  function aeronaveDoVoo(voo: VooDoRegistro): string | null {
     const horas = lido?.horimetro.find(
       (linha) => linha.equipamento_serie === voo.equipamento_serie,
     );
@@ -323,7 +384,7 @@ export function ImportarVoosPage({ onBack }: Props) {
                       {num(aplicacao.area_ha, 2)} ha
                     </span>
                     <span className="text-sm tabular-nums text-ink-muted">
-                      {num(aplicacao.volume_l, 2)} L
+                      {num(aplicacao.volume_l, 2)} L de calda
                       {aplicacao.volume_por_ha
                         ? ` · ${num(aplicacao.volume_por_ha, 2)} L/ha`
                         : ""}
@@ -331,6 +392,24 @@ export function ImportarVoosPage({ onBack }: Props) {
                     {aplicacao.aircraft_id === null && (
                       <Badge tone="warn">sem aeronave</Badge>
                     )}
+                  </div>
+
+                  {/* A escolha do defensivo fica junto da aplicação a que ela pertence:
+                      um dia de voo pode ter passado inseticida num talhão e fungicida no
+                      outro, e uma escolha só para o arquivo poria a baixa no produto
+                      errado. */}
+                  <div className="w-full basis-full">
+                    <Insumos
+                      chave={chaveDaAplicacao(aplicacao)}
+                      areaHa={aplicacao.area_ha}
+                      produtos={produtos}
+                      escolha={insumos[chaveDaAplicacao(aplicacao)]}
+                      quantidade={quantidadeDoInsumo(
+                        insumos[chaveDaAplicacao(aplicacao)]?.dosePorHa ?? "",
+                        aplicacao.area_ha,
+                      )}
+                      onMudar={mexerNoInsumo}
+                    />
                   </div>
                 </Row>
               ))}
@@ -500,5 +579,75 @@ function CadastroRapido({
         <p className="text-sm text-ink-faint">Número de série: {serie}</p>
       </div>
     </Modal>
+  );
+}
+
+/** O defensivo escolhido para uma aplicação, como a tela o guarda. */
+interface Insumo {
+  produtoId: string;
+  dosePorHa: string;
+}
+
+/** A chave da aplicação na tela: talhão mais dia, que é como o servidor a agrupa. */
+function chaveDaAplicacao(aplicacao: { plot_id: string; dia: string }): string {
+  return `${aplicacao.plot_id}-${aplicacao.dia}`;
+}
+
+/* A escolha do defensivo que saiu do estoque nesta aplicação.
+ *
+ * Pede dose por hectare, e não quantidade total, porque dose é o que está no receituário
+ * e o que o piloto sabe de cabeça. O total é conta do sistema, com a área que o
+ * equipamento mediu — e aparece à vista, porque é ele que vai sair do estoque.
+ *
+ * Deixar em branco é válido: quem não controla estoque de defensivo no Decko importa os
+ * voos sem dar baixa em nada. Travar aqui seria impedir o registro do que aconteceu por
+ * causa de um cadastro que talvez não exista. */
+function Insumos({
+  chave,
+  areaHa,
+  produtos,
+  escolha,
+  quantidade,
+  onMudar,
+}: {
+  chave: string;
+  areaHa: string;
+  produtos: Produto[];
+  escolha: Insumo | undefined;
+  quantidade: string | null;
+  onMudar: (chave: string, parte: Partial<Insumo>) => void;
+}) {
+  if (produtos.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-col gap-3 border-t border-line-subtle pt-3 sm:flex-row sm:items-end">
+      <div className="min-w-0 flex-1">
+        <Select
+          label="Defensivo usado"
+          value={escolha?.produtoId ?? ""}
+          onChange={(valor) => onMudar(chave, { produtoId: valor })}
+          options={produtos.map((produto) => ({
+            value: produto.id,
+            label: produto.nome,
+          }))}
+          placeholder="Não dar baixa"
+          hint="Sai do estoque na confirmação."
+        />
+      </div>
+      <div className="w-full sm:w-36">
+        <TextField
+          label="Dose por ha"
+          inputMode="decimal"
+          value={escolha?.dosePorHa ?? ""}
+          onChange={(event) => onMudar(chave, { dosePorHa: event.target.value })}
+          disabled={!escolha?.produtoId}
+        />
+      </div>
+      <p className="text-sm text-ink-muted sm:w-48 sm:pb-3">
+        {escolha?.produtoId && quantidade !== null
+          ? `Sai do estoque: ${num(quantidade, 3)} para ${num(areaHa, 2)} ha.`
+          : "A quantidade é a dose vezes a área medida pelo equipamento."}
+      </p>
+    </div>
   );
 }

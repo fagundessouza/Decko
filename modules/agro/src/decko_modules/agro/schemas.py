@@ -406,11 +406,13 @@ class FlightLogPreviewIn(BaseModel):
     fuso_minutos: int = Field(default=-180, ge=-840, le=840)
 
 
-class VooAuxiliarOut(BaseModel):
-    """Voo que não pulverizou: translado, calibração, teste, decolagem abortada.
+class VooDoRegistroOut(BaseModel):
+    """Um voo, como o registro do equipamento o descreve. Um voo é uma bateria.
 
-    **Não é descarte.** Ele desgasta motor, hélice e bateria igual, e é por isso que a
-    revisão vence — entra no horímetro da aeronave e fica de fora do relatório do MAPA.
+    Serve aos dois casos, porque o formato é o mesmo e o que muda é o significado: voo de
+    aplicação entra no relatório do MAPA somado com os outros do talhão; voo auxiliar —
+    translado, calibração, teste, decolagem abortada — fica de fora dele e entra no
+    horímetro. Nenhum dos dois é descartado, e os dois contam pouso e decolagem.
     """
 
     comecou_em: datetime
@@ -456,6 +458,12 @@ class AplicacaoDoVooOut(BaseModel):
     #: Horas de execução, que o relatório mensal exige (Portaria 298/2021, art. 11, III).
     duracao_segundos: int
     voos: int
+    #: Cada voo que compôs esta aplicação, na ordem em que aconteceram.
+    #:
+    #: A tela manda todos de volta na confirmação: cinco baterias são cinco pousos e cinco
+    #: decolagens, e registrar uma linha só faria o horímetro da aeronave mentir sobre o
+    #: uso, mesmo com o total de horas certo.
+    voos_detalhados: list[VooDoRegistroOut]
     aeronave: str
     #: O número de série do equipamento. É o que casa com a aeronave cadastrada — o nome
     #: que aparece no aplicativo é apelido, e apelido não identifica ARP para o MAPA.
@@ -486,7 +494,7 @@ class FlightLogPreviewOut(BaseModel):
     #: O deslocamento aplicado nos horários "ajustados", em minutos.
     fuso_minutos: int
     aplicacoes: list[AplicacaoDoVooOut]
-    voos_auxiliares: list[VooAuxiliarOut]
+    voos_auxiliares: list[VooDoRegistroOut]
     horimetro: list[HorasDoEquipamentoOut]
     #: Séries de equipamento que o arquivo traz e nenhuma aeronave cadastrada tem.
     #:

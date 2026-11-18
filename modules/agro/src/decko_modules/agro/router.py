@@ -57,8 +57,8 @@ from decko_modules.agro.schemas import (
     ProductOut,
     PropertyIn,
     PropertyOut,
-    VooAuxiliarOut,
     VooConfirmadoIn,
+    VooDoRegistroOut,
     WeatherCaptureIn,
     WeatherCaptureOut,
     WeatherReadingOut,
@@ -772,21 +772,14 @@ async def preview_flight_log(
                 largura_faixa_max=_ponta(aplicacao.largura_faixa_intervalo, 1),
                 altura_voo_min=_ponta(aplicacao.altura_voo_intervalo, 0),
                 altura_voo_max=_ponta(aplicacao.altura_voo_intervalo, 1),
+                voos_detalhados=[
+                    _voo_lido(voo, deslocamento) for voo in aplicacao.detalhe
+                ],
             )
             for aplicacao in leitura.aplicacoes
         ],
         voos_auxiliares=[
-            VooAuxiliarOut(
-                comecou_em=voo.comecou_em,
-                terminou_em=voo.terminou_em,
-                comecou_em_ajustado=voo.comecou_em + deslocamento,
-                terminou_em_ajustado=voo.terminou_em + deslocamento,
-                duracao_segundos=int(voo.duracao.total_seconds()),
-                aeronave=voo.aeronave,
-                equipamento_serie=voo.equipamento_serie,
-                piloto=voo.piloto,
-                lugar=voo.local,
-            )
+            _voo_lido(voo, deslocamento)
             for voo in leitura.voos_auxiliares
         ],
         horimetro=[
@@ -807,6 +800,21 @@ async def preview_flight_log(
 
 def _ponta(intervalo: tuple[Decimal, Decimal] | None, qual: int) -> Decimal | None:
     return None if intervalo is None else intervalo[qual]
+
+
+def _voo_lido(voo: smartfarm.VooLido, deslocamento: timedelta) -> VooDoRegistroOut:
+    """Um voo para a tela, com o horário do arquivo e o ajustado lado a lado."""
+    return VooDoRegistroOut(
+        comecou_em=voo.comecou_em,
+        terminou_em=voo.terminou_em,
+        comecou_em_ajustado=voo.comecou_em + deslocamento,
+        terminou_em_ajustado=voo.terminou_em + deslocamento,
+        duracao_segundos=int(voo.duracao.total_seconds()),
+        aeronave=voo.aeronave,
+        equipamento_serie=voo.equipamento_serie,
+        piloto=voo.piloto,
+        lugar=voo.local,
+    )
 
 
 @router.post("/flight-log/confirm", response_model=FlightLogConfirmOut)

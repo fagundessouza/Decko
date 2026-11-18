@@ -16,6 +16,10 @@ import { ImportarVoosPage } from "./ImportarVoosPage";
  * a baixa de estoque e o horímetro é a suíte do backend, contra PostgreSQL de verdade.
  */
 
+vi.mock("../lib/comercial", () => ({
+  comercial: { listProdutos: vi.fn() },
+}));
+
 vi.mock("../lib/agro", async (original) => ({
   ...(await original<typeof import("../lib/agro")>()),
   agro: {
@@ -26,6 +30,7 @@ vi.mock("../lib/agro", async (original) => ({
 }));
 
 const { agro } = await import("../lib/agro");
+const { comercial } = await import("../lib/comercial");
 
 function umaLeitura(sobre: Partial<RegistroDeVooLido> = {}): RegistroDeVooLido {
   return {
@@ -45,6 +50,31 @@ function umaLeitura(sobre: Partial<RegistroDeVooLido> = {}): RegistroDeVooLido {
         volume_por_ha: "9.02",
         duracao_segundos: 868,
         voos: 2,
+        // Os dois voos da bateria: é por eles que o horímetro conta pouso e decolagem.
+        voos_detalhados: [
+          {
+            comecou_em: "2026-08-15T18:51:36",
+            terminou_em: "2026-08-15T18:58:23",
+            comecou_em_ajustado: "2026-08-15T15:51:36",
+            terminou_em_ajustado: "2026-08-15T15:58:23",
+            duracao_segundos: 407,
+            aeronave: "Valkyria",
+            equipamento_serie: "SERIE-1",
+            piloto: "Piloto de Teste",
+            lugar: "Piracanjuba, GO",
+          },
+          {
+            comecou_em: "2026-08-15T19:03:16",
+            terminou_em: "2026-08-15T19:10:57",
+            comecou_em_ajustado: "2026-08-15T16:03:16",
+            terminou_em_ajustado: "2026-08-15T16:10:57",
+            duracao_segundos: 461,
+            aeronave: "Valkyria",
+            equipamento_serie: "SERIE-1",
+            piloto: "Piloto de Teste",
+            lugar: "Piracanjuba, GO",
+          },
+        ],
         aeronave: "Valkyria",
         equipamento_serie: "SERIE-1",
         aircraft_id: "aeronave-1",
@@ -111,6 +141,8 @@ function campoDeArquivo(): HTMLInputElement {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(agro.lerRegistroDeVoo).mockResolvedValue(umaLeitura());
+  // Empresa sem estoque de defensivo montado é o padrão: a escolha nem aparece.
+  vi.mocked(comercial.listProdutos).mockResolvedValue([]);
   vi.mocked(agro.confirmarRegistroDeVoo).mockResolvedValue({
     aplicacoes: 1,
     voos_gravados: 2,
@@ -253,4 +285,87 @@ it("escolhido o horário do arquivo, é ele que vai ao servidor", async () => {
   const voo = vi.mocked(agro.confirmarRegistroDeVoo).mock.calls[0][0].aplicacoes[0].voos[0];
   // Comparado com a mesma conversão, para o teste não depender do fuso da máquina.
   expect(voo.comecou_em).toBe(new Date("2026-08-15T18:51:36").toISOString());
+});
+
+it("manda todos os voos da bateria, e não um bloco só", async () => {
+  /* Cinco baterias são cinco pousos e cinco decolagens. Mandar uma linha só faria o
+   * horímetro da aeronave mentir sobre o uso — com o total de horas certo e a contagem
+   * errada, que é o que faz a revisão vencer na hora errada. */
+  const usuario = userEvent.setup();
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+  await screen.findByText("Milho 1 · PP-ABC");
+
+  await usuario.click(
+    screen.getByRole("button", { name: "Confirmar e registrar aplicação" }),
+  );
+
+  await waitFor(() => expect(agro.confirmarRegistroDeVoo).toHaveBeenCalled());
+  const voos = vi.mocked(agro.confirmarRegistroDeVoo).mock.calls[0][0].aplicacoes[0].voos;
+  expect(voos).toHaveLength(2);
+  expect(voos.map((voo) => voo.duracao_segundos)).toEqual([407, 461]);
+  // Cada um com o seu instante do arquivo: é por ele que a reimportação é reconhecida.
+  expect(voos.map((voo) => voo.comecou_em_arquivo)).toEqual([
+    "2026-08-15T18:51:36",
+    "2026-08-15T19:03:16",
+  ]);
+});
+
+it("sem defensivo escolhido, a importação não dá baixa em nada", async () => {
+  /* Quem não controla estoque de defensivo no Decko importa os voos do mesmo jeito.
+   * Travar aqui seria impedir o registro do que aconteceu por causa de um cadastro. */
+  const usuario = userEvent.setup();
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+  await screen.findByText("Milho 1 · PP-ABC");
+
+  await usuario.click(
+    screen.getByRole("button", { name: "Confirmar e registrar aplicação" }),
+  );
+
+  await waitFor(() => expect(agro.confirmarRegistroDeVoo).toHaveBeenCalled());
+  expect(vi.mocked(agro.confirmarRegistroDeVoo).mock.calls[0][0].aplicacoes[0].insumos).toEqual(
+    [],
+  );
+});
+
+it("a baixa é a dose vezes a área medida, e é o produto que sai", async () => {
+  /* 1,5 L/ha em 32,2 ha são 48,3 L de produto. O volume de calda do voo é 290,34 L, e dar
+   * baixa disso poria no estoque uma saída que não aconteceu: calda é mistura, e quase
+   * toda ela é água. */
+  const usuario = userEvent.setup();
+  vi.mocked(comercial.listProdutos).mockResolvedValue([
+    { id: "produto-1", nome: "Inseticida do teste" } as never,
+  ]);
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+  await screen.findByText("Milho 1 · PP-ABC");
+
+  await usuario.selectOptions(
+    await screen.findByLabelText("Defensivo usado"),
+    "produto-1",
+  );
+  await usuario.type(screen.getByLabelText("Dose por ha"), "1,5");
+
+  // A conta aparece antes de confirmar: é ela que vai sair do estoque.
+  expect(await screen.findByText(/48,3/)).toBeTruthy();
+
+  await usuario.click(
+    screen.getByRole("button", { name: "Confirmar e registrar aplicação" }),
+  );
+
+  await waitFor(() => expect(agro.confirmarRegistroDeVoo).toHaveBeenCalled());
+  expect(
+    vi.mocked(agro.confirmarRegistroDeVoo).mock.calls[0][0].aplicacoes[0].insumos,
+  ).toEqual([{ produto_id: "produto-1", quantidade: "48.3000" }]);
+});
+
+it("sem produto no estoque, a escolha do defensivo não aparece", async () => {
+  // Campo que não tem o que oferecer é só confusão na tela de quem está conferindo.
+  const usuario = userEvent.setup();
+  abrir();
+  await usuario.upload(campoDeArquivo(), umArquivo());
+  await screen.findByText("Milho 1 · PP-ABC");
+
+  expect(screen.queryByLabelText("Defensivo usado")).toBeNull();
 });

@@ -110,6 +110,12 @@ class AplicacaoLida:
     #: Horas de execução, que a Portaria 298/2021 exige no relatório mensal (art. 11, III).
     duracao: timedelta
     voos: int
+    #: Cada voo que compôs esta aplicação, na ordem em que aconteceram.
+    #:
+    #: Vai inteiro porque pouso e decolagem são o que o horímetro conta: cinco baterias
+    #: são cinco ciclos de motor e bateria, e registrar uma linha só faria a contagem da
+    #: aeronave mentir sobre o uso — mesmo com o total de horas certo.
+    detalhe: tuple[VooLido, ...]
     aeronave: str
     equipamento_serie: str | None
     piloto: str | None
@@ -402,6 +408,7 @@ def _agrupar(voos: list[VooLido], unidade: str) -> tuple[list[AplicacaoLida], li
                 volume_l=sum((voo.volume_l for voo in ordenados), Decimal(0)),
                 duracao=sum((voo.duracao for voo in ordenados), timedelta()),
                 voos=len(ordenados),
+                detalhe=tuple(ordenados),
                 aeronave=ordenados[0].aeronave,
                 equipamento_serie=next(
                     (voo.equipamento_serie for voo in ordenados if voo.equipamento_serie), None

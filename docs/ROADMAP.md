@@ -460,9 +460,15 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
         planejado, por decisão do dono do projeto, e a divergência volta em aviso.
         `comercial` entrou no `depends` do agro para a baixa (ADR 0007). Reimportar o mesmo
         arquivo não dobra hora de voo: a chave é o instante do arquivo mais o equipamento
-  - [ ] Vincular o **receituário** na confirmação, e propor a baixa de insumo a partir da
-        dose dele vezes a área executada. Hoje a quantidade vai explícita no pedido —
-        deduzir produto a partir de litro de calda poria no estoque baixa que não aconteceu
+  - [x] **O defensivo escolhido na tela** (18/11/2026). Por aplicação, com dose por hectare:
+        a quantidade é a dose vezes a área que o equipamento mediu, em conta inteira. Em
+        branco é válido — quem não controla estoque de defensivo importa sem dar baixa
+  - [x] **As baterias desmembradas** (18/11/2026). O preview devolve cada voo da aplicação
+        e a tela manda todos: a contagem de pousos e decolagens do horímetro passa a bater
+        com a operação, e não só o total de horas
+  - [ ] Vincular o **receituário** à aplicação importada, o que exige casar a aplicação com
+        o planejamento — hoje a tela não escolhe planejamento, então a dose é digitada em
+        vez de vir do receituário
   - [ ] O relatório mensal do SIPEAGRO passar a somar destes voos, com as **horas de
         execução** que ele exige e que o CSV de hoje não traz
 - [ ] OCR de receituário e nota fiscal (Tesseract + MinIO)

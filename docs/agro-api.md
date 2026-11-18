@@ -137,6 +137,10 @@ O que ela resolve, e as armadilhas do arquivo, estão na seção 7.5 do
 - **Um voo não é uma aplicação.** Os voos do mesmo `Plot ID` no mesmo dia são somados numa
   `AplicacaoDoVooOut`: área em hectare, volume de calda, dose por hectare, duração somada
   (as *horas de execução* do art. 11, III) e o início do primeiro voo com o fim do último.
+  Os voos vêm também, um a um, em `voos_detalhados` — e é essa lista que a tela devolve na
+  confirmação: cinco baterias são cinco pousos e cinco decolagens, e registrar uma linha só
+  faria a contagem do horímetro mentir sobre o uso da aeronave, mesmo com o total de horas
+  certo.
 - **O horário vem dos dois jeitos.** `comecou_em` é o do arquivo, que não declara fuso;
   `comecou_em_ajustado` tem o deslocamento aplicado. A tela oferece o controle de alternar,
   porque errar o fuso desloca o horário declarado **e** a leitura de clima que o confronta.
@@ -187,8 +191,11 @@ recebe as horas de execução, e a divergência volta em `avisos` — *"o planej
 
 `insumos` é a baixa de estoque, feita pelo serviço do `comercial`
 (ADR 0007 — `comercial` está no `depends` do módulo desde 17/11/2026). A quantidade é a
-**do produto**, nunca a de calda: calda é mistura, e quase toda ela é água. A tela propõe a
-dose vezes a área executada, a partir do receituário, e quem confirma ajusta. Recusa do
+**do produto**, nunca a de calda: calda é mistura, e quase toda ela é água. Na tela, quem
+confirma escolhe o defensivo do estoque **por aplicação** — um dia de voo pode ter passado
+inseticida num talhão e fungicida no outro — e digita a dose por hectare; a quantidade é a
+dose vezes a área que o equipamento mediu, em conta inteira. Deixar em branco é válido:
+quem não controla estoque de defensivo importa os voos sem dar baixa em nada. Recusa do
 estoque (lote exigido, produto inexistente) derruba a importação inteira com 422.
 
 ### Horímetro — `GET /aircraft/{aircraft_id}/horimetro`

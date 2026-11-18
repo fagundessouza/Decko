@@ -1032,3 +1032,30 @@ async def test_horimetro_de_aeronave_que_nao_existe_e_404(scenario: Scenario) ->
     )
 
     assert resposta.status_code == 404, resposta.text
+
+
+async def test_o_preview_devolve_cada_voo_da_bateria(scenario: Scenario) -> None:
+    """Cinco baterias são cinco pousos e cinco decolagens.
+
+    A aplicação vem somada — é assim que ela entra no relatório —, mas os voos vêm também:
+    registrar uma linha só faria a contagem do horímetro mentir sobre o uso da aeronave,
+    mesmo com o total de horas certo. É o que faz a revisão vencer na hora errada.
+    """
+    corpo = await _preview(scenario, UM_DIA_DE_VOO)
+
+    aplicacao = corpo["aplicacoes"][0]
+    assert aplicacao["voos"] == 2
+    assert len(aplicacao["voos_detalhados"]) == 2
+
+    primeiro, segundo = aplicacao["voos_detalhados"]
+    # Na ordem em que aconteceram, cada um com a sua duração e os dois horários.
+    assert primeiro["comecou_em"] == "2026-08-15T18:51:36"
+    assert primeiro["comecou_em_ajustado"] == "2026-08-15T15:51:36"
+    assert primeiro["duracao_segundos"] == 407
+    assert segundo["comecou_em"] == "2026-08-15T19:03:16"
+    assert segundo["duracao_segundos"] == 461
+    # E a soma deles é a duração da aplicação, que é o que o relatório leva.
+    assert (
+        primeiro["duracao_segundos"] + segundo["duracao_segundos"]
+        == aplicacao["duracao_segundos"]
+    )

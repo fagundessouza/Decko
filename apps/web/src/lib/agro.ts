@@ -420,6 +420,8 @@ export interface AplicacaoDoVoo {
   volume_por_ha: string | null;
   duracao_segundos: number;
   voos: number;
+  /** Cada voo que compôs esta aplicação. São eles que o horímetro conta. */
+  voos_detalhados: VooDoRegistro[];
   aeronave: string;
   equipamento_serie: string | null;
   aircraft_id: string | null;
@@ -434,7 +436,8 @@ export interface AplicacaoDoVoo {
   altura_voo_max: string | null;
 }
 
-export interface VooAuxiliar {
+/** Um voo, como o registro do equipamento o descreve. Um voo é uma bateria. */
+export interface VooDoRegistro {
   comecou_em: string;
   terminou_em: string;
   comecou_em_ajustado: string;
@@ -461,7 +464,7 @@ export interface RegistroDeVooLido {
   unidade_de_area: string;
   fuso_minutos: number;
   aplicacoes: AplicacaoDoVoo[];
-  voos_auxiliares: VooAuxiliar[];
+  voos_auxiliares: VooDoRegistro[];
   horimetro: HorasDoEquipamento[];
   series_sem_aeronave: string[];
   avisos: string[];
