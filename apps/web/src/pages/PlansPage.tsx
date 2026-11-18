@@ -16,6 +16,8 @@ interface Props {
   onCreate: () => void;
   onConsolidate: () => void;
   onPilotos: () => void;
+  /** A importação do registro de voo do equipamento. */
+  onImportarVoos: () => void;
 }
 
 const STATUS_TONE: Record<string, "neutral" | "info" | "success"> = {
@@ -25,7 +27,13 @@ const STATUS_TONE: Record<string, "neutral" | "info" | "success"> = {
   enviado: "success",
 };
 
-export function PlansPage({ onOpen, onCreate, onConsolidate, onPilotos }: Props) {
+export function PlansPage({
+  onOpen,
+  onCreate,
+  onConsolidate,
+  onPilotos,
+  onImportarVoos,
+}: Props) {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   /* Os que ainda não chegaram ao servidor, e os que ele recusou. Sem isto, o planejamento
@@ -71,6 +79,11 @@ export function PlansPage({ onOpen, onCreate, onConsolidate, onPilotos }: Props)
         action={
           <div className="flex gap-2">
             {/* Ações de escritório, não de campo: ficam depois da que se usa na lavoura. */}
+            {/* Antes de "Novo planejamento" de propósito: quem volta do campo tem o
+                arquivo de voos na mão, e preencher à mão é o que esta tela evita. */}
+            <Button inline variant="secondary" onClick={onImportarVoos}>
+              Importar voos
+            </Button>
             <Button inline variant="secondary" onClick={onPilotos}>
               Pilotos
             </Button>

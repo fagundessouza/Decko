@@ -81,6 +81,9 @@ const PilotosPage = lazy(() =>
 const PlanDetailPage = lazy(() =>
   import("./pages/PlanDetailPage").then((m) => ({ default: m.PlanDetailPage })),
 );
+const ImportarVoosPage = lazy(() =>
+  import("./pages/ImportarVoosPage").then((m) => ({ default: m.ImportarVoosPage })),
+);
 const PlansPage = lazy(() =>
   import("./pages/PlansPage").then((m) => ({ default: m.PlansPage })),
 );
@@ -108,6 +111,7 @@ type View =
   | { name: "trilha" }
   | { name: "consolidation" }
   | { name: "pilotos" }
+  | { name: "importar-voos" }
   | { name: "newPlan" }
   | { name: "plan"; plan: Plan }
   | { name: "pdv" }
@@ -133,6 +137,7 @@ const SECTION: Record<View["name"], string> = {
   plan: "agro",
   consolidation: "agro",
   pilotos: "agro",
+  "importar-voos": "agro",
   pdv: "pdv",
   clientes: "clientes",
   contas: "financeiro",
@@ -653,6 +658,7 @@ export default function App() {
           onCreate={() => setView({ name: "newPlan" })}
           onConsolidate={() => setView({ name: "consolidation" })}
           onPilotos={() => setView({ name: "pilotos" })}
+          onImportarVoos={() => setView({ name: "importar-voos" })}
         />
       )}
 
@@ -664,6 +670,10 @@ export default function App() {
       )}
 
       {view.name === "pilotos" && <PilotosPage onBack={() => setView({ name: "plans" })} />}
+
+      {view.name === "importar-voos" && (
+        <ImportarVoosPage onBack={() => setView({ name: "plans" })} />
+      )}
 
       {view.name === "company" && (
         <CompanyPage onBack={() => setView({ name: "home" })} temAgro={hasAgro} />

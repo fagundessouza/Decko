@@ -16,6 +16,16 @@ export interface AgroProperty {
   longitude: string | null;
 }
 
+export interface Aeronave {
+  id: string;
+  prefixo: string;
+  modelo: string | null;
+  fabricante: string | null;
+  /** O série do equipamento: é por ele que o registro de voo encontra a aeronave. */
+  numero_serie: string | null;
+  is_active: boolean;
+}
+
 export interface Product {
   id: string;
   nome_comercial: string;
@@ -303,6 +313,36 @@ export const agro = {
   conferirAssinaturas: (planId: string): Promise<{ divergentes: PapelAssinatura[] }> =>
     authedJson(`/agro/plans/${planId}/signatures/check`),
 
+  /** Lê o registro de voo do equipamento e devolve o que ele descreve. Não grava nada.
+   *
+   * O arquivo vai em base64 porque `.xlsx` é binário. `fusoMinutos` é quanto somar ao
+   * horário do arquivo para chegar ao local — a resposta traz os dois horários, então o
+   * controle da tela alterna sem nova requisição. */
+  lerRegistroDeVoo: (arquivo: string, fusoMinutos = -180): Promise<RegistroDeVooLido> =>
+    authedJson("/agro/flight-log/preview", {
+      method: "POST",
+      body: { arquivo, fuso_minutos: fusoMinutos },
+    }),
+
+  /** Grava o que o operador revisou: aplicações, voos auxiliares e baixa de estoque. */
+  confirmarRegistroDeVoo: (body: {
+    aplicacoes: AplicacaoConfirmada[];
+    voos_auxiliares: VooConfirmado[];
+  }): Promise<VooRegistrado> =>
+    authedJson("/agro/flight-log/confirm", { method: "POST", body }),
+
+  horimetro: (aircraftId: string): Promise<Horimetro> =>
+    authedJson(`/agro/aircraft/${aircraftId}/horimetro`),
+
+  listAircraft: (): Promise<Aeronave[]> => authedJson("/agro/aircraft"),
+
+  createAircraft: (body: {
+    prefixo: string;
+    modelo?: string | null;
+    fabricante?: string | null;
+    numero_serie?: string | null;
+  }): Promise<Aeronave> => authedJson("/agro/aircraft", { method: "POST", body }),
+
   listPlans: (): Promise<Plan[]> => authedJson("/agro/plans"),
 
   createPlan: (body: Record<string, unknown>): Promise<Plan> =>
@@ -361,4 +401,113 @@ export function currentPosition(): Promise<{ latitude: number; longitude: number
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
     );
   });
+}
+
+/* ------------------------------------------------- o registro de voo do equipamento */
+
+export interface AplicacaoDoVoo {
+  plot_id: string;
+  talhao: string | null;
+  dia: string;
+  /** Como está no arquivo, sem fuso. */
+  comecou_em: string;
+  terminou_em: string;
+  /** Com o deslocamento aplicado. É o que a tela mostra por padrão. */
+  comecou_em_ajustado: string;
+  terminou_em_ajustado: string;
+  area_ha: string;
+  volume_l: string;
+  volume_por_ha: string | null;
+  duracao_segundos: number;
+  voos: number;
+  aeronave: string;
+  equipamento_serie: string | null;
+  aircraft_id: string | null;
+  prefixo: string | null;
+  piloto: string | null;
+  lugar: string | null;
+  largura_faixa_m: string | null;
+  altura_voo_m: string | null;
+  largura_faixa_min: string | null;
+  largura_faixa_max: string | null;
+  altura_voo_min: string | null;
+  altura_voo_max: string | null;
+}
+
+export interface VooAuxiliar {
+  comecou_em: string;
+  terminou_em: string;
+  comecou_em_ajustado: string;
+  terminou_em_ajustado: string;
+  duracao_segundos: number;
+  aeronave: string;
+  equipamento_serie: string | null;
+  piloto: string | null;
+  lugar: string | null;
+}
+
+export interface HorasDoEquipamento {
+  equipamento_serie: string | null;
+  aeronave: string;
+  aircraft_id: string | null;
+  prefixo: string | null;
+  voos: number;
+  duracao_total_segundos: number;
+  duracao_aplicando_segundos: number;
+  duracao_auxiliar_segundos: number;
+}
+
+export interface RegistroDeVooLido {
+  unidade_de_area: string;
+  fuso_minutos: number;
+  aplicacoes: AplicacaoDoVoo[];
+  voos_auxiliares: VooAuxiliar[];
+  horimetro: HorasDoEquipamento[];
+  series_sem_aeronave: string[];
+  avisos: string[];
+}
+
+export interface VooConfirmado {
+  comecou_em: string;
+  terminou_em: string;
+  comecou_em_arquivo: string;
+  duracao_segundos: number;
+  equipamento_serie?: string | null;
+  equipamento_apelido?: string | null;
+  piloto?: string | null;
+  lugar?: string | null;
+  aircraft_id?: string | null;
+}
+
+export interface AplicacaoConfirmada {
+  plot_id: string;
+  talhao?: string | null;
+  aircraft_id?: string | null;
+  plan_id?: string | null;
+  area_ha: string;
+  volume_l: string;
+  largura_faixa_m?: string | null;
+  altura_voo_m?: string | null;
+  voos: VooConfirmado[];
+  insumos?: { produto_id: string; quantidade: string; unidade_id?: string | null }[];
+}
+
+export interface VooRegistrado {
+  aplicacoes: number;
+  voos_gravados: number;
+  voos_repetidos: number;
+  baixas_de_estoque: number;
+  planos_atualizados: string[];
+  avisos: string[];
+}
+
+export interface Horimetro {
+  aircraft_id: string;
+  voos: number;
+  segundos_total: number;
+  segundos_aplicando: number;
+  segundos_auxiliar: number;
+  area_ha: string;
+  primeiro_voo: string | null;
+  ultimo_voo: string | null;
 }

@@ -19,6 +19,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     String,
     Text,
@@ -453,3 +454,81 @@ TENANT_SCOPED_TABLES = (
     WeatherReading.__tablename__,
     Signature.__tablename__,
 )
+
+
+class Flight(TenantMixin, TimestampMixin, Base):
+    """Um voo, como o registro do equipamento o descreve.
+
+    Entra pela importação do registro de voo — ver `smartfarm.py` e a seção 7.5 do
+    `docs/discovery/agro-planejamento-operacional.md`. Uma linha por voo, e não por
+    aplicação: uma aplicação de trinta hectares são cinco voos, um por bateria, e é a soma
+    deles que vira a linha do relatório.
+
+    **O voo que não pulverizou fica aqui também** (`is_spraying` falso): translado,
+    calibração, teste, decolagem abortada. Ele não vai ao relatório do MAPA e vai ao
+    horímetro, porque desgasta motor, hélice e bateria igual — é por isso que a revisão
+    vence. Decisão do dono do projeto em 17/11/2026.
+
+    O horímetro **é a soma destas linhas**, e não um contador guardado na aeronave. Um
+    contador precisaria ser corrigido a cada reimportação ou exclusão, e contador de horas
+    de voo errado é manutenção vencida sem ninguém saber; a soma é sempre o que aconteceu.
+    """
+
+    __tablename__ = "agro_flight"
+    __table_args__ = (
+        # Reimportar o mesmo arquivo não duplica hora de voo. A chave é o instante que
+        # está **no arquivo**, e não o convertido: a conversão de fuso é escolha de quem
+        # confirma, e mudá-la não faz do mesmo voo outro voo.
+        UniqueConstraint(
+            "tenant_id",
+            "equipamento_serie",
+            "comecou_em_arquivo",
+            name="uq_agro_flight_tenant_id_equipamento_serie_comecou_em_arquivo",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = primary_key()
+
+    aircraft_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("agro_aircraft.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    #: O planejamento que este voo executou, quando o operador casou os dois.
+    plan_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("agro_operational_plan.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    #: Pulverizou. Só o que é verdadeiro aqui entra no relatório mensal do MAPA.
+    is_spraying: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    #: Agrupa os voos da mesma aplicação, como o aplicativo do equipamento os agrupa.
+    plot_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    talhao: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    #: O instante com fuso, como quem confirmou decidiu que ele é.
+    comecou_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    terminou_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    #: O instante **sem fuso**, exatamente como está no arquivo do equipamento.
+    #:
+    #: Guardado porque é o que torna a reimportação reconhecível, e porque é o dado bruto:
+    #: se amanhã se descobrir que o fuso do arquivo é outro, o que está aqui continua
+    #: verdadeiro e a conversão se refaz.
+    comecou_em_arquivo: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+    duracao_segundos: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    #: Nulos no voo que não pulverizou.
+    area_ha: Mapped[Decimal | None] = mapped_column(Numeric(12, 4), nullable=True)
+    volume_l: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    largura_faixa_m: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    altura_voo_m: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+
+    #: Como o arquivo identifica o equipamento. É por ele que a aeronave é encontrada.
+    equipamento_serie: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    #: O apelido que o operador deu ao equipamento no aplicativo.
+    equipamento_apelido: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    piloto: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    #: O endereço que o aplicativo escreveu, em texto. Não é coordenada.
+    lugar: Mapped[str | None] = mapped_column(String(400), nullable=True)

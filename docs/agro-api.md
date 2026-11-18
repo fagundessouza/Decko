@@ -160,13 +160,49 @@ Respostas de erro:
 |---|---|
 | `422` | o arquivo não é um registro de voo legível, ou a unidade da área é desconhecida |
 
-### Ainda sem rota: `POST /flight-log/confirm`
+### Confirmar — `POST /flight-log/confirm`
 
-Gravar o que foi revisado — criar as aplicações, vincular o receituário, somar as horas na
-aeronave e, quando houver, dar baixa nos insumos — **não existe ainda**, e depende de duas
-coisas que não são código: a regra de divergência entre a área planejada e a aplicada
-(pergunta 2 da seção 7.6 do discovery) e `comercial` entrar no `depends` do módulo, porque
-baixa de estoque é serviço dele — ver `docs/adr/0007-dependencia-entre-modulos.md`.
+| Método | Rota | Permissão |
+|---|---|---|
+| `POST` | `/flight-log/confirm` | `agro.plan.write` |
+
+Grava o que o operador revisou. Tudo numa transação só: ou entra o voo, a baixa de estoque
+e a atualização do planejamento, ou não entra nada — meia importação seria estoque baixado
+sem registro da aplicação, ou o contrário.
+
+`FlightLogConfirmIn` traz duas listas, e elas significam coisas diferentes: `aplicacoes`
+vai ao relatório do MAPA, `voos_auxiliares` vai ao horímetro da frota. Nenhuma é
+descartada.
+
+Cada voo manda **os dois horários**: `comecou_em` com deslocamento explícito (horário sem
+fuso é recusado com 422, de propósito) e `comecou_em_arquivo`, cru, sem fuso. O segundo é a
+chave que faz a reimportação ser reconhecida — o mesmo equipamento não decola duas vezes no
+mesmo segundo —, então reimportar a planilha do mês para corrigir uma linha **não dobra
+hora de voo**: os repetidos voltam contados em `voos_repetidos`.
+
+**O executado prevalece sobre o planejado** (decisão do dono do projeto, 17/11/2026). Com
+`plan_id` informado, a área e o volume medidos substituem os planejados, `tempo_servico`
+recebe as horas de execução, e a divergência volta em `avisos` — *"o planejamento 12 dizia
+30 ha e o equipamento mediu 32,2 ha"*. Ela não é escondida nem recusada: é dita.
+
+`insumos` é a baixa de estoque, feita pelo serviço do `comercial`
+(ADR 0007 — `comercial` está no `depends` do módulo desde 17/11/2026). A quantidade é a
+**do produto**, nunca a de calda: calda é mistura, e quase toda ela é água. A tela propõe a
+dose vezes a área executada, a partir do receituário, e quem confirma ajusta. Recusa do
+estoque (lote exigido, produto inexistente) derruba a importação inteira com 422.
+
+### Horímetro — `GET /aircraft/{aircraft_id}/horimetro`
+
+| Método | Rota | Permissão |
+|---|---|---|
+| `GET` | `/aircraft/{aircraft_id}/horimetro` | `agro.aircraft.read` |
+
+As horas da aeronave, somadas dos voos importados: `segundos_total`,
+`segundos_aplicando`, `segundos_auxiliar`, `voos`, `area_ha`, primeiro e último voo.
+
+**É consulta, e não contador guardado.** Contador precisaria ser corrigido a cada
+reimportação ou exclusão, e hora de voo errada é revisão vencida sem ninguém saber. `404`
+quando a aeronave não existe.
 
 ## Conjuntos fechados
 

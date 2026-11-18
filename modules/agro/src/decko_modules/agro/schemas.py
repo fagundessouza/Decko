@@ -3,7 +3,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field
 
 from decko.documents import pydantic_cpf_cnpj
 from decko_modules.agro.enums import (
@@ -494,3 +494,95 @@ class FlightLogPreviewOut(BaseModel):
     #: tem o que pôr no campo de identificação da ARP (Portaria 298/2021, art. 11, II).
     series_sem_aeronave: list[str]
     avisos: list[str]
+
+
+class VooConfirmadoIn(BaseModel):
+    """Um voo como o operador o confirmou, depois de revisar.
+
+    Os dois horários vêm: o escolhido, com fuso, e o do arquivo, sem fuso. O segundo é o
+    que torna a reimportação reconhecível — o mesmo equipamento não decola duas vezes no
+    mesmo segundo —, e é o dado bruto, que continua verdadeiro se amanhã se descobrir que
+    o fuso do arquivo era outro.
+    """
+
+    #: Com deslocamento explícito. É o que vai para o documento.
+    comecou_em: AwareDatetime
+    terminou_em: AwareDatetime
+    #: Sem fuso, exatamente como está no arquivo do equipamento.
+    comecou_em_arquivo: datetime
+    duracao_segundos: int = Field(ge=0, le=86_400)
+    equipamento_serie: str | None = Field(default=None, max_length=60)
+    equipamento_apelido: str | None = Field(default=None, max_length=120)
+    piloto: str | None = Field(default=None, max_length=200)
+    lugar: str | None = Field(default=None, max_length=400)
+    #: Só nos voos auxiliares; nos da aplicação, vale a aeronave da aplicação.
+    aircraft_id: uuid.UUID | None = None
+
+
+class InsumoDaAplicacaoIn(BaseModel):
+    """O defensivo que saiu do estoque nesta aplicação.
+
+    A quantidade é a do produto, **não a de calda**: calda é mistura, e quase toda ela é
+    água. A tela propõe a dose vezes a área executada, a partir do receituário, e quem confirma
+    ajusta — deduzir produto a partir de litro de calda poria no estoque uma baixa que não
+    aconteceu.
+    """
+
+    produto_id: uuid.UUID
+    quantidade: Decimal = Field(gt=0)
+    unidade_id: uuid.UUID | None = None
+    lote_id: uuid.UUID | None = None
+
+
+class AplicacaoConfirmadaIn(BaseModel):
+    plot_id: str = Field(min_length=1, max_length=80)
+    talhao: str | None = Field(default=None, max_length=200)
+    aircraft_id: uuid.UUID | None = None
+    #: O planejamento que esta aplicação executou, quando o operador casou os dois.
+    plan_id: uuid.UUID | None = None
+    area_ha: Decimal = Field(ge=0)
+    volume_l: Decimal = Field(ge=0)
+    largura_faixa_m: Decimal | None = Field(default=None, ge=0)
+    altura_voo_m: Decimal | None = Field(default=None, ge=0)
+    voos: list[VooConfirmadoIn] = Field(min_length=1)
+    insumos: list[InsumoDaAplicacaoIn] = Field(default_factory=list)
+
+
+class FlightLogConfirmIn(BaseModel):
+    """O que o operador revisou e aprovou da importação.
+
+    As duas listas vêm separadas porque significam coisas diferentes: aplicação vai ao
+    relatório do MAPA, voo auxiliar vai ao horímetro da frota. Nenhuma das duas é
+    descartada.
+    """
+
+    aplicacoes: list[AplicacaoConfirmadaIn] = Field(default_factory=list)
+    voos_auxiliares: list[VooConfirmadoIn] = Field(default_factory=list)
+
+
+class FlightLogConfirmOut(BaseModel):
+    aplicacoes: int
+    voos_gravados: int
+    #: Já estavam registrados: reimportar o mesmo arquivo não duplica hora de voo.
+    voos_repetidos: int
+    baixas_de_estoque: int
+    planos_atualizados: list[uuid.UUID]
+    #: Inclui a divergência entre o que o planejamento dizia e o que o equipamento mediu.
+    avisos: list[str]
+
+
+class HorimetroOut(BaseModel):
+    """As horas de uma aeronave, somadas do registro de voo importado.
+
+    É consulta, e não contador guardado: contador precisaria ser corrigido a cada
+    reimportação ou exclusão, e hora de voo errada é revisão vencida sem ninguém saber.
+    """
+
+    aircraft_id: uuid.UUID
+    voos: int
+    segundos_total: int
+    segundos_aplicando: int
+    segundos_auxiliar: int
+    area_ha: Decimal
+    primeiro_voo: datetime | None
+    ultimo_voo: datetime | None

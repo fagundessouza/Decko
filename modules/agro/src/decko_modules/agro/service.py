@@ -3,12 +3,12 @@
 import hashlib
 import json
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.documents import format_cpf_cnpj
@@ -24,6 +24,7 @@ from decko_modules.agro.enums import (
 from decko_modules.agro.models import (
     Aircraft,
     Client,
+    Flight,
     MaintenanceLog,
     OperationalPlan,
     PlanProduct,
@@ -46,6 +47,8 @@ from decko_modules.agro.weather import (
     WeatherProvider,
     evaluate,
 )
+from decko_modules.comercial import service as comercial
+from decko_modules.comercial.models import Produto, TipoMovimento
 from decko_modules.core.models import Tenant
 
 
@@ -618,3 +621,329 @@ async def aeronaves_por_serie(session: AsyncSession, series: Iterable[str]) -> d
         for aircraft in resultado.scalars().all()
         if aircraft.numero_serie is not None
     }
+
+
+# ------------------------------------------- confirmar o registro de voo importado
+
+
+@dataclass(frozen=True)
+class VooParaGravar:
+    comecou_em: datetime
+    terminou_em: datetime
+    #: O instante sem fuso, como está no arquivo. É a chave que evita duplicar.
+    comecou_em_arquivo: datetime
+    duracao_segundos: int
+    equipamento_serie: str | None = None
+    equipamento_apelido: str | None = None
+    piloto: str | None = None
+    lugar: str | None = None
+    aircraft_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True)
+class InsumoParaBaixar:
+    produto_id: uuid.UUID
+    quantidade: Decimal
+    unidade_id: uuid.UUID | None = None
+    lote_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True)
+class AplicacaoParaGravar:
+    plot_id: str
+    voos: Sequence[VooParaGravar]
+    area_ha: Decimal
+    volume_l: Decimal
+    talhao: str | None = None
+    aircraft_id: uuid.UUID | None = None
+    plan_id: uuid.UUID | None = None
+    largura_faixa_m: Decimal | None = None
+    altura_voo_m: Decimal | None = None
+    insumos: Sequence[InsumoParaBaixar] = ()
+
+
+@dataclass(frozen=True)
+class VoosConfirmados:
+    aplicacoes: int
+    voos_gravados: int
+    #: Voos que já estavam aqui. Reimportar o mesmo arquivo não duplica hora de voo.
+    voos_repetidos: int
+    baixas_de_estoque: int
+    planos_atualizados: list[uuid.UUID]
+    avisos: list[str]
+
+
+async def _voo_ja_gravado(
+    session: AsyncSession, *, equipamento_serie: str | None, comecou_em_arquivo: datetime
+) -> bool:
+    """Este voo já entrou numa importação anterior?
+
+    A conferência é pelo instante **do arquivo** mais o equipamento: o mesmo equipamento
+    não decola duas vezes no mesmo segundo. Sem ela, reimportar a planilha do mês inteiro
+    para corrigir uma linha dobraria as horas de voo da frota — e horímetro errado é
+    revisão vencida sem ninguém saber.
+
+    Voo sem número de série não tem como ser reconhecido, e aí ele entra de novo. Fica
+    dito aqui porque é uma falha conhecida, não um descuido: o arquivo do SmartFarm sempre
+    traz o série, e inventar uma chave com o horário solto casaria voos de equipamentos
+    diferentes.
+    """
+    if equipamento_serie is None:
+        return False
+
+    existente = await session.scalar(
+        select(Flight.id).where(
+            Flight.equipamento_serie == equipamento_serie,
+            Flight.comecou_em_arquivo == comecou_em_arquivo,
+        )
+    )
+    return existente is not None
+
+
+async def confirmar_voos(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    aplicacoes: Sequence[AplicacaoParaGravar],
+    auxiliares: Sequence[VooParaGravar],
+    user_id: uuid.UUID | None = None,
+) -> VoosConfirmados:
+    """Grava o que o operador revisou do registro de voo.
+
+    Tudo numa transação só: ou entra o voo, a baixa de estoque e a atualização do
+    planejamento, ou não entra nada. Meia importação é pior do que nenhuma — seria
+    estoque baixado sem registro da aplicação, ou o contrário.
+
+    **O executado prevalece sobre o planejado.** Decisão do dono do projeto em 17/11/2026:
+    a área e o volume que o equipamento mediu são os que vão para o documento e para o
+    relatório do MAPA. O que o planejamento dizia antes fica dito num aviso, para quem
+    confirmou ver que mudou — em vez de descobrir no fechamento do mês.
+
+    A baixa de estoque é a que o operador escolheu, com a quantidade que ele escolheu.
+    **Não é o volume de calda**: calda é mistura, e quase toda ela é água. Deduzir produto
+    a partir de litros de calda poria no estoque uma baixa que não aconteceu — a dose por
+    hectare é do receituário, e a tela propõe a conta com a área executada.
+    """
+    gravados = 0
+    repetidos = 0
+    baixas = 0
+    planos: list[uuid.UUID] = []
+    avisos: list[str] = []
+
+    for aplicacao in aplicacoes:
+        plano = None
+        if aplicacao.plan_id is not None:
+            plano = await session.get(OperationalPlan, aplicacao.plan_id)
+            if plano is None:
+                raise PlanError("Planejamento não encontrado.")
+
+        for voo in aplicacao.voos:
+            if await _voo_ja_gravado(
+                session,
+                equipamento_serie=voo.equipamento_serie,
+                comecou_em_arquivo=voo.comecou_em_arquivo,
+            ):
+                repetidos += 1
+                continue
+
+            session.add(
+                Flight(
+                    tenant_id=tenant_id,
+                    aircraft_id=voo.aircraft_id or aplicacao.aircraft_id,
+                    plan_id=aplicacao.plan_id,
+                    is_spraying=True,
+                    plot_id=aplicacao.plot_id,
+                    talhao=aplicacao.talhao,
+                    comecou_em=voo.comecou_em,
+                    terminou_em=voo.terminou_em,
+                    comecou_em_arquivo=voo.comecou_em_arquivo,
+                    duracao_segundos=voo.duracao_segundos,
+                    # A área e o volume da aplicação ficam na linha da aplicação inteira,
+                    # e não rateados por voo: o que o relatório soma é a aplicação, e
+                    # ratear inventaria uma precisão que o arquivo não dá.
+                    area_ha=aplicacao.area_ha if voo is aplicacao.voos[0] else None,
+                    volume_l=aplicacao.volume_l if voo is aplicacao.voos[0] else None,
+                    largura_faixa_m=aplicacao.largura_faixa_m,
+                    altura_voo_m=aplicacao.altura_voo_m,
+                    equipamento_serie=voo.equipamento_serie,
+                    equipamento_apelido=voo.equipamento_apelido,
+                    piloto=voo.piloto,
+                    lugar=voo.lugar,
+                )
+            )
+            gravados += 1
+
+        if plano is not None:
+            avisos.extend(_atualizar_plano(plano, aplicacao))
+            planos.append(plano.id)
+
+        for insumo in aplicacao.insumos:
+            await _baixar_insumo(
+                session,
+                tenant_id=tenant_id,
+                insumo=insumo,
+                aplicacao=aplicacao,
+                user_id=user_id,
+            )
+            baixas += 1
+
+    for voo in auxiliares:
+        if await _voo_ja_gravado(
+            session,
+            equipamento_serie=voo.equipamento_serie,
+            comecou_em_arquivo=voo.comecou_em_arquivo,
+        ):
+            repetidos += 1
+            continue
+
+        session.add(
+            Flight(
+                tenant_id=tenant_id,
+                aircraft_id=voo.aircraft_id,
+                is_spraying=False,
+                comecou_em=voo.comecou_em,
+                terminou_em=voo.terminou_em,
+                comecou_em_arquivo=voo.comecou_em_arquivo,
+                duracao_segundos=voo.duracao_segundos,
+                equipamento_serie=voo.equipamento_serie,
+                equipamento_apelido=voo.equipamento_apelido,
+                piloto=voo.piloto,
+                lugar=voo.lugar,
+            )
+        )
+        gravados += 1
+
+    await session.flush()
+
+    if repetidos:
+        avisos.append(
+            f"{repetidos} voo(s) já estavam registrados e não entraram de novo. "
+            "Reimportar o mesmo arquivo não duplica hora de voo."
+        )
+
+    return VoosConfirmados(
+        aplicacoes=len(aplicacoes),
+        voos_gravados=gravados,
+        voos_repetidos=repetidos,
+        baixas_de_estoque=baixas,
+        planos_atualizados=planos,
+        avisos=avisos,
+    )
+
+
+def _atualizar_plano(plano: OperationalPlan, aplicacao: AplicacaoParaGravar) -> list[str]:
+    """Põe no planejamento o que foi executado, e diz o que mudou.
+
+    A divergência não é escondida nem recusada: ela é dita. O Nathan já havia descrito a
+    regra na Q9 do discovery — *"você informa a dose x área, nesse caso você faz o mapa da
+    área. Essa informação pode ser preenchida após a aplicação"* —, e o dono do projeto a
+    confirmou em 17/11/2026: o executado prevalece.
+    """
+    avisos: list[str] = []
+    anterior = plano.area_ha
+
+    if anterior is not None and anterior != aplicacao.area_ha:
+        avisos.append(
+            f"O planejamento {plano.numero} dizia {anterior} ha e o equipamento mediu "
+            f"{aplicacao.area_ha} ha. O que vale é o medido."
+        )
+
+    plano.area_ha = aplicacao.area_ha
+    plano.ha_aplicado = aplicacao.area_ha
+    # Horas de execução, que o relatório mensal exige (Portaria 298/2021, art. 11, III).
+    segundos = sum(voo.duracao_segundos for voo in aplicacao.voos)
+    plano.tempo_servico = (Decimal(segundos) / Decimal(3600)).quantize(Decimal("0.01"))
+
+    if aplicacao.largura_faixa_m is not None:
+        plano.param_largura_faixa_m = aplicacao.largura_faixa_m
+    if aplicacao.altura_voo_m is not None:
+        plano.param_altura_voo_m = aplicacao.altura_voo_m
+
+    return avisos
+
+
+async def _baixar_insumo(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    insumo: InsumoParaBaixar,
+    aplicacao: AplicacaoParaGravar,
+    user_id: uuid.UUID | None,
+) -> None:
+    """Dá baixa no defensivo usado, pelo serviço do `comercial`.
+
+    Quem conhece razão de estoque, conversão de embalagem e exigência de lote é ele — a
+    pulverização nunca escreve na tabela do outro módulo (ADR 0007). Erro de lá sobe como
+    erro de regra daqui, e a transação inteira não entra: estoque baixado sem registro da
+    aplicação é pior do que a importação falhar.
+    """
+    produto = await session.get(Produto, insumo.produto_id)
+    if produto is None:
+        raise PlanError("Produto não encontrado para dar baixa no estoque.")
+
+    documento = f"Pulverização {aplicacao.talhao or aplicacao.plot_id}"
+    try:
+        await comercial.registrar_movimento(
+            session,
+            tenant_id=tenant_id,
+            produto_id=insumo.produto_id,
+            tipo=TipoMovimento.SAIDA,
+            quantidade=insumo.quantidade,
+            unidade_id=insumo.unidade_id or produto.unidade_id,
+            lote_id=insumo.lote_id,
+            documento=documento,
+            registrado_por=user_id,
+        )
+    except comercial.ComercialError as exc:
+        raise PlanError(f"Não foi possível dar baixa no estoque: {exc}") from exc
+
+
+@dataclass(frozen=True)
+class Horimetro:
+    """O que uma aeronave voou, somado do registro de voo importado."""
+
+    aircraft_id: uuid.UUID
+    voos: int
+    segundos_total: int
+    segundos_aplicando: int
+    segundos_auxiliar: int
+    area_ha: Decimal
+    primeiro_voo: datetime | None
+    ultimo_voo: datetime | None
+
+
+async def horimetro_da_aeronave(session: AsyncSession, aircraft_id: uuid.UUID) -> Horimetro:
+    """Soma as horas desta aeronave. **É consulta, e não contador guardado.**
+
+    Contador precisaria ser corrigido a cada reimportação ou exclusão, e contador de horas
+    de voo errado é manutenção vencida sem ninguém saber. A soma é sempre o que aconteceu.
+    """
+    linha = (
+        await session.execute(
+            select(
+                func.count(Flight.id),
+                func.coalesce(func.sum(Flight.duracao_segundos), 0),
+                func.coalesce(
+                    func.sum(
+                        case((Flight.is_spraying.is_(True), Flight.duracao_segundos), else_=0)
+                    ),
+                    0,
+                ),
+                func.coalesce(func.sum(Flight.area_ha), 0),
+                func.min(Flight.comecou_em),
+                func.max(Flight.terminou_em),
+            ).where(Flight.aircraft_id == aircraft_id)
+        )
+    ).one()
+
+    voos, total, aplicando, area, primeiro, ultimo = linha
+    return Horimetro(
+        aircraft_id=aircraft_id,
+        voos=int(voos or 0),
+        segundos_total=int(total or 0),
+        segundos_aplicando=int(aplicando or 0),
+        segundos_auxiliar=int((total or 0) - (aplicando or 0)),
+        area_ha=Decimal(area or 0),
+        primeiro_voo=primeiro,
+        ultimo_voo=ultimo,
+    )

@@ -6,7 +6,11 @@ name = "agro"
 label = "Pulverização agrícola"
 version = "0.1.0"
 package = "decko_modules.agro"
-depends = ["core"]
+# `comercial` entrou em 17/11/2026, com a importação do registro de voo: confirmar a
+# aplicação dá baixa no defensivo usado, e quem conhece razão de estoque, conversão de
+# embalagem e exigência de lote é o módulo dele — ver docs/adr/0007-dependencia-entre-modulos.md.
+# A pulverização chama o serviço do comercial; nunca escreve na tabela dele.
+depends = ["core", "comercial"]
 required = false
 category = "Setores"
 icon = "drone"

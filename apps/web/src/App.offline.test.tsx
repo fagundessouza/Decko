@@ -151,8 +151,9 @@ it("a rede que volta confere a sessão com o servidor, sem remontar a tela", asy
   vi.mocked(restoreSession).mockResolvedValue(umaSessao() as never);
   window.dispatchEvent(new Event("online"));
 
-  await waitFor(() =>
-    expect(screen.queryByText(/entrou com a sessão guardada neste aparelho/i)).toBeNull(),
+  await waitFor(
+    () => expect(screen.queryByText(/entrou com a sessão guardada neste aparelho/i)).toBeNull(),
+    { timeout: 5000 },
   );
 });
 
@@ -166,5 +167,10 @@ it("sessão que o servidor recusou quando a rede voltou leva para a entrada", as
   vi.mocked(restoreSession).mockResolvedValue(null);
   window.dispatchEvent(new Event("online"));
 
-  expect(await screen.findByLabelText(/Código da empresa/)).toBeTruthy();
+  /* Com folga de tempo: este teste monta a aplicação inteira, e com a suíte toda rodando
+   * em paralelo o padrão de um segundo da biblioteca estoura por lentidão da máquina — o
+   * que faz o teste falhar sem nada estar errado no produto. */
+  expect(
+    await screen.findByLabelText(/Código da empresa/, {}, { timeout: 5000 }),
+  ).toBeTruthy();
 });

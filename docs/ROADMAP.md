@@ -452,13 +452,19 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
   - [x] **A aeronave casada pelo número de série** (17/11/2026). `aircraft.numero_serie`
         entrou; série que não bate volta na resposta para a tela oferecer cadastro rápido —
         o apelido do aplicativo não identifica ARP, o prefixo sim
-  - [ ] **A tela**: zona de arrastar e soltar no módulo de pulverização, revisão antes de
-        gravar, controle do fuso e cadastro rápido da aeronave
-  - [ ] **`POST /flight-log/confirm`**: gravar as aplicações revisadas, vincular o
-        receituário, somar as horas na aeronave e dar baixa nos insumos. Depende de duas
-        coisas que não são código: a regra de divergência entre área planejada e aplicada
-        (pergunta 2 da seção 7.6) e `comercial` entrar no `depends` do agro, porque baixa
-        de estoque é serviço dele (ADR 0007)
+  - [x] **A tela** (17/11/2026). `Importar voos`, no módulo de pulverização: arrastar e
+        soltar o arquivo, revisão antes de gravar, controle de fuso que troca o horário sem
+        nova requisição, voos auxiliares à parte, horímetro e cadastro rápido da aeronave
+  - [x] **`POST /flight-log/confirm`** (17/11/2026). Grava as aplicações revisadas, os voos
+        auxiliares e a baixa de estoque, numa transação só. O executado prevalece sobre o
+        planejado, por decisão do dono do projeto, e a divergência volta em aviso.
+        `comercial` entrou no `depends` do agro para a baixa (ADR 0007). Reimportar o mesmo
+        arquivo não dobra hora de voo: a chave é o instante do arquivo mais o equipamento
+  - [ ] Vincular o **receituário** na confirmação, e propor a baixa de insumo a partir da
+        dose dele vezes a área executada. Hoje a quantidade vai explícita no pedido —
+        deduzir produto a partir de litro de calda poria no estoque baixa que não aconteceu
+  - [ ] O relatório mensal do SIPEAGRO passar a somar destes voos, com as **horas de
+        execução** que ele exige e que o CSV de hoje não traz
 - [ ] OCR de receituário e nota fiscal (Tesseract + MinIO)
 - [ ] Extração estruturada via LLM local (Ollama), sempre com confirmação humana
 - [ ] Busca semântica no catálogo (Qdrant + rerank)

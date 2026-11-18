@@ -730,8 +730,7 @@ def _planilha_de_voo(linhas: list[list[str]]) -> str:
     with zipfile.ZipFile(pacote, "w") as zf:
         zf.writestr(
             "xl/workbook.xml",
-            f'<workbook xmlns="{ns}"><sheets>'
-            '<sheet name="voos" sheetId="1"/></sheets></workbook>',
+            f'<workbook xmlns="{ns}"><sheets><sheet name="voos" sheetId="1"/></sheets></workbook>',
         )
         zf.writestr(
             "xl/worksheets/sheet1.xml",
@@ -759,9 +758,7 @@ UM_DIA_DE_VOO = [
         talhao="Milho 1",
         plot="plot-a",
     ),
-    _linha_de_voo(
-        quando="2026-08-15 19:25:14-19:33:35", area="0.0", volume="0.0", duracao="08:21"
-    ),
+    _linha_de_voo(quando="2026-08-15 19:25:14-19:33:35", area="0.0", volume="0.0", duracao="08:21"),
 ]
 
 
@@ -893,8 +890,9 @@ async def test_o_deslocamento_do_fuso_e_escolha_de_quem_confirma(scenario: Scena
 
     aplicacao = corpo["aplicacoes"][0]
     assert aplicacao["comecou_em_ajustado"] == aplicacao["comecou_em"]
-    assert corpo["voos_auxiliares"][0]["comecou_em_ajustado"] == (
-        corpo["voos_auxiliares"][0]["comecou_em"]
+    assert (
+        corpo["voos_auxiliares"][0]["comecou_em_ajustado"]
+        == (corpo["voos_auxiliares"][0]["comecou_em"])
     )
 
 
@@ -932,3 +930,105 @@ async def test_arquivo_sem_a_unidade_da_area_e_recusado_pela_api(scenario: Scena
 
     assert resposta.status_code == 422, resposta.text
     assert "unidade" in resposta.json()["detail"]
+
+
+async def test_o_operador_confirma_e_o_voo_entra_pela_api(scenario: Scenario) -> None:
+    """O caminho inteiro pela borda: preview, aeronave cadastrada, confirmação.
+
+    O que a regra do serviço garante tem teste próprio em `test_flight_log_confirm.py`;
+    aqui o que está sob prova é o contrato — o que a tela manda e o que ela recebe.
+    """
+    aeronave = await scenario.client.post(
+        f"{BASE}/aircraft",
+        headers=scenario.first.auth,
+        json={"prefixo": "PP-CON", "numero_serie": SERIE},
+    )
+    assert aeronave.status_code == 201, aeronave.text
+
+    revisado = await _preview(scenario, UM_DIA_DE_VOO)
+    aplicacao = revisado["aplicacoes"][0]
+    auxiliar = revisado["voos_auxiliares"][0]
+
+    def voo(linha: dict[str, object], indice: int) -> dict[str, object]:
+        """O que a tela manda por voo: o horário escolhido e o do arquivo."""
+        return {
+            "comecou_em": f"{linha['comecou_em_ajustado']}-03:00",
+            "terminou_em": f"{linha['terminou_em_ajustado']}-03:00",
+            "comecou_em_arquivo": linha["comecou_em"],
+            "duracao_segundos": indice,
+            "equipamento_serie": SERIE,
+        }
+
+    resposta = await scenario.client.post(
+        f"{BASE}/flight-log/confirm",
+        headers=scenario.first.auth,
+        json={
+            "aplicacoes": [
+                {
+                    "plot_id": aplicacao["plot_id"],
+                    "talhao": aplicacao["talhao"],
+                    "aircraft_id": aeronave.json()["id"],
+                    "area_ha": aplicacao["area_ha"],
+                    "volume_l": aplicacao["volume_l"],
+                    "voos": [voo(aplicacao, aplicacao["duracao_segundos"])],
+                }
+            ],
+            "voos_auxiliares": [
+                {
+                    **voo(auxiliar, auxiliar["duracao_segundos"]),
+                    "aircraft_id": aeronave.json()["id"],
+                }
+            ],
+        },
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["voos_gravados"] == 2
+
+    horimetro = await scenario.client.get(
+        f"{BASE}/aircraft/{aeronave.json()['id']}/horimetro", headers=scenario.first.auth
+    )
+    assert horimetro.status_code == 200, horimetro.text
+    corpo = horimetro.json()
+    assert corpo["voos"] == 2
+    assert corpo["segundos_aplicando"] == aplicacao["duracao_segundos"]
+    assert corpo["segundos_auxiliar"] == auxiliar["duracao_segundos"]
+
+
+async def test_horario_sem_fuso_na_confirmacao_e_recusado(scenario: Scenario) -> None:
+    """Fuso implícito é o erro que esta fatia inteira existe para não repetir.
+
+    Aceitar o horário sem deslocamento deixaria o servidor adivinhar — e três horas de
+    erro deslocam o documento e a conferência do clima.
+    """
+    resposta = await scenario.client.post(
+        f"{BASE}/flight-log/confirm",
+        headers=scenario.first.auth,
+        json={
+            "aplicacoes": [
+                {
+                    "plot_id": "plot-a",
+                    "area_ha": "32.2",
+                    "volume_l": "290.34",
+                    "voos": [
+                        {
+                            "comecou_em": "2026-08-15T15:51:36",
+                            "terminou_em": "2026-08-15T15:58:23",
+                            "comecou_em_arquivo": "2026-08-15T18:51:36",
+                            "duracao_segundos": 407,
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+    assert resposta.status_code == 422, resposta.text
+
+
+async def test_horimetro_de_aeronave_que_nao_existe_e_404(scenario: Scenario) -> None:
+    resposta = await scenario.client.get(
+        f"{BASE}/aircraft/{uuid.uuid4()}/horimetro", headers=scenario.first.auth
+    )
+
+    assert resposta.status_code == 404, resposta.text

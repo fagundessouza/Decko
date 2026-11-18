@@ -36,9 +36,12 @@ from decko_modules.agro.schemas import (
     ConsolidationOut,
     CroquiIn,
     CroquiOut,
+    FlightLogConfirmIn,
+    FlightLogConfirmOut,
     FlightLogPreviewIn,
     FlightLogPreviewOut,
     HorasDoEquipamentoOut,
+    HorimetroOut,
     MonthlyReportOut,
     MonthlyReportRowOut,
     PilotIn,
@@ -55,6 +58,7 @@ from decko_modules.agro.schemas import (
     PropertyIn,
     PropertyOut,
     VooAuxiliarOut,
+    VooConfirmadoIn,
     WeatherCaptureIn,
     WeatherCaptureOut,
     WeatherReadingOut,
@@ -803,3 +807,109 @@ async def preview_flight_log(
 
 def _ponta(intervalo: tuple[Decimal, Decimal] | None, qual: int) -> Decimal | None:
     return None if intervalo is None else intervalo[qual]
+
+
+@router.post("/flight-log/confirm", response_model=FlightLogConfirmOut)
+async def confirm_flight_log(
+    payload: FlightLogConfirmIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("agro.plan.write"))],
+) -> FlightLogConfirmOut:
+    """Grava o que o operador revisou da importação do registro de voo.
+
+    É o passo que `/flight-log/preview` deixou em aberto de propósito: ali o sistema lê e
+    propõe, aqui a pessoa confirma. Tudo numa transação só — ou entra o voo, a baixa de
+    estoque e a atualização do planejamento, ou não entra nada.
+
+    **O executado prevalece sobre o planejado**, por decisão do dono do projeto em
+    17/11/2026: a área e o volume medidos pelo equipamento vão para o documento e para o
+    relatório do MAPA, e a divergência com o que estava planejado volta em `avisos`.
+    """
+    try:
+        resultado = await service.confirmar_voos(
+            session,
+            tenant_id=principal.tenant_id,
+            user_id=principal.user_id,
+            aplicacoes=[
+                service.AplicacaoParaGravar(
+                    plot_id=aplicacao.plot_id,
+                    talhao=aplicacao.talhao,
+                    aircraft_id=aplicacao.aircraft_id,
+                    plan_id=aplicacao.plan_id,
+                    area_ha=aplicacao.area_ha,
+                    volume_l=aplicacao.volume_l,
+                    largura_faixa_m=aplicacao.largura_faixa_m,
+                    altura_voo_m=aplicacao.altura_voo_m,
+                    voos=[_voo_para_gravar(voo) for voo in aplicacao.voos],
+                    insumos=[
+                        service.InsumoParaBaixar(
+                            produto_id=insumo.produto_id,
+                            quantidade=insumo.quantidade,
+                            unidade_id=insumo.unidade_id,
+                            lote_id=insumo.lote_id,
+                        )
+                        for insumo in aplicacao.insumos
+                    ],
+                )
+                for aplicacao in payload.aplicacoes
+            ],
+            auxiliares=[_voo_para_gravar(voo) for voo in payload.voos_auxiliares],
+        )
+    except service.PlanError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+    return FlightLogConfirmOut(
+        aplicacoes=resultado.aplicacoes,
+        voos_gravados=resultado.voos_gravados,
+        voos_repetidos=resultado.voos_repetidos,
+        baixas_de_estoque=resultado.baixas_de_estoque,
+        planos_atualizados=resultado.planos_atualizados,
+        avisos=resultado.avisos,
+    )
+
+
+def _voo_para_gravar(voo: VooConfirmadoIn) -> service.VooParaGravar:
+    return service.VooParaGravar(
+        comecou_em=voo.comecou_em,
+        terminou_em=voo.terminou_em,
+        comecou_em_arquivo=voo.comecou_em_arquivo,
+        duracao_segundos=voo.duracao_segundos,
+        equipamento_serie=voo.equipamento_serie,
+        equipamento_apelido=voo.equipamento_apelido,
+        piloto=voo.piloto,
+        lugar=voo.lugar,
+        aircraft_id=voo.aircraft_id,
+    )
+
+
+@router.get("/aircraft/{aircraft_id}/horimetro", response_model=HorimetroOut)
+async def read_horimetro(
+    aircraft_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.aircraft.read"))],
+) -> HorimetroOut:
+    """As horas desta aeronave, somadas dos voos importados.
+
+    Alimenta o controle de manutenção: é o translado e a calibração, que não vão ao
+    relatório do MAPA, que fazem a revisão vencer junto com a aplicação.
+    """
+    aircraft = await session.get(Aircraft, aircraft_id)
+    if aircraft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Aeronave não encontrada."
+        )
+
+    horas = await service.horimetro_da_aeronave(session, aircraft_id)
+    return HorimetroOut(
+        aircraft_id=horas.aircraft_id,
+        voos=horas.voos,
+        segundos_total=horas.segundos_total,
+        segundos_aplicando=horas.segundos_aplicando,
+        segundos_auxiliar=horas.segundos_auxiliar,
+        area_ha=horas.area_ha,
+        primeiro_voo=horas.primeiro_voo,
+        ultimo_voo=horas.ultimo_voo,
+    )
