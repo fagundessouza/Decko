@@ -16,6 +16,8 @@ import { comercial } from "./lib/comercial";
 import type { Alertas, Produto } from "./lib/comercial";
 import { TrocarEmpresa } from "./components/TrocarEmpresa";
 import { LoginPage } from "./pages/LoginPage";
+import { SessaoDoAparelho } from "./components/SessaoDoAparelho";
+import * as sessaoGuardada from "./lib/sessaoGuardada";
 
 /* Cada tela entra sob demanda, e não no pacote de abertura.
  *
@@ -155,6 +157,16 @@ export default function App() {
    * para a tela de entrada: quem está sem sinal não tem como responder a um formulário
    * de senha — ver `SemRedeError`. */
   const [semRede, setSemRede] = useState(false);
+  /* Entrou com a sessão guardada no aparelho, e até quando ela vale.
+   *
+   * Fatia 5 da `docs/adr/0022-offline-first-as-respostas.md`. Até aqui, recarregar a
+   * página sem rede batia na tela "Sem conexão" e o Decko não abria — nem para vender,
+   * nem para cadastrar. A fila de sincronização existia e não servia para nada, porque
+   * não havia como chegar até ela. */
+  const [sessaoLocal, setSessaoLocal] = useState<Date | null>(null);
+  /* Havia uma sessão guardada e o prazo dela passou. A tela diz isso, porque "tentar de
+   * novo" não resolve prazo vencido — só rede resolve. */
+  const [sessaoVencida, setSessaoVencida] = useState(false);
   const [tentativa, setTentativa] = useState(0);
   const [view, setView] = useState<View>({ name: "home" });
   /* Empresa nova: a primeira tela é a escolha do ramo, mas quem prefere montar aplicativo
@@ -166,12 +178,51 @@ export default function App() {
     setChecking(true);
     setSemRede(false);
     restoreSession()
-      .then(setInfo)
-      .catch((causa) => {
-        if (causa instanceof SemRedeError) setSemRede(true);
+      .then((atual) => {
+        setInfo(atual);
+        setSessaoLocal(null);
+      })
+      .catch(async (causa) => {
+        if (!(causa instanceof SemRedeError)) return;
+
+        /* Sem rede, quem abre o Decko é a sessão guardada no aparelho. Não é entrada
+         * nova: a credencial é o mesmo token de renovação que já abre a sessão sozinho
+         * quando há rede. O que não dá, sem servidor, é conferir se ele foi revogado —
+         * e é para isso que existe a validade. */
+        const { sessao, vencida } = await sessaoGuardada.ler();
+        if (sessao === null) {
+          setSessaoVencida(vencida);
+          setSemRede(true);
+          return;
+        }
+        setInfo(sessao.info);
+        setSessaoLocal(sessao.vale_ate);
       })
       .finally(() => setChecking(false));
   }, [tentativa]);
+
+  /* A rede voltou com a sessão local em uso: confere com o servidor, em silêncio.
+   *
+   * Em silêncio porque pode haver venda em andamento na tela. Reiniciar o arranque
+   * remontaria a árvore inteira e levaria embora o que está no balcão — que é justamente
+   * o que esta camada existe para não deixar acontecer.
+   *
+   * Se o servidor recusar a sessão, ela acabou de verdade: é a resposta 4 da ADR 0022
+   * valendo, "aceita o que já passou, barra o que vem depois da sincronização". */
+  useEffect(() => {
+    if (sessaoLocal === null) return;
+
+    const conferir = () =>
+      void restoreSession()
+        .then((atual) => {
+          setSessaoLocal(null);
+          setInfo(atual);
+        })
+        .catch(() => undefined);
+
+    window.addEventListener("online", conferir);
+    return () => window.removeEventListener("online", conferir);
+  }, [sessaoLocal]);
 
   /* A fila sobe sozinha: ao entrar e sempre que a rede voltar.
    *
@@ -197,8 +248,13 @@ export default function App() {
     if (info?.active_modules.includes("pdv")) void import("./pages/PdvPage");
   }, [info]);
 
-  // Fica fora de todo o resto: versão nova pode chegar com a pessoa em qualquer tela.
-  const aviso = <AtualizacaoDisponivel />;
+  // Ficam fora de todo o resto: versão nova e falta de rede chegam em qualquer tela.
+  const aviso = (
+    <>
+      {sessaoLocal !== null && <SessaoDoAparelho valeAte={sessaoLocal} />}
+      <AtualizacaoDisponivel />
+    </>
+  );
 
   if (checking) {
     return (
@@ -211,7 +267,10 @@ export default function App() {
   if (!info && semRede) {
     return (
       <>
-        <SemConexao onTentar={() => setTentativa((n) => n + 1)} />
+        <SemConexao
+          sessaoVencida={sessaoVencida}
+          onTentar={() => setTentativa((n) => n + 1)}
+        />
         {aviso}
       </>
     );

@@ -1,7 +1,10 @@
 # ADR 0022 — Offline-first: as respostas que faltavam
 
 **Data:** 17/11/2026
-**Estado:** **proposta** — aguarda confirmação do dono do projeto
+**Estado:** **aceita**, com a resposta 6 decidida de outra forma. As fatias 1 a 4 foram
+pedidas uma a uma pelo dono do projeto em 17/11/2026 e estão feitas; a resposta 6, sobre
+entrar sem rede, foi decidida por ele no mesmo dia e **não** é o que esta ADR propunha —
+ver abaixo.
 **Responde:** as questões em aberto da `docs/adr/0019-offline-first.md`
 **Depende de:** ADR 0019 (direção), ADR 0008 (ponto de venda), ADR 0020 (operador e papéis)
 
@@ -102,24 +105,41 @@ entra custa peso de pacote — que é requisito pela regra 5 do `CLAUDE.md`.
 Era a parte que faltava para "não pode travar": de nada adianta a venda ficar na fila se o
 operador não consegue nem entrar depois que o navegador fechou.
 
-**Proposta:** o aparelho guarda os operadores que **já entraram nele**, cada um com o hash
-Argon2id do **PIN** — nunca da senha, e nunca em texto. Sem rede, o PIN abre uma sessão
-local, com as permissões da última sincronização.
+**O que esta ADR propunha:** o aparelho guardaria os operadores que já entraram nele, cada
+um com o hash Argon2id do **PIN**, e o PIN abriria uma sessão local — com três limites: só
+PIN e nunca senha, validade de 7 dias sem sincronizar, e só em aparelho confiado.
 
-Com três limites, e eles são o preço:
+**O que o dono do projeto decidiu, em 17/11/2026** — e vale sobre a proposta:
 
-1. **Só PIN, nunca senha.** O PIN já existe para o balcão e já tem bloqueio por tentativa
-   (ADR 0020). A senha é a credencial de verdade e não se espalha por aparelho.
-2. **Validade de 7 dias sem sincronizar.** Depois disso o aparelho para de abrir sessão
-   local e exige rede. É o que limita o estrago de um aparelho perdido ou de alguém
-   desligado, e casa com a janela da resposta 2.
-3. **Só em aparelho confiado.** O dono marca a estação como confiável; o celular de
-   qualquer um não vira chaveiro por ter entrado uma vez.
+> *"Sessão persistida com token local/TTL vence a necessidade de complicar com hash de PIN
+> no disco."*
 
-**O que isso custa, dito claramente:** passa a existir CPF, cadastro de cliente e hash de
-PIN no disco de um PC de balcão e no celular de um piloto, fora do PostgreSQL e portanto
-fora do Row Level Security. Isso tem consequência de LGPD — o armazenamento local precisa
-ser apagado ao sair, e aparelho perdido é incidente a tratar, não contratempo.
+Então **não há PIN nesta porta**. O que abre o Decko sem rede é a **sessão que já estava
+aberta**: a credencial é o mesmo token de renovação que já reabre a sessão sozinho quando
+há rede — recarregar a página online nunca pediu senha de novo. O aparelho guarda, a cada
+sessão que o servidor confirma, uma cópia de quem entrou, com as permissões e os módulos
+daquele momento, e um prazo.
+
+Três coisas definem o alcance disso:
+
+1. **Validade de 30 dias sem sincronizar**, decisão do dono do projeto, contra os 7 da
+   proposta. O prazo é o da operação: a pulverização de uma safra passa semanas longe de
+   sinal. Ele conta da **última** confirmação do servidor, então quem passa na sede toda
+   semana nunca vê a sessão vencer.
+2. **Sem a credencial, a cópia não vale nada.** Quem saiu não entra: sair revoga o token e
+   apaga a cópia.
+3. **Revogação não é conferida sem rede.** É a resposta 4 valendo aqui: aceita o que já
+   estava valendo, e o servidor manda de volta na primeira sincronização — se ele recusar a
+   sessão, a tela de entrada volta na hora.
+
+**O que isso custa, dito claramente:** nome, e-mail, papéis e permissões de quem entrou
+ficam no disco do aparelho por até 30 dias, ao lado do cadastro de clientes que a fatia 2
+já guarda — tudo fora do PostgreSQL e portanto fora do Row Level Security. E, sem o PIN da
+proposta, **quem estiver com o tablet alcança a operação sem digitar nada** durante esse
+prazo. Isso tem consequência de LGPD: aparelho perdido é incidente a tratar, não
+contratempo. O armazenamento local é apagado na saída, com uma exceção deliberada — a fila
+de sincronização fica, porque ela não é cópia, é venda que aconteceu e ainda não subiu.
+Encurtar a validade é mexer num número só, em `apps/web/src/lib/sessaoGuardada.ts`.
 
 ## A pergunta que esta ADR **não** responde
 
@@ -176,7 +196,13 @@ Em fatias que valem sozinhas, na ordem:
      rascunho ficava aberto para sempre e a venda que aconteceu não entrava.
    - **Venda cancelada no servidor é recusada**, e fica na fila com o motivo à mostra.
      Ressuscitá-la calada esconderia que duas pessoas discordaram sobre a mesma venda.
-5. **Entrada sem rede pelo PIN**, com os três limites da resposta 6. Ainda não feita.
+5. **Entrar sem rede.** ✅ feita em 17/11/2026, na forma decidida pelo dono do projeto —
+   sessão persistida com validade de 30 dias, e não PIN com hash no disco. Era o que
+   faltava para o offline-first servir para algo: recarregar a página na lavoura batia na
+   tela "Sem conexão", e a fila de sincronização existia sem ter como ser alcançada.
 
-Cada fatia é uma alteração própria, com teste e checagem por mutação. Nenhuma delas é
-pequena, e a 5 é a cara que falta.
+Cada fatia é uma alteração própria, com teste e checagem por mutação.
+
+**O que continua faltando para a operação inteira:** a tela de **pulverização** sem rede. A
+resposta 5 põe três telas no escopo, e duas estão de pé — ponto de venda e clientes. Lançar
+planejamento e campo sem sinal é a próxima, e é a que o piloto usa de verdade na lavoura.

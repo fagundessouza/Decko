@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 
+import { VALIDADE_DIAS } from "../lib/sessaoGuardada";
 import { Button } from "./Button";
 
 interface Props {
   /** Tenta restaurar a sessão de novo. */
   onTentar: () => void;
+  /** Havia sessão guardada neste aparelho e o prazo dela passou.
+   *
+   * Muda o que a tela diz, e isso importa: prazo vencido não se resolve tentando de novo,
+   * só com rede. Dizer "sua sessão continua guardada" nesse caso seria mentira. */
+  sessaoVencida?: boolean;
 }
 
 /* O que aparece quando o aparelho abriu sem conseguir falar com o servidor.
@@ -17,9 +23,11 @@ interface Props {
  * A sessão guardada **não** é apagada nesse caso. Quem estava dentro continua dentro
  * assim que a rede voltar; é o que `SemRedeError` existe para distinguir.
  *
- * O que esta tela não faz é deixar trabalhar sem rede. Isso é a outra metade do
- * offline-first, e depende das perguntas em aberto da docs/adr/0019-offline-first.md. */
-export function SemConexao({ onTentar }: Props) {
+ * Desde a fatia 5 da docs/adr/0022-offline-first-as-respostas.md, esta tela aparece
+ * **menos**: aparelho que já entrou com rede abre com a sessão guardada e segue
+ * operando. Ela sobrou para dois casos — aparelho que nunca entrou nesta empresa, e
+ * sessão guardada cujo prazo venceu. */
+export function SemConexao({ onTentar, sessaoVencida = false }: Props) {
   const [online, setOnline] = useState(() => navigator.onLine);
 
   useEffect(() => {
@@ -38,8 +46,12 @@ export function SemConexao({ onTentar }: Props) {
       <div className="w-full max-w-md text-center">
         <h1 className="text-2xl font-bold tracking-tight text-ink">Sem conexão</h1>
         <p className="mt-3 text-base text-ink-muted">
-          O Decko abriu, mas não conseguiu falar com o servidor. Sua sessão continua
-          guardada neste aparelho — assim que a rede voltar, é só tentar de novo.
+          {sessaoVencida
+            ? `O Decko abriu, mas a sessão guardada neste aparelho passou do prazo de ` +
+              `${VALIDADE_DIAS} dias sem sincronizar. Entrar de novo exige rede — é o ` +
+              `prazo que limita o estrago de um aparelho perdido.`
+            : "O Decko abriu, mas não conseguiu falar com o servidor. Sua sessão continua " +
+              "guardada neste aparelho — assim que a rede voltar, é só tentar de novo."}
         </p>
 
         {/* O aviso do próprio aparelho, quando ele sabe. `navigator.onLine` diz que existe

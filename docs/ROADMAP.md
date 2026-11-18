@@ -292,9 +292,16 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
         atendimento não recomeça a venda: o id é o mesmo, e o servidor termina o rascunho
         dele em vez de criar uma segunda venda. Estoque negativo entra e **aparece**, com
         endereço — qual produto, quanto saiu, com quanto ficou
-  - [ ] Entrar sem rede pelo PIN, com validade de 7 dias e só em aparelho confiado. É a
-        fatia mais delicada: põe hash de PIN e cadastro de cliente no disco de um PC de
-        balcão, fora do PostgreSQL e portanto fora do Row Level Security
+  - [x] **Entrar sem rede**, decidido pelo dono do projeto em 17/11/2026 de outra forma
+        que a ADR propunha: sessão persistida com validade de 30 dias, e **não** PIN com
+        hash no disco. Recarregar a página na lavoura abria a tela "Sem conexão" e parava
+        tudo — a fila de sincronização existia sem ter como ser alcançada. Agora o aparelho
+        guarda a sessão que o servidor confirmou e reabre com ela dentro do prazo. O custo
+        está escrito na ADR: dados de quem entrou no disco por 30 dias, e quem estiver com
+        o tablet alcança a operação sem digitar nada nesse período
+  - [ ] **Pulverização sem rede.** A resposta 5 da ADR põe três telas no escopo; duas estão
+        de pé (ponto de venda e clientes). Lançar planejamento e campo sem sinal é a que o
+        piloto usa de verdade na lavoura, e é a que falta
   - [ ] **Liberação de supervisor sem rede não tem resposta.** Hoje o aparelho obedece ao
         que a loja declarou na última sincronização e recusa o que ela exige supervisor para
         fazer, dizendo o motivo. É remendo, não decisão

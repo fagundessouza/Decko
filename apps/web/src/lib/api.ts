@@ -1,3 +1,7 @@
+import {
+  esquecer as esquecerSessaoDoAparelho,
+  guardar as guardarSessaoDoAparelho,
+} from "./sessaoGuardada";
 import { session } from "./session";
 
 /* Vazio em desenvolvimento e quando front e API moram no mesmo domínio: aí o caminho é
@@ -255,7 +259,13 @@ export async function fetchSession(): Promise<SessionInfo> {
   if (!response.ok) {
     throw new ApiError(await messageFrom(response, "Sessão expirada."), response.status);
   }
-  return response.json();
+  const info: SessionInfo = await response.json();
+  /* Toda sessão que o servidor confirma é guardada no aparelho, e é daqui que sai a
+   * entrada sem rede — fatia 5 da ADR 0022. É aqui, e não só na entrada, porque permissão
+   * e módulo da empresa mudam: o aparelho tem de guardar os últimos, não os primeiros.
+   * Falha de armazenamento não impede ninguém de trabalhar com rede. */
+  await guardarSessaoDoAparelho(info).catch(() => undefined);
+  return info;
 }
 
 /** Relê a sessão com um token novo em folha.
@@ -294,6 +304,10 @@ export async function logout(): Promise<void> {
     }).catch(() => undefined);
   }
   session.clear();
+  /* Sair apaga do aparelho o que era da pessoa: sessão, cadastro de cliente, catálogo.
+   * A fila fica, porque ela não é cópia — é venda que aconteceu e ainda não subiu. Ver
+   * `sessaoGuardada.esquecer`. */
+  await esquecerSessaoDoAparelho().catch(() => undefined);
 }
 
 /** Identificação da empresa: é o que o Planejamento Operacional imprime no cabeçalho. */
