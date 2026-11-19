@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- O título responde a busca inteira: quem procura isto digita "sistema para
+         pulverização agrícola" ou "relatório mensal MAPA drone". A marca vem no fim. -->
+    <title>Sistema para pulverização agrícola com drone e relatório do MAPA | Decko</title>
+    <meta
+      name="description"
+      content="Planejamento operacional, clima com registro probatório, croqui do voo e o relatório mensal do MAPA. Importa o registro de voo do DJI SmartFarm e funciona na lavoura sem sinal."
+    />
+    <link rel="canonical" href="https://decko.app.br/pulverizacao-agricola" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0F172A" />
+
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Decko" />
+    <meta
+      property="og:title"
+      content="Sistema para pulverização agrícola com drone e relatório do MAPA"
+    />
+    <meta
+      property="og:description"
+      content="O documento que o MAPA exige sai pronto: planejamento, clima com prova, croqui e o registro de voo do drone importado por arquivo."
+    />
+    <meta property="og:url" content="https://decko.app.br/pulverizacao-agricola" />
+    <meta property="og:image" content="https://decko.app.br/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/estilo.css" />
+
+    <!-- As perguntas aqui são **outras**: quem procura por pulverização pergunta sobre
+         norma, prazo e prova, não sobre preço de PDV. Repetir o FAQ da home faria as duas
+         páginas disputarem a mesma busca entre si. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://decko.app.br/pulverizacao-agricola#pagina",
+            "url": "https://decko.app.br/pulverizacao-agricola",
+            "name": "Sistema para pulverização agrícola com drone e relatório do MAPA",
+            "inLanguage": "pt-BR",
+            "isPartOf": { "@id": "https://decko.app.br/#site" },
+            "about": { "@id": "https://decko.app.br/#produto" },
+            "primaryImageOfPage": "https://decko.app.br/og.png"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Decko",
+                "item": "https://decko.app.br/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Pulverização agrícola",
+                "item": "https://decko.app.br/pulverizacao-agricola"
+              }
+            ]
+          },
+          {
+            "@type": "Service",
+            "name": "Gestão de pulverização agrícola com ARP",
+            "serviceType": "Software de gestão para aviação agrícola com drone",
+            "provider": { "@id": "https://decko.app.br/#organizacao" },
+            "areaServed": { "@type": "Country", "name": "Brasil" },
+            "url": "https://decko.app.br/pulverizacao-agricola"
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "O Decko gera o relatório mensal exigido pelo MAPA?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "O Decko consolida as aplicações do mês com município e UF, identificação da aeronave, área aplicada em hectares, horas de execução, tipo de atividade e os produtos usados — que é o que a Portaria MAPA 298/2021, artigo 11, pede. O envio ao SIPEAGRO continua sendo feito por você: o sistema prepara o conteúdo, não acessa a conta do MAPA em seu nome."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Dá para importar os voos do DJI SmartFarm?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sim. Você exporta a planilha de voos do aplicativo, arrasta no Decko e ele lê horário, área aplicada, volume de calda, largura de faixa e altura de voo. Os voos do mesmo talhão no mesmo dia são agrupados numa aplicação, e translado e calibração ficam separados, alimentando o horímetro da aeronave."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "O sistema funciona na lavoura, sem sinal de celular?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sim. O planejamento operacional é preenchido no campo sem conexão, fica guardado no aparelho e sobe sozinho quando a rede volta. O número do documento nasce no servidor, então duas pessoas trabalhando offline nunca emitem o mesmo número."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "A leitura de clima serve como prova em caso de deriva?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Cada leitura guarda a fonte, o provedor, a hora da captura, a coordenada e a resposta íntegra do serviço de meteorologia, sem edição. É isso que diferencia um registro defensável de um número preenchido de memória depois da aplicação."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+    <header class="topo">
+      <div class="faixa topo__faixa">
+        <a class="marca" href="/" aria-label="Decko, página inicial">
+          <span class="marca__simbolo" aria-hidden="true">
+            <span class="marca__pixel"></span>
+            <span class="marca__pixel"></span>
+            <span class="marca__pixel"></span>
+          </span>
+          <span class="marca__nome">Deck<span class="marca__o">O</span></span>
+        </a>
+        <nav aria-label="Seções da página">
+          <a href="/">Início</a>
+          <a href="#documento">O documento</a>
+          <a href="#voo">Registro de voo</a>
+          <a href="#perguntas">Perguntas</a>
+        </nav>
+        <a class="botao botao--pequeno" href="#contato">Falar com a gente</a>
+      </div>
+    </header>
+
+    <main id="conteudo">
+      <nav class="trilha faixa" aria-label="Onde você está">
+        <a href="/">Decko</a> <span aria-hidden="true">›</span> Pulverização agrícola
+      </nav>
+
+      <section class="heroi heroi--interno">
+        <div class="faixa heroi__faixa">
+          <p class="selo">Para operador de ARP e empresa aeroagrícola</p>
+          <h1>
+            O relatório do MAPA <span class="destaque">sai pronto</span> — e o clima vira
+            prova.
+          </h1>
+          <p class="heroi__texto">
+            Planejamento operacional no formato do talão, leitura meteorológica com registro
+            probatório, croqui a partir do voo e a importação do registro do drone. O que
+            hoje é preenchido à mão, muitas vezes de memória, passa a sair do que realmente
+            aconteceu na aplicação.
+          </p>
+          <div class="heroi__acoes">
+            <a class="botao" href="#contato">Quero ver funcionando</a>
+            <a class="botao botao--vazado" href="#voo">Como importa o voo</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="documento" class="secao">
+        <div class="faixa">
+          <h2>O que a norma pede, e onde isso está no Decko</h2>
+          <p class="secao__texto">
+            A operação com aeronave remotamente pilotada é regida pela <strong>Portaria
+            MAPA nº 298/2021</strong>. Ela define o que cada aplicação registra (art. 10) e
+            o que o relatório mensal consolida (art. 11) — com envio até o
+            <strong>dia 15 do mês seguinte</strong>, pelo SIPEAGRO.
+          </p>
+
+          <div class="tabela-rolante">
+            <table class="tabela">
+              <caption class="esconde">
+                O que a Portaria 298/2021 exige e como o Decko registra
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">O que a norma pede</th>
+                  <th scope="col">No Decko</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Cultura tratada e área em hectares</td>
+                  <td>Do planejamento, e corrigida pela área que o equipamento mediu</td>
+                </tr>
+                <tr>
+                  <td>Tipo de atividade e produtos aplicados</td>
+                  <td>Tabela de produtos ligada ao receituário agronômico</td>
+                </tr>
+                <tr>
+                  <td>Altura do voo e tipo de ponta de pulverização</td>
+                  <td>Campos do planejamento, preenchidos a partir do registro de voo</td>
+                </tr>
+                <tr>
+                  <td>Temperatura, umidade, <strong>direção</strong> e velocidade do vento</td>
+                  <td>Leituras com fonte, hora e resposta íntegra do provedor</td>
+                </tr>
+                <tr>
+                  <td>Identificação da aeronave conforme ANAC</td>
+                  <td>Cadastro com prefixo, casado pelo número de série do equipamento</td>
+                </tr>
+                <tr>
+                  <td>Horas de execução no relatório mensal</td>
+                  <td>Somadas dos voos importados, sem redigitar</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="secao__nota">
+            O Decko prepara o conteúdo do relatório. <strong>O envio continua sendo
+            seu</strong>: o sistema não acessa a conta do MAPA em seu nome, e dizer o
+            contrário seria vender uma dependência que não está na nossa mão.
+          </p>
+        </div>
+      </section>
+
+      <section id="voo" class="secao secao--escura">
+        <div class="faixa duas-colunas">
+          <div>
+            <h2>O registro de voo do drone entra por arquivo</h2>
+            <p>
+              Não existe API pública do SmartFarm, e o log que fica no controle é
+              criptografado. O que existe é a planilha que você já consegue exportar — e é
+              ela que o Decko lê:
+            </p>
+            <ul class="lista">
+              <li>
+                <strong>Horário, área e calda, sem redigitar.</strong> Os voos do mesmo
+                talhão no mesmo dia viram uma aplicação, com área, volume, dose por hectare
+                e as horas de execução somadas.
+              </li>
+              <li>
+                <strong>A unidade é lida do arquivo, nunca suposta.</strong> A área do
+                SmartFarm costuma vir em <em>mu</em> — 1/15 de hectare. Lê-la como hectare
+                poria no relatório uma área quinze vezes maior, sem erro em tela nenhuma.
+              </li>
+              <li>
+                <strong>Translado e calibração não são descartados.</strong> Eles ficam
+                fora do relatório e dentro do horímetro, porque é o desgaste deles que faz
+                a revisão vencer.
+              </li>
+              <li>
+                <strong>Nada é gravado sem você conferir.</strong> O sistema mostra o que
+                entendeu — inclusive o horário, que o arquivo não diz em qual fuso está — e
+                espera a sua confirmação.
+              </li>
+            </ul>
+          </div>
+          <div class="quadro">
+            <p class="quadro__titulo">Por que isso não é detalhe</p>
+            <p>
+              O relatório mensal é obrigatório, e a sanção prevista para irregularidade vai
+              de multa a suspensão e cancelamento do registro. Um número errado ali não dá
+              erro em lugar nenhum: ele só aparece quando alguém de fora confere.
+            </p>
+            <p class="quadro__titulo">O que o sistema faz com a dúvida</p>
+            <p>
+              Recusa. Arquivo cuja unidade de área não é reconhecida não é convertido por
+              palpite — a importação para e diz o motivo.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao">
+        <div class="faixa">
+          <h2>O resto do talão, no mesmo lugar</h2>
+          <div class="cartoes">
+            <article class="cartao">
+              <h3>Receituário agronômico</h3>
+              <p>
+                Vinculado ao planejamento, com os produtos, a dose por hectare e o CREA de
+                quem assina. A dose preenche a baixa de estoque do defensivo.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Croqui da área</h3>
+              <p>
+                Importado do KML que o aplicativo do drone exporta: contorno, faixas de
+                aplicação e a seta do vento, desenhados no documento.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Assinaturas</h3>
+              <p>
+                Os quatro papéis do formulário, cada um com o registro profissional. O
+                sistema avisa quando o documento muda depois de assinado.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Horímetro da frota</h3>
+              <p>
+                Horas por aeronave, separando o que pulverizou do que não pulverizou. É
+                soma dos voos, e não um contador que alguém precisa corrigir.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Pilotos e aeronaves</h3>
+              <p>
+                Cadastro com CANAC, CREA e prefixo ANAC/SISANT. O voo importado encontra a
+                aeronave pelo número de série do equipamento.
+              </p>
+            </article>
+            <article class="cartao cartao--destaque">
+              <h3>Fechamento do mês</h3>
+              <p>
+                A consolidação do período, pronta para virar o relatório — com as horas de
+                execução que a planilha feita à mão costuma esquecer.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="perguntas" class="secao">
+        <div class="faixa faixa--estreita">
+          <h2>Perguntas de quem opera</h2>
+
+          <details>
+            <summary>O Decko gera o relatório mensal exigido pelo MAPA?</summary>
+            <p>
+              Ele consolida as aplicações do mês com município e UF, identificação da
+              aeronave, área aplicada, horas de execução, tipo de atividade e os produtos
+              usados — o que a Portaria 298/2021, art. 11, pede. O envio ao SIPEAGRO
+              continua sendo feito por você.
+            </p>
+          </details>
+          <details>
+            <summary>Dá para importar os voos do DJI SmartFarm?</summary>
+            <p>
+              Sim, pela planilha que o aplicativo exporta (<code>.xlsx</code> ou
+              <code>.csv</code>). O Decko agrupa os voos por talhão e dia, converte a área
+              para hectare e mostra tudo para você conferir antes de gravar.
+            </p>
+          </details>
+          <details>
+            <summary>E o registro que fica no controle remoto?</summary>
+            <p>
+              Esse é criptografado pela fabricante, e ler o conteúdo depende dela. Por isso
+              o caminho é a planilha — que funciona hoje, sem depender de ninguém abrir
+              nada.
+            </p>
+          </details>
+          <details>
+            <summary>Funciona na lavoura, sem sinal?</summary>
+            <p>
+              Sim. O planejamento é preenchido no campo, fica guardado no aparelho e sobe
+              sozinho quando a rede volta. O número do documento nasce no servidor, então
+              dois aparelhos sem sinal nunca emitem o mesmo número.
+            </p>
+          </details>
+          <details>
+            <summary>A leitura de clima serve como prova numa disputa de deriva?</summary>
+            <p>
+              Cada leitura guarda fonte, provedor, hora da captura, coordenada e a resposta
+              íntegra do serviço de meteorologia, sem edição. É o que diferencia registro
+              defensável de número preenchido depois, de memória.
+            </p>
+          </details>
+          <details>
+            <summary>O Decko emite nota fiscal do serviço?</summary>
+            <p>
+              Ainda não. A emissão fiscal entra com o módulo fiscal, que está em
+              desenvolvimento. O que existe hoje é toda a documentação operacional e o
+              controle da empresa.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section id="contato" class="secao secao--escura">
+        <div class="faixa faixa--estreita">
+          <h2>Conte como é a sua operação</h2>
+          <p class="secao__texto">
+            Quantas aeronaves, quantos hectares por mês, e o que mais toma seu tempo hoje. A
+            gente responde com o que o Decko resolve no seu caso — e com o que ele ainda não
+            resolve.
+          </p>
+
+          <form id="formulario" class="formulario" novalidate>
+            <div class="campo">
+              <label for="nome">Seu nome</label>
+              <input id="nome" name="nome" type="text" required autocomplete="name" />
+            </div>
+            <div class="campo">
+              <label for="empresa">Empresa</label>
+              <input id="empresa" name="empresa" type="text" autocomplete="organization" />
+            </div>
+            <div class="campo">
+              <label for="email">E-mail</label>
+              <input id="email" name="email" type="email" required autocomplete="email" />
+            </div>
+            <div class="campo">
+              <label for="telefone">WhatsApp</label>
+              <input
+                id="telefone"
+                name="telefone"
+                type="tel"
+                autocomplete="tel"
+                placeholder="(64) 9 9999-0000"
+              />
+            </div>
+            <div class="campo campo--largo">
+              <label for="segmento">Ramo da empresa</label>
+              <select id="segmento" name="segmento">
+                <!-- Já marcado: quem chegou por esta página veio de uma busca sobre
+                     pulverização, e perguntar de novo o que a visita já disse é atrito. -->
+                <option value="agro" selected>Pulverização agrícola</option>
+                <option value="comercio">Comércio / loja de balcão</option>
+                <option value="distribuidora">Distribuidora</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="campo campo--largo">
+              <label for="mensagem">O que você precisa resolver?</label>
+              <textarea id="mensagem" name="mensagem" rows="3"></textarea>
+            </div>
+
+            <div class="armadilha" aria-hidden="true">
+              <label for="site">Não preencha este campo</label>
+              <input id="site" name="site" type="text" tabindex="-1" autocomplete="off" />
+            </div>
+
+            <label class="aceite campo--largo">
+              <input id="consentimento" name="consentimento" type="checkbox" required />
+              <span>
+                Aceito que a Decko entre em contato comigo por e-mail ou WhatsApp sobre esta
+                solicitação. Seus dados não são vendidos nem repassados.
+              </span>
+            </label>
+
+            <button class="botao campo--largo" type="submit">Pedir contato</button>
+            <p id="recado" class="recado" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="rodape">
+      <div class="faixa rodape__faixa">
+        <div>
+          <p class="marca__nome marca__nome--rodape">Deck<span class="marca__o">O</span></p>
+          <p class="rodape__frase">One platform. Infinite possibilities.</p>
+        </div>
+        <nav aria-label="Links do rodapé">
+          <a href="/">Início</a>
+          <a href="/pdv-para-loja">Loja de balcão</a>
+          <a href="/#perguntas">Perguntas</a>
+          <a href="#contato">Contato</a>
+        </nav>
+        <p class="rodape__legal">© <span id="ano">2026</span> Decko. Feito no Brasil.</p>
+      </div>
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

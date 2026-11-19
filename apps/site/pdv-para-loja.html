@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>PDV que funciona sem internet, com estoque e caixa | Decko</title>
+    <meta
+      name="description"
+      content="Sistema de ponto de venda para loja de balcão: vende com a internet caída, controla estoque com entrada por XML da nota, fecha o caixa com conferência cega e roda em PC antigo."
+    />
+    <link rel="canonical" href="https://decko.app.br/pdv-para-loja" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0F172A" />
+
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Decko" />
+    <meta property="og:title" content="PDV que funciona sem internet, com estoque e caixa" />
+    <meta
+      property="og:description"
+      content="A venda acontece no aparelho mesmo com a internet caída, e sobe sozinha quando ela volta. Estoque, caixa e devolução no mesmo sistema."
+    />
+    <meta property="og:url" content="https://decko.app.br/pdv-para-loja" />
+    <meta property="og:image" content="https://decko.app.br/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/estilo.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://decko.app.br/pdv-para-loja#pagina",
+            "url": "https://decko.app.br/pdv-para-loja",
+            "name": "PDV que funciona sem internet, com estoque e caixa",
+            "inLanguage": "pt-BR",
+            "isPartOf": { "@id": "https://decko.app.br/#site" },
+            "about": { "@id": "https://decko.app.br/#produto" },
+            "primaryImageOfPage": "https://decko.app.br/og.png"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Decko",
+                "item": "https://decko.app.br/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "PDV para loja de balcão",
+                "item": "https://decko.app.br/pdv-para-loja"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "O PDV funciona com a internet caída?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sim. A venda é composta e fechada no próprio computador ou celular, usando o catálogo guardado no aparelho, e sobe inteira quando a conexão volta. Se a queda acontecer no meio do atendimento, a mesma venda continua — não começa outra."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "O Decko emite cupom fiscal?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Ainda não. A venda registra a saída do estoque e imprime um recibo, mas a emissão de cupom fiscal eletrônico entra com o módulo fiscal, que está em desenvolvimento. Isso está dito aqui porque descobrir depois seria pior."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Preciso de computador novo para usar?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Não. O alvo do projeto inclui PC antigo de caixa e celular simples: o sistema abre no navegador, guarda o necessário no próprio aparelho e trata peso de página e consulta lenta como defeito, não como detalhe."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Dá para controlar quem pode cancelar item e dar desconto?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sim. A loja define o que exige liberação de supervisor — cancelar item, cancelar venda, sangria, desconto acima de um valor — e a senha ou PIN de quem libera é conferida no servidor, na mesma operação que executa a ação."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+    <header class="topo">
+      <div class="faixa topo__faixa">
+        <a class="marca" href="/" aria-label="Decko, página inicial">
+          <span class="marca__simbolo" aria-hidden="true">
+            <span class="marca__pixel"></span>
+            <span class="marca__pixel"></span>
+            <span class="marca__pixel"></span>
+          </span>
+          <span class="marca__nome">Deck<span class="marca__o">O</span></span>
+        </a>
+        <nav aria-label="Seções da página">
+          <a href="/">Início</a>
+          <a href="#balcao">No balcão</a>
+          <a href="#estoque">Estoque e caixa</a>
+          <a href="#perguntas">Perguntas</a>
+        </nav>
+        <a class="botao botao--pequeno" href="#contato">Falar com a gente</a>
+      </div>
+    </header>
+
+    <main id="conteudo">
+      <nav class="trilha faixa" aria-label="Onde você está">
+        <a href="/">Decko</a> <span aria-hidden="true">›</span> PDV para loja de balcão
+      </nav>
+
+      <section class="heroi heroi--interno">
+        <div class="faixa heroi__faixa">
+          <p class="selo">Para loja de balcão, distribuidora e lanchonete</p>
+          <h1>
+            A fila não para porque a <span class="destaque">internet caiu</span>.
+          </h1>
+          <p class="heroi__texto">
+            O caixa do Decko compõe e fecha a venda no próprio aparelho, com o catálogo
+            guardado nele. Quando a conexão volta, a venda sobe sozinha — inteira, uma vez
+            só, com o número do cupom nascendo no servidor.
+          </p>
+          <div class="heroi__acoes">
+            <a class="botao" href="#contato">Quero ver funcionando</a>
+            <a class="botao botao--vazado" href="#balcao">O que tem no balcão</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="balcao" class="secao">
+        <div class="faixa">
+          <h2>Feito para quem atende com fila na frente</h2>
+          <p class="secao__texto">
+            O caixa é a tela que mais se repete no dia e a que menos perdoa: cada item é um
+            código bipado e um Enter. O que decide se ela anda é o que acontece entre uma
+            bipada e outra.
+          </p>
+
+          <div class="cartoes">
+            <article class="cartao">
+              <h3>Leitor de código de barras</h3>
+              <p>
+                O campo do código fica com o foco o tempo inteiro. Achou um produto só,
+                lança e segue — sem pegar no mouse a cada item.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Teclas de função</h3>
+              <p>
+                F1 a F4 abrem dinheiro, débito, crédito e Pix. Enquanto o caixa está na
+                tela, essas teclas são dele, e não do navegador.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Pagamento dividido</h3>
+              <p>
+                Parte no Pix, parte em dinheiro: o que falta e o troco são contados a cada
+                pagamento, e troco só sai de dinheiro.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Liberação de supervisor</h3>
+              <p>
+                Cancelar item, dar desconto, sangria: a loja escolhe o que exige liberação,
+                e a senha é conferida no servidor, não na tela.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Troca de operador</h3>
+              <p>
+                O turno passa sem sair do caixa, com PIN. A venda fica no nome de quem
+                vendeu, que é o que faz a conferência valer.
+              </p>
+            </article>
+            <article class="cartao cartao--destaque">
+              <h3>Devolução</h3>
+              <p>
+                Ache a venda pelo número do cupom, diga o que voltou e para onde: estoque
+                ou avaria. O valor sai da gaveta e o fechamento já conta com ele.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="offline" class="secao secao--escura">
+        <div class="faixa duas-colunas">
+          <div>
+            <h2>O que acontece quando a rede cai</h2>
+            <ul class="lista">
+              <li>
+                <strong>A venda continua a mesma.</strong> Se a queda for no meio do
+                atendimento, o que já foi bipado permanece e a venda termina no aparelho —
+                não começa outra.
+              </li>
+              <li>
+                <strong>A conta é feita em centavos inteiros.</strong> Sem rede não há a
+                quem perguntar o total, e um centavo de diferença só apareceria no
+                fechamento, horas depois.
+              </li>
+              <li>
+                <strong>Reenviar não duplica.</strong> Cada venda nasce com identidade
+                própria: oscilação de sinal não vira duas vendas do mesmo cliente.
+              </li>
+              <li>
+                <strong>Recarregar não derruba ninguém.</strong> A sessão fica guardada no
+                aparelho e reabre o sistema por até 30 dias sem sincronizar.
+              </li>
+            </ul>
+          </div>
+          <div class="quadro">
+            <p class="quadro__titulo">E o estoque, quando tudo volta?</p>
+            <p>
+              Se dois caixas venderam o mesmo último item, o saldo fica negativo e
+              <strong>isso aparece</strong>, com endereço: qual venda, qual produto, quanto
+              faltou. Recusar a venda que já aconteceu seria apagar mercadoria que saiu
+              pela porta.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="estoque" class="secao">
+        <div class="faixa duas-colunas">
+          <div>
+            <h2>Estoque e caixa, no mesmo sistema</h2>
+            <ul class="lista">
+              <li>
+                <strong>Entrada pelo XML da nota.</strong> O fornecedor manda o arquivo, o
+                Decko lê, propõe o casamento com o seu cadastro e você confirma. Sem
+                redigitar item por item.
+              </li>
+              <li>
+                <strong>Razão de movimentação.</strong> Toda entrada e saída tem origem; o
+                saldo é a soma do que aconteceu, e não um número que alguém edita.
+              </li>
+              <li>
+                <strong>Lote e validade</strong>, com aviso do que está acabando e do que
+                está vencendo na tela inicial.
+              </li>
+              <li>
+                <strong>Fechamento com conferência cega.</strong> O operador conta a gaveta
+                antes de o sistema mostrar o esperado — do contrário, a conferência vira
+                cópia.
+              </li>
+            </ul>
+          </div>
+          <div class="quadro quadro--verde">
+            <p class="quadro__titulo">Roda no que você já tem</p>
+            <p>
+              Abre no navegador, em PC antigo de caixa, tablet ou celular simples. Não exige
+              instalação em cada máquina, e peso de página é tratado como defeito.
+            </p>
+            <p class="quadro__titulo">Ainda não emite cupom fiscal</p>
+            <p>
+              A venda registra a saída do estoque e imprime recibo. A emissão fiscal entra
+              com o módulo fiscal, em desenvolvimento — melhor você saber agora.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="perguntas" class="secao">
+        <div class="faixa faixa--estreita">
+          <h2>Perguntas de quem está no balcão</h2>
+
+          <details>
+            <summary>Funciona mesmo com a internet caída?</summary>
+            <p>
+              Sim. A venda é composta e fechada no próprio aparelho, com o catálogo
+              guardado nele, e sobe inteira quando a conexão volta. O número do cupom nasce
+              no servidor, então dois caixas offline nunca emitem o mesmo número.
+            </p>
+          </details>
+          <details>
+            <summary>O Decko emite cupom fiscal?</summary>
+            <p>
+              Ainda não. A venda registra a saída do estoque e imprime um recibo; a emissão
+              fiscal entra com o módulo fiscal, que está em desenvolvimento.
+            </p>
+          </details>
+          <details>
+            <summary>Preciso trocar o computador do caixa?</summary>
+            <p>
+              Não. O alvo inclui PC antigo e celular simples — o sistema abre no navegador e
+              guarda no aparelho o que precisa para funcionar sem rede.
+            </p>
+          </details>
+          <details>
+            <summary>Dá para controlar desconto e cancelamento?</summary>
+            <p>
+              Sim. A loja define o que exige liberação de supervisor, e a senha ou PIN de
+              quem libera é conferida no servidor, na mesma operação que executa a ação —
+              não é a tela que destrava.
+            </p>
+          </details>
+          <details>
+            <summary>E se eu também tiver operação no campo?</summary>
+            <p>
+              O mesmo sistema tem o módulo de
+              <a href="/pulverizacao-agricola">pulverização agrícola</a>, com o documento
+              do MAPA. Você contrata os módulos que usa.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section id="contato" class="secao secao--escura">
+        <div class="faixa faixa--estreita">
+          <h2>Conte como é a sua loja</h2>
+          <p class="secao__texto">
+            Quantos caixas, quantos itens no catálogo e o que mais atrapalha hoje. A gente
+            responde com o que o Decko resolve — e com o que ele ainda não resolve.
+          </p>
+
+          <form id="formulario" class="formulario" novalidate>
+            <div class="campo">
+              <label for="nome">Seu nome</label>
+              <input id="nome" name="nome" type="text" required autocomplete="name" />
+            </div>
+            <div class="campo">
+              <label for="empresa">Empresa</label>
+              <input id="empresa" name="empresa" type="text" autocomplete="organization" />
+            </div>
+            <div class="campo">
+              <label for="email">E-mail</label>
+              <input id="email" name="email" type="email" required autocomplete="email" />
+            </div>
+            <div class="campo">
+              <label for="telefone">WhatsApp</label>
+              <input
+                id="telefone"
+                name="telefone"
+                type="tel"
+                autocomplete="tel"
+                placeholder="(64) 9 9999-0000"
+              />
+            </div>
+            <div class="campo campo--largo">
+              <label for="segmento">Ramo da empresa</label>
+              <select id="segmento" name="segmento">
+                <option value="comercio" selected>Comércio / loja de balcão</option>
+                <option value="distribuidora">Distribuidora</option>
+                <option value="restaurante">Restaurante / lanchonete</option>
+                <option value="agro">Pulverização agrícola</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="campo campo--largo">
+              <label for="mensagem">O que você precisa resolver?</label>
+              <textarea id="mensagem" name="mensagem" rows="3"></textarea>
+            </div>
+
+            <div class="armadilha" aria-hidden="true">
+              <label for="site">Não preencha este campo</label>
+              <input id="site" name="site" type="text" tabindex="-1" autocomplete="off" />
+            </div>
+
+            <label class="aceite campo--largo">
+              <input id="consentimento" name="consentimento" type="checkbox" required />
+              <span>
+                Aceito que a Decko entre em contato comigo por e-mail ou WhatsApp sobre esta
+                solicitação. Seus dados não são vendidos nem repassados.
+              </span>
+            </label>
+
+            <button class="botao campo--largo" type="submit">Pedir contato</button>
+            <p id="recado" class="recado" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="rodape">
+      <div class="faixa rodape__faixa">
+        <div>
+          <p class="marca__nome marca__nome--rodape">Deck<span class="marca__o">O</span></p>
+          <p class="rodape__frase">One platform. Infinite possibilities.</p>
+        </div>
+        <nav aria-label="Links do rodapé">
+          <a href="/">Início</a>
+          <a href="/pulverizacao-agricola">Pulverização agrícola</a>
+          <a href="/#perguntas">Perguntas</a>
+          <a href="#contato">Contato</a>
+        </nav>
+        <p class="rodape__legal">© <span id="ano">2026</span> Decko. Feito no Brasil.</p>
+      </div>
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

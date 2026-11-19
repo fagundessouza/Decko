@@ -20,7 +20,9 @@ Ou, de dentro do Claude Code, o alvo `site` do `.claude/launch.json`.
 
 | Arquivo | O que é |
 |---|---|
-| `index.html` | A página. Inclui os dados estruturados (JSON-LD) e as meta de compartilhamento |
+| `index.html` | A página inicial. Inclui os dados estruturados (JSON-LD) e as meta de compartilhamento |
+| `pulverizacao-agricola.html` | Página por segmento: operador de ARP, relatório do MAPA, voo do drone |
+| `pdv-para-loja.html` | Página por segmento: loja de balcão, PDV sem internet, estoque |
 | `estilo.css` | Todo o visual, com as cores da identidade (`#16A34A`, `#0F172A`) |
 | `app.js` | Só o envio do formulário e o ano do rodapé |
 | `robots.txt` | O que os robôs podem percorrer, e onde está o sitemap |
@@ -96,9 +98,32 @@ melhora o orgânico com o tempo, de forma indireta.
 
 O que move posição é, nesta ordem: ser a melhor resposta para uma busca específica, ter o
 conteúdo legível pelo robô, e ser citado por outros sites. O primeiro item é conteúdo, não
-configuração — por isso a próxima coisa a fazer nesta página é uma seção por segmento
-("sistema para pulverização agrícola", "PDV para loja de balcão"), cada uma respondendo a
-busca que o cliente daquele ramo realmente digita.
+configuração.
+
+## Uma página por busca
+
+As duas primeiras entraram em 18/11/2026, e a razão de serem **páginas** e não seções é
+essa: o buscador classifica página por página. Quem digita "sistema para pulverização
+agrícola" e quem digita "PDV que funciona sem internet" procuram coisas diferentes, e uma
+página só disputaria as duas buscas sem ganhar nenhuma.
+
+Cada página tem título, descrição, `canonical`, `BreadcrumbList` e **FAQ próprios** — as
+perguntas não se repetem entre elas de propósito: FAQ repetido faz as páginas do mesmo
+site competirem entre si.
+
+Para acrescentar a próxima (distribuidora, restaurante, supermercado):
+
+1. Copie `pdv-para-loja.html` e troque título, descrição, `canonical`, o `BreadcrumbList`,
+   o conteúdo e as perguntas.
+2. Deixe o `<option>` do ramo já marcado como `selected` no formulário — quem chegou por
+   aquela busca já disse o que faz.
+3. Acrescente a URL ao `sitemap.xml` e ao `llms.txt`.
+4. Ligue a página na home: link no cartão do módulo e no rodapé. Link interno é o que
+   distribui força entre as páginas, e é de graça.
+
+O cabeçalho e o rodapé são copiados em cada arquivo — é o preço de não ter build, e ele é
+barato até umas seis páginas. Passando disso, vale um gerador simples; antes disso, um
+build seria complexidade comprada sem necessidade.
 
 ## `llms.txt`: o que ele é, e o que ele não é
 

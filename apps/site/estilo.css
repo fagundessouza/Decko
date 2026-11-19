@@ -659,3 +659,107 @@ summary:focus-visible {
   font-size: 0.85rem;
   color: var(--tinta-apagada);
 }
+
+/* ------------------------------------------------------------------ páginas internas */
+
+/* A trilha diz onde a pessoa está e, no resultado de busca, vira o caminho que aparece
+   embaixo do título — o `BreadcrumbList` do JSON-LD é o par dela. */
+.trilha {
+  padding-block: 0.9rem;
+  font-size: 0.9rem;
+  color: var(--tinta-fraca);
+}
+
+.trilha a:hover {
+  color: var(--verde-escuro);
+}
+
+.heroi--interno .heroi__faixa {
+  padding-block: clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.secao__nota {
+  margin-top: 1.5rem;
+  color: var(--tinta-fraca);
+  font-size: 0.95rem;
+}
+
+/* A tabela rola sozinha no celular em vez de espremer as colunas até ninguém ler. */
+.tabela-rolante {
+  margin-top: 2rem;
+  overflow-x: auto;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+  font-size: 0.97rem;
+}
+
+.tabela th,
+.tabela td {
+  text-align: left;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--linha);
+}
+
+.tabela thead th {
+  background: var(--papel-morno);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tinta-fraca);
+}
+
+.tabela tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tabela td:first-child {
+  font-weight: 500;
+}
+
+/* Legenda que existe para leitor de tela e some para quem enxerga: a tabela já tem o
+   título da seção logo acima, e repeti-lo na tela seria dizer duas vezes. */
+.esconde {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+details code {
+  background: var(--papel-morno);
+  border: 1px solid var(--linha);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+
+details a {
+  color: var(--verde-escuro);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cartao__link,
+.secao__nota .cartao__link {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-weight: 700;
+  color: var(--verde-escuro);
+}
+
+.cartao__link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.secao--escura .cartao__link {
+  color: var(--verde-claro);
+}

@@ -45,6 +45,13 @@ simples.
 Assinatura mensal, pelo conjunto de módulos contratados. O valor é passado na conversa,
 porque depende do que a empresa usa. Contato: https://decko.app.br/#contato
 
+## Páginas por segmento
+
+- Pulverização agrícola, relatório do MAPA e importação do voo do drone:
+  https://decko.app.br/pulverizacao-agricola
+- Ponto de venda para loja de balcão, com operação sem internet:
+  https://decko.app.br/pdv-para-loja
+
 ## Links
 
 - Página inicial: https://decko.app.br/

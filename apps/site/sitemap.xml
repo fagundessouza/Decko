@@ -2,9 +2,10 @@
 <!--
   A lista de páginas do site, para o buscador não depender de achar link por link.
 
-  Hoje é uma página só, e está certo assim: uma página que responde bem vale mais do que
-  seis páginas rasas. Quando entrarem páginas por segmento — "sistema para pulverização
-  agrícola", "PDV para loja de balcão" —, cada uma entra aqui com a sua data.
+  Uma página por busca de verdade, e não seis páginas rasas. As duas primeiras por
+  segmento entraram em 18/11/2026: quem procura "sistema para pulverização agrícola" e
+  quem procura "PDV que funciona sem internet" digitam coisas diferentes e precisam de
+  respostas diferentes. Cada página nova entra aqui com a sua data.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -12,5 +13,17 @@
     <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://decko.app.br/pulverizacao-agricola</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://decko.app.br/pdv-para-loja</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
   </url>
 </urlset>
