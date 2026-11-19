@@ -25,7 +25,8 @@ Ou, de dentro do Claude Code, o alvo `site` do `.claude/launch.json`.
 | `pdv-para-loja.html` | Página por segmento: loja de balcão, PDV sem internet, estoque |
 | `sistema-para-distribuidora.html` | Página por segmento: distribuidora e atacado |
 | `estilo.css` | Todo o visual, com as cores da identidade (`#16A34A`, `#0F172A`) |
-| `app.js` | Só o envio do formulário e o ano do rodapé |
+| `app.js` | O envio do formulário, a abertura dos modais e o ano do rodapé |
+| `indexar.mjs` | Fala com o Google Search Console: entrega o sitemap e pergunta se a URL foi indexada |
 | `robots.txt` | O que os robôs podem percorrer, e onde está o sitemap |
 | `sitemap.xml` | A lista de páginas, para o buscador não depender de achar link por link |
 | `llms.txt` | O resumo do produto para assistentes de IA — ver abaixo |
@@ -82,15 +83,102 @@ O `vercel.json` cuida dos cabeçalhos de segurança e do cache.
 
 ## Indexação: a ordem que funciona
 
-1. **Google Search Console** — <https://search.google.com/search-console>. Adicione a
-   propriedade **de domínio** (`decko.app.br`), que cobre todos os subdomínios; a
-   verificação é um registro TXT no Registro.br ou na Cloudflare, onde o DNS estiver.
-2. **Mande o sitemap** em *Sitemaps* → `https://decko.app.br/sitemap.xml`.
-3. **Peça a indexação da página** em *Inspeção de URL* → "Solicitar indexação". Sem isso o
-   Google pode levar dias para passar na primeira vez.
-4. **Bing Webmaster Tools** — <https://www.bing.com/webmasters>. Importa a verificação do
-   Google em dois cliques, e é o índice que o Copilot e parte do ChatGPT consultam.
-5. Depois, confira em *Experiência na página* se algo ficou lento ou quebrado no celular.
+### 1. Verificar o domínio no Search Console
+
+<https://search.google.com/search-console> → **Adicionar propriedade** → **Domínio**
+(`decko.app.br`). A propriedade de domínio é a certa aqui: ela cobre `www`, `app`, `api`,
+`http` e `https` de uma vez, enquanto a de prefixo de URL cobre só o endereço exato.
+
+A verificação é um registro **TXT** no DNS — no Registro.br ou na Cloudflare, onde o
+domínio estiver apontado. O Google mostra o valor; ele entra como:
+
+| Tipo | Nome | Valor |
+|---|---|---|
+| TXT | `@` (ou `decko.app.br`) | `google-site-verification=…` |
+
+A propagação costuma levar minutos. **Não apague o registro depois** — o Google reconfere
+de vez em quando, e sem ele a propriedade cai e as chamadas de API param.
+
+> A alternativa, a meta `google-site-verification` no `<head>`, serve para propriedade de
+> prefixo de URL e só vale para aquele endereço. Não é usada aqui: ela não autoriza a API
+> no domínio todo, e teria de ser copiada em cada página nova.
+
+### 2. Mandar o sitemap
+
+Pela tela, em *Sitemaps* → `https://decko.app.br/sitemap.xml`. Ou pela API, que é o que o
+`indexar.mjs` faz:
+
+```
+node apps/site/indexar.mjs sitemap
+```
+
+Só precisa ser refeito quando entra ou sai página. Depois disso o Google volta sozinho.
+
+### 3. Pedir a indexação da primeira vez
+
+*Inspeção de URL* → cole a URL → **Solicitar indexação**. Isto **não tem API de escrita**,
+e é de propósito: é a única porta que o Google deixou para apressar uma página comum. Sem
+esse empurrão, a primeira passada pode levar dias.
+
+### 4. Conferir se o Google viu
+
+```
+node apps/site/indexar.mjs estado                       # todas as URLs do sitemap
+node apps/site/indexar.mjs estado https://decko.app.br/ # uma só
+```
+
+Responde o que a tela de inspeção responde: cobertura, última passada do robô, **qual
+canônica o Google escolheu** (pode não ser a que a página declara, e isso é um defeito
+silencioso de SEO), veredito do robots e por qual sitemap a URL foi descoberta.
+
+### 5. Bing Webmaster Tools
+
+<https://www.bing.com/webmasters> — importa a verificação do Google em dois cliques, e é o
+índice que o Copilot e parte do ChatGPT consultam.
+
+## A conta de serviço que o `indexar.mjs` usa
+
+As duas chamadas automatizáveis (entregar sitemap e inspecionar URL) exigem OAuth de conta
+de serviço. Uma vez, no Google Cloud:
+
+1. Projeto novo (ou um existente) → **APIs e serviços** → ative **Google Search Console
+   API**. Se um dia o site publicar vaga de emprego, ative também a **Indexing API**.
+2. **IAM** → **Contas de serviço** → criar. Sem papel nenhum no projeto: a autorização que
+   importa não é do Cloud, é do Search Console.
+3. Na conta criada → **Chaves** → **Adicionar chave** → JSON. O arquivo baixa uma vez só.
+4. No Search Console, na propriedade → **Configurações** → **Usuários e permissões** →
+   adicionar o `client_email` da conta de serviço como **Proprietário**. É este passo que
+   as pessoas esquecem, e o erro que ele dá (403) não explica o motivo.
+
+O JSON é credencial: **não entra no repositório.** Guarde fora da pasta do projeto e
+aponte por variável de ambiente:
+
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\Users\Lucas\.chaves\decko-search-console.json"
+$env:DECKO_SEARCH_CONSOLE_PROPERTY = "sc-domain:decko.app.br"
+node apps/site/indexar.mjs estado
+```
+
+`DECKO_SEARCH_CONSOLE_PROPERTY` é como o Search Console chama a propriedade:
+`sc-domain:decko.app.br` para a de domínio (a do passo 1), ou `https://decko.app.br/` para
+a de prefixo de URL. Errar isso dá 403, não 404.
+
+Em CI, onde não há caminho de arquivo, use `DECKO_GOOGLE_SERVICE_ACCOUNT` com o JSON
+inteiro vindo do segredo do runner.
+
+## A Indexing API não serve para esta página
+
+Ela existe, o `indexar.mjs` tem o comando `indexing`, e ela **não vai indexar a landing
+page**. O Google aceita a chamada para qualquer URL, responde 200 e ignora o que não for
+`JobPosting` ou `BroadcastEvent` — a documentação oficial é explícita. Quem a usa para
+página comum vê o 200, conclui que funcionou, e espera por nada.
+
+O comando ficou no script por dois motivos: porque a dúvida volta, e porque no dia em que o
+site publicar vaga de emprego com dado estruturado `JobPosting` ela passa a valer de fato.
+Até lá, o caminho é o dos passos 2 e 3: sitemap pela API, primeiro empurrão pela tela.
+
+O que de fato empurra uma página comum, em ordem de efeito: ser a melhor resposta para uma
+busca específica, estar no sitemap, receber link de fora, e carregar rápido.
 
 ### O que **não** acelera
 
@@ -117,9 +205,9 @@ site competirem entre si.
 **A página de distribuidora é de outro tipo, e isso é de propósito.** A vertical não
 existe: o roadmap tem a Fase 4 em branco, sem entrevista e sem documento real em mãos.
 Então ela vende o que já está pronto — embalagem em árvore, entrada por nota, lote e
-validade, balcão — e diz, numa seção inteira, o que **não** existe: nota fiscal, romaneio,
-acerto de rota, pedido de vendedor externo. O convite no fim é de levantamento: "traga o
-seu romaneio".
+validade, balcão — e diz, numa seção inteira, o que **não** existe: romaneio, acerto de
+rota, pedido de vendedor externo. O convite no fim é de levantamento: "traga o seu
+romaneio".
 
 É a página fazendo o trabalho que a Fase 4 precisa. Vender a vertical antes de ver o
 documento seria repetir exatamente o erro que o método do projeto existe para evitar — e o
@@ -161,47 +249,60 @@ buscador afirmar com confiança algo que não é mais verdade.
 
 ## O tom do texto, e o que sustenta cada frase
 
-Reescrito em 19/11/2026, porque a primeira versão era genérica — descrevia funcionalidade
-em vez de vender resultado.
+A home foi reescrita três vezes em 19/11/2026, e cada volta tirou uma coisa. Vale registrar
+o que saiu, porque a tendência é querer colocar de novo:
 
-A regra que vale para a próxima página: **toda afirmação de vantagem vem acompanhada do
-mecanismo que a torna verdadeira.** "Funciona offline" é promessa; "cada registro nasce
-com identidade própria, então mandar duas vezes não vira dois registros" é mecanismo — e é
-o que o comprador cético precisa para acreditar.
+- **Nada de detalhe de infraestrutura.** "1,7 GB de memória do servidor" impressiona quem
+  trabalha com TI e não diz nada a quem tem loja. O dono de ferragista quer saber se a fila
+  anda, não onde o sistema roda.
+- **Nada de número de artigo de norma.** "Portaria 298/2021, art. 10 e 11" na home era
+  autoridade dirigida a ninguém. Na página de agro, onde o leitor convive com a norma, a
+  tabela de conformidade ficou — sem o número do artigo na barra de prova.
+- **Nada de "quem atende é quem escreve o sistema".** Quem entra em contato é um consultor,
+  e é isso que a página promete.
+- **O offline deixou de ser o assunto.** Era um dos quatro diferenciais e tinha virado o
+  único. Hoje ele é uma linha da tabela de comparação e um cartão entre quatro.
+- **Nenhuma menção a não emitir nota fiscal.** O módulo fiscal não existe ainda; a página
+  não afirma nada sobre ele, em nenhum sentido.
+- **XML virou "cadastro de produto automatizado".** O formato do arquivo é assunto de quem
+  integra. Quem recebe mercadoria só quer não digitar.
 
 O esqueleto da home segue a ordem em que a objeção aparece na cabeça de quem lê:
 
-1. **Promessa** (herói) — o que é, em uma frase.
-2. **Prova conferível** (barra logo abaixo) — ocupa o lugar do mural de logos.
-3. **Para quem é** — a pessoa precisa achar o próprio ramo em dois segundos.
-4. **Diferença, com mecanismo** — por que isto funciona e o concorrente não faz.
-5. **Perda** — o que já está custando continuar como está.
+1. **Dor, no herói** — o estoque que não bate, em uma frase.
+2. **Ganho em quatro palavras** (barra logo abaixo) — para quem passa o olho e não lê.
+3. **As quatro dores**, cada uma com um modal "Como funciona".
+4. **Comparação com o mercado** — "na hora de" × "o que costuma acontecer" × "no Decko".
+5. **Para quem é** — seis ramos, cada um abrindo o detalhe em modal.
 6. **Garantia / risco zero** — tira o medo de ficar preso.
-7. **Prova social invertida** — por que não há logo de cliente nesta página.
-8. **Objeções** — as perguntas para fazer a qualquer fornecedor.
-9. **Convite de baixo atrito** — quinze minutos, sem cadastro e sem cartão.
+7. **Perguntas**, as cinco que travam a decisão.
+8. **Um consultor entra em contato** — o formulário.
+
+**A regra dos três cliques, e por isso os modais.** Nada que decida a compra fica a mais de
+três cliques da chegada: o ramo abre em modal, o "como funciona" abre em modal, e o
+formulário está na mesma página. Ninguém precisa trocar de endereço para descobrir se o
+sistema serve — e cada troca de página é gente que desiste no caminho. Os modais são
+`<dialog>` nativo: foco preso, `Esc` que fecha e fundo inerte sem uma linha de script para
+isso.
 
 Os gatilhos usados, e por que cada um é honesto aqui:
 
 | Gatilho | Como aparece | Por que não é mentira |
 |---|---|---|
-| Custo da inação | "Sábado, 11h, a internet cai" · "o dia 15 chega assim mesmo" | A perda é real: fila parada, e sanção prevista em norma |
-| Especificidade | 1,7 GB de memória, 90 dias de catálogo, 30 dias de sessão | Números do próprio sistema, conferíveis no código |
-| Prova por mecanismo | o bloco "Como funciona" em cada diferencial | Descreve o que o código faz |
-| Autoridade | artigos da Portaria 298/2021 citados | Fonte primária, lida e registrada em `docs/discovery/` |
-| Contraste de categoria | "no padrão do mercado", "ERP tradicional" | Fala da categoria, nunca de uma empresa |
-| Risco invertido | "se não servir, eu digo na primeira mensagem" | É o que de fato acontece: as páginas dizem o que falta |
-| Garantia | dados em planilha, sem implantação, mensal | As três são verdade hoje, e nenhuma delas é promessa comercial nova |
-| Baixo atrito | "sem cadastro, sem cartão, sem demonstração de uma hora" | É assim que o formulário funciona |
-| Escassez | "é uma pessoa só atendendo, por ordem de chegada" | É literalmente verdade, e não um contador de vagas inventado |
+| Dor concreta | "descobrir no fim do mês que o estoque não bate" | É a reclamação que aparece em toda conversa de balcão |
+| Custo da inação | compra repetida do que já tinha, falta do que vendia | Consequência direta de saldo que ninguém confere |
+| Contraste de categoria | a tabela "o que costuma acontecer" × "no Decko" | Fala do padrão do mercado, nunca de uma empresa pelo nome |
+| Simplicidade | "No mesmo dia", "só o que usa" | É assim que a contratação por ramo funciona |
+| Garantia | dados em planilha, sem implantação, mensal | As três são verdade hoje |
+| Baixo atrito | formulário de seis campos, sem cadastro e sem cartão | É o que o formulário faz |
+| Novidade | "liga e desliga módulo quando quiser" | O módulo é instalável de verdade, não uma tela escondida |
 
 **Prova social sem cliente para mostrar.** É o gatilho mais difícil aqui, porque o produto é
-novo e não há depoimento nem logo autorizado. A saída foi não fingir: a barra de prova traz
-fatos conferíveis (em produção numa operação real, mais de mil testes automáticos, os
-artigos da norma conferidos, o servidor de 1,7 GB), e há uma seção que explica **por que não
-há logo de cliente na página** — e transforma o tamanho pequeno em vantagem real: quem
-responde é quem escreve o sistema. Esconder que somos novos seria pior, porque o comprador
-descobre em dois minutos de busca e perde a confiança no resto.
+novo e não há depoimento nem logo autorizado. A saída foi não fingir, e também não ficar
+explicando: a barra de prova fala de resultado ("Vende sempre", "Estoque certo", "No mesmo
+dia", "Só o que usa") em vez de ocupar o lugar do mural de logos com uma confissão. A seção
+que explicava **por que não há logo de cliente** saiu da home junto com o resto do texto
+sobre o próprio projeto: ela tirava o leitor da decisão para falar de nós.
 
 O que **não** entra: depoimento inventado, número de clientes, logo de quem não é cliente,
 comparação nominal com concorrente, e promessa de funcionalidade que não existe. A seção
