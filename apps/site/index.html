@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- O título é o que aparece na aba do Google, e ele tem ~60 caracteres de espaço:
+         o que passa disso é cortado com reticências. Primeiro o que a pessoa procura
+         ("sistema de gestão"), depois a marca. -->
+    <title>Decko — ERP e PDV modular que funciona sem internet</title>
+    <meta
+      name="description"
+      content="Sistema de gestão modular para quem vende no balcão e opera no campo: PDV, estoque, clientes, financeiro e pulverização agrícola com o documento do MAPA. Funciona sem internet e sincroniza sozinho."
+    />
+    <link rel="canonical" href="https://decko.app.br/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0F172A" />
+
+    <!-- O que aparece quando o link é colado no WhatsApp, no LinkedIn ou no X. Sem isto,
+         o link vira texto cru — e link cru em grupo de WhatsApp quase não é clicado. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Decko" />
+    <meta property="og:title" content="Decko — ERP e PDV modular que funciona sem internet" />
+    <meta
+      property="og:description"
+      content="PDV, estoque, clientes, financeiro e pulverização agrícola. A venda acontece mesmo com a internet caída, e sobe sozinha quando ela volta."
+    />
+    <meta property="og:url" content="https://decko.app.br/" />
+    <meta property="og:image" content="https://decko.app.br/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/estilo.css" />
+
+    <!-- Dados estruturados. É o que faz o buscador e os assistentes entenderem **o que**
+         esta página é, em vez de adivinharem pelo texto. Três blocos, e cada um responde
+         uma pergunta diferente: quem é a empresa, o que é o produto, e o que as pessoas
+         perguntam antes de comprar. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://decko.app.br/#organizacao",
+            "name": "Decko",
+            "url": "https://decko.app.br/",
+            "logo": "https://decko.app.br/logo.svg",
+            "description": "Plataforma de gestão modular para comércio e agronegócio, com ponto de venda, estoque, financeiro e documentação do MAPA.",
+            "areaServed": { "@type": "Country", "name": "Brasil" },
+            "knowsLanguage": "pt-BR"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://decko.app.br/#produto",
+            "name": "Decko",
+            "applicationCategory": "BusinessApplication",
+            "applicationSubCategory": "ERP, PDV",
+            "operatingSystem": "Web, Android, Windows, Linux",
+            "url": "https://decko.app.br/",
+            "publisher": { "@id": "https://decko.app.br/#organizacao" },
+            "inLanguage": "pt-BR",
+            "featureList": [
+              "Ponto de venda que opera sem internet",
+              "Controle de estoque com entrada por XML da nota",
+              "Cadastro de clientes e carteira",
+              "Contas a pagar e a receber",
+              "Planejamento operacional de pulverização agrícola",
+              "Importação do registro de voo do drone",
+              "Relatório mensal para o MAPA"
+            ],
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "BRL",
+              "availability": "https://schema.org/InStock",
+              "url": "https://decko.app.br/#contato"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://decko.app.br/#site",
+            "url": "https://decko.app.br/",
+            "name": "Decko",
+            "publisher": { "@id": "https://decko.app.br/#organizacao" },
+            "inLanguage": "pt-BR"
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://decko.app.br/#perguntas",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "O Decko funciona sem internet?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sim. O ponto de venda compõe e fecha a venda no próprio aparelho, o cadastro de clientes continua funcionando e o planejamento de pulverização é preenchido na lavoura. O que foi feito sobe sozinho quando a conexão volta, sem ninguém pedir."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "O Decko emite nota fiscal?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Ainda não. A venda registra a saída do estoque e o Decko lê o XML da nota do fornecedor para dar entrada. A emissão de cupom e nota entra com o módulo fiscal, que está em desenvolvimento."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "O Decko serve para empresa de pulverização agrícola?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sim, e é o módulo mais fundo do sistema: planejamento operacional no formato do talão, leitura meteorológica com registro probatório, croqui a partir do voo, importação do registro de voo do drone e o relatório mensal exigido pelo MAPA."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Quanto custa o Decko?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "A assinatura é mensal e depende dos módulos contratados: o cliente escolhe o ramo da empresa e o sistema instala o que aquele segmento usa. Peça uma conversa pelo formulário para receber o valor do seu caso."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+    <header class="topo">
+      <div class="faixa topo__faixa">
+        <a class="marca" href="/" aria-label="Decko, página inicial">
+          <span class="marca__simbolo" aria-hidden="true">
+            <span class="marca__pixel"></span>
+            <span class="marca__pixel"></span>
+            <span class="marca__pixel"></span>
+          </span>
+          <span class="marca__nome">Deck<span class="marca__o">O</span></span>
+        </a>
+        <nav aria-label="Seções da página">
+          <a href="#modulos">Módulos</a>
+          <a href="#offline">Sem internet</a>
+          <a href="#agro">Agro</a>
+          <a href="#perguntas">Perguntas</a>
+        </nav>
+        <a class="botao botao--pequeno" href="#contato">Falar com a gente</a>
+      </div>
+    </header>
+
+    <main id="conteudo">
+      <section class="heroi">
+        <div class="faixa heroi__faixa">
+          <p class="selo">Build. Automate. Grow.</p>
+          <h1>
+            O sistema de gestão que <span class="destaque">não para</span> quando a
+            internet para.
+          </h1>
+          <p class="heroi__texto">
+            Decko é uma plataforma modular de gestão: você escolhe o ramo da empresa e o
+            sistema instala o que aquele segmento usa — ponto de venda, estoque, clientes,
+            financeiro e pulverização agrícola. No balcão sem sinal ou na lavoura sem
+            cobertura, a operação continua e sobe sozinha quando a rede volta.
+          </p>
+          <div class="heroi__acoes">
+            <a class="botao" href="#contato">Quero uma conversa</a>
+            <a class="botao botao--vazado" href="#modulos">Ver o que ele faz</a>
+          </div>
+          <p class="heroi__nota">
+            Assinatura mensal · Sem fidelidade de instalação · Seus dados em banco isolado
+            por empresa
+          </p>
+        </div>
+      </section>
+
+      <section id="modulos" class="secao">
+        <div class="faixa">
+          <h2>Um sistema por ramo, e não um sistema genérico</h2>
+          <p class="secao__texto">
+            Cada módulo resolve uma dor inteira, e só entra se a empresa precisar dele. O
+            que você não contrata não aparece na tela de ninguém.
+          </p>
+
+          <div class="cartoes">
+            <article class="cartao">
+              <h3>Ponto de venda</h3>
+              <p>
+                Balcão com leitor de código de barras, recebimento em dinheiro, débito,
+                crédito e Pix, sangria, devolução e fechamento de caixa com conferência
+                cega.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Estoque e produtos</h3>
+              <p>
+                Entrada pelo XML da nota do fornecedor, razão de movimentação, lote e
+                validade, aviso do que está acabando e do que está vencendo.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Clientes</h3>
+              <p>
+                Carteira com documento conferido pelo dígito verificador, histórico de
+                compras e venda identificada no caixa.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Financeiro</h3>
+              <p>
+                Contas a pagar e a receber, contas de recebimento por forma de pagamento e
+                o fechamento do caixa batendo com o que entrou.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Compras</h3>
+              <p>
+                O fornecedor manda o XML, o sistema lê, propõe o casamento com o seu
+                cadastro e você confirma. O estoque entra conferido.
+              </p>
+            </article>
+            <article class="cartao cartao--destaque">
+              <h3>Pulverização agrícola</h3>
+              <p>
+                Planejamento operacional no formato do talão, clima com registro
+                probatório, croqui do voo e o relatório mensal que o MAPA exige.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="offline" class="secao secao--escura">
+        <div class="faixa duas-colunas">
+          <div>
+            <h2>A operação não depende do sinal</h2>
+            <p>
+              Internet caindo no meio do atendimento é rotina em loja de bairro e regra na
+              lavoura. No Decko isso deixou de ser um problema de quem está operando:
+            </p>
+            <ul class="lista">
+              <li>
+                <strong>A venda acontece no aparelho.</strong> O item entra pelo catálogo
+                guardado, a conta é feita ali, a venda fecha e sobe inteira quando a rede
+                voltar.
+              </li>
+              <li>
+                <strong>Recarregar a página não derruba ninguém.</strong> A sessão fica
+                guardada no aparelho e reabre o sistema por até 30 dias sem sincronizar.
+              </li>
+              <li>
+                <strong>Nada é perdido e nada é duplicado.</strong> O que você fez sem rede
+                tem identidade própria: mandar duas vezes não vira dois registros.
+              </li>
+              <li>
+                <strong>A divergência aparece.</strong> Se dois caixas venderam o mesmo
+                último item, o saldo negativo é mostrado com endereço — qual venda, qual
+                produto, quanto faltou.
+              </li>
+            </ul>
+          </div>
+          <div class="quadro">
+            <p class="quadro__titulo">Feito para o hardware que você já tem</p>
+            <p>
+              O alvo inclui PC antigo de caixa e celular fraco. Peso de pacote e consulta
+              lenta são tratados como defeito, não como detalhe — o Decko roda hoje em um
+              servidor do tamanho de um livro.
+            </p>
+            <p class="quadro__titulo">Seus dados, isolados no banco</p>
+            <p>
+              A separação entre empresas é feita pelo PostgreSQL, com política no próprio
+              banco. Não é um filtro na consulta que alguém pode esquecer de escrever.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="agro" class="secao">
+        <div class="faixa duas-colunas">
+          <div>
+            <h2>Para quem pulveriza: o documento sai pronto</h2>
+            <p>
+              O relatório da aviação agrícola é obrigatório, vai ao MAPA até o dia 15 do mês
+              seguinte, e hoje é preenchido à mão — muitas vezes de memória. O Decko fecha
+              esse caminho inteiro:
+            </p>
+            <ul class="lista">
+              <li>
+                <strong>O registro de voo do drone entra por arquivo.</strong> Você exporta
+                a planilha do aplicativo, o sistema lê, agrupa os voos de cada talhão e
+                mostra área, calda, dose e horas de execução para você conferir.
+              </li>
+              <li>
+                <strong>Translado e calibração não são descartados.</strong> Eles ficam
+                separados do que foi aplicado e alimentam o horímetro da aeronave.
+              </li>
+              <li>
+                <strong>O clima vira prova.</strong> Cada leitura guarda fonte, hora e o
+                retorno íntegro do provedor — o que faz diferença numa disputa de deriva.
+              </li>
+              <li>
+                <strong>Nada é gravado sem você confirmar.</strong> O sistema propõe; quem
+                assina o documento decide.
+              </li>
+            </ul>
+          </div>
+          <div class="quadro quadro--verde">
+            <p class="quadro__titulo">Por que isso importa</p>
+            <p>
+              Relatório errado ou divergente não é só retrabalho: a sanção prevista vai de
+              multa a suspensão e cancelamento do registro. O sistema foi construído para
+              recusar o que não consegue garantir, em vez de preencher por palpite.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="perguntas" class="secao">
+        <div class="faixa faixa--estreita">
+          <h2>Perguntas que todo mundo faz</h2>
+
+          <details>
+            <summary>O Decko funciona sem internet?</summary>
+            <p>
+              Sim. O ponto de venda compõe e fecha a venda no próprio aparelho, o cadastro
+              de clientes continua funcionando e o planejamento de pulverização é preenchido
+              na lavoura. O que foi feito sobe sozinho quando a conexão volta.
+            </p>
+          </details>
+          <details>
+            <summary>O Decko emite nota fiscal?</summary>
+            <p>
+              Ainda não. A venda registra a saída do estoque, e o Decko lê o XML da nota do
+              fornecedor para dar entrada. A emissão de cupom e nota entra com o módulo
+              fiscal, que está em desenvolvimento — e isso está dito aqui porque descobrir
+              depois seria pior.
+            </p>
+          </details>
+          <details>
+            <summary>Serve para empresa de pulverização agrícola?</summary>
+            <p>
+              Sim, e é o módulo mais fundo do sistema: planejamento operacional no formato
+              do talão, leitura meteorológica com registro probatório, croqui do voo,
+              importação do registro de voo do drone e o relatório mensal do MAPA.
+            </p>
+          </details>
+          <details>
+            <summary>Quanto custa?</summary>
+            <p>
+              A assinatura é mensal e depende dos módulos contratados — o cliente escolhe o
+              ramo e o sistema instala o que aquele segmento usa. Peça uma conversa no
+              formulário abaixo e a gente manda o valor do seu caso.
+            </p>
+          </details>
+          <details>
+            <summary>Meus dados ficam onde?</summary>
+            <p>
+              Em banco PostgreSQL com isolamento por empresa aplicado no próprio banco, com
+              cópia diária. Dados pessoais e fiscais são tratados com criptografia, controle
+              de acesso por papel e trilha de auditoria desde o primeiro dia.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section id="contato" class="secao secao--escura">
+        <div class="faixa faixa--estreita">
+          <h2>Vamos conversar sobre a sua operação</h2>
+          <p class="secao__texto">
+            Conte em uma linha o que a sua empresa faz. A gente responde com o que o Decko
+            resolve no seu caso — e com o que ele ainda não resolve, que é o que costuma
+            faltar nessa conversa.
+          </p>
+
+          <form id="formulario" class="formulario" novalidate>
+            <div class="campo">
+              <label for="nome">Seu nome</label>
+              <input id="nome" name="nome" type="text" required autocomplete="name" />
+            </div>
+            <div class="campo">
+              <label for="empresa">Empresa</label>
+              <input id="empresa" name="empresa" type="text" autocomplete="organization" />
+            </div>
+            <div class="campo">
+              <label for="email">E-mail</label>
+              <input id="email" name="email" type="email" required autocomplete="email" />
+            </div>
+            <div class="campo">
+              <label for="telefone">WhatsApp</label>
+              <input
+                id="telefone"
+                name="telefone"
+                type="tel"
+                autocomplete="tel"
+                placeholder="(64) 9 9999-0000"
+              />
+            </div>
+            <div class="campo campo--largo">
+              <label for="segmento">Ramo da empresa</label>
+              <select id="segmento" name="segmento">
+                <option value="">Escolha um</option>
+                <option value="agro">Pulverização agrícola</option>
+                <option value="comercio">Comércio / loja de balcão</option>
+                <option value="distribuidora">Distribuidora</option>
+                <option value="restaurante">Restaurante / lanchonete</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="campo campo--largo">
+              <label for="mensagem">O que você precisa resolver?</label>
+              <textarea id="mensagem" name="mensagem" rows="3"></textarea>
+            </div>
+
+            <!-- Campo-armadilha: invisível para gente, irresistível para preenchedor
+                 automático. É o que substitui o CAPTCHA, que faria quem quer falar com a
+                 gente pagar pelo spam de terceiros. -->
+            <div class="armadilha" aria-hidden="true">
+              <label for="site">Não preencha este campo</label>
+              <input id="site" name="site" type="text" tabindex="-1" autocomplete="off" />
+            </div>
+
+            <label class="aceite campo--largo">
+              <input id="consentimento" name="consentimento" type="checkbox" required />
+              <span>
+                Aceito que a Decko entre em contato comigo por e-mail ou WhatsApp sobre esta
+                solicitação. Seus dados não são vendidos nem repassados.
+              </span>
+            </label>
+
+            <button class="botao campo--largo" type="submit">Pedir contato</button>
+            <p id="recado" class="recado" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="rodape">
+      <!-- A esteira de marcas. Hoje ela mostra os segmentos que o sistema atende, porque
+           inventar logo de cliente que não existe é mentira com cara de prova social. O
+           componente já está pronto para receber as marcas de verdade: ver o README. -->
+      <div class="esteira" aria-label="Segmentos atendidos pelo Decko">
+        <div class="esteira__trilho">
+          <span class="esteira__item">Pulverização agrícola</span>
+          <span class="esteira__item">Comércio de balcão</span>
+          <span class="esteira__item">Distribuidora</span>
+          <span class="esteira__item">Restaurante</span>
+          <span class="esteira__item">Supermercado</span>
+          <span class="esteira__item">Ferragista</span>
+          <span class="esteira__item" aria-hidden="true">Pulverização agrícola</span>
+          <span class="esteira__item" aria-hidden="true">Comércio de balcão</span>
+          <span class="esteira__item" aria-hidden="true">Distribuidora</span>
+          <span class="esteira__item" aria-hidden="true">Restaurante</span>
+          <span class="esteira__item" aria-hidden="true">Supermercado</span>
+          <span class="esteira__item" aria-hidden="true">Ferragista</span>
+        </div>
+      </div>
+
+      <div class="faixa rodape__faixa">
+        <div>
+          <p class="marca__nome marca__nome--rodape">Deck<span class="marca__o">O</span></p>
+          <p class="rodape__frase">One platform. Infinite possibilities.</p>
+        </div>
+        <nav aria-label="Links do rodapé">
+          <a href="#modulos">Módulos</a>
+          <a href="#agro">Agro</a>
+          <a href="#perguntas">Perguntas</a>
+          <a href="#contato">Contato</a>
+        </nav>
+        <p class="rodape__legal">
+          © <span id="ano">2026</span> Decko. Feito no Brasil.
+        </p>
+      </div>
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

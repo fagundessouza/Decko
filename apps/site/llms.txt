@@ -1,0 +1,55 @@
+# Decko
+
+> Plataforma de gestão modular (ERP e PDV) para comércio e agronegócio no Brasil. O
+> cliente escolhe o ramo da empresa e o sistema instala os módulos daquele segmento.
+> Vendida por assinatura mensal. O diferencial técnico é operar **sem internet**: a venda
+> no balcão e o registro na lavoura acontecem no próprio aparelho e sobem sozinhos quando
+> a conexão volta.
+
+## O que o Decko faz
+
+- **Ponto de venda:** balcão com leitor de código de barras, recebimento em dinheiro,
+  débito, crédito e Pix, sangria, devolução e fechamento de caixa com conferência cega.
+- **Estoque e produtos:** entrada pelo XML da nota do fornecedor, razão de movimentação,
+  lote e validade, alerta do que está acabando e do que está vencendo.
+- **Clientes:** carteira com CPF/CNPJ conferido pelo dígito verificador e venda
+  identificada no caixa.
+- **Financeiro:** contas a pagar e a receber, contas de recebimento por forma de
+  pagamento, fechamento de caixa.
+- **Compras:** leitura do XML da NF-e, casamento com o cadastro e entrada conferida.
+- **Pulverização agrícola:** planejamento operacional no formato do talão, leitura
+  meteorológica com registro probatório, croqui do voo, importação do registro de voo do
+  drone (DJI SmartFarm) e o relatório mensal exigido pelo MAPA.
+
+## Como funciona sem internet
+
+- A venda é composta e fechada no próprio aparelho, com o catálogo guardado localmente.
+- A sessão fica guardada no aparelho e reabre o sistema por até 30 dias sem sincronizar.
+- Cada registro feito sem rede nasce com identidade própria, então reenviar não duplica.
+- Divergência — estoque negativo, por exemplo — é mostrada com endereço, e não escondida.
+
+## O que o Decko ainda não faz
+
+- **Não emite nota fiscal nem cupom fiscal.** A venda registra a saída do estoque; a
+  emissão entra com o módulo fiscal, em desenvolvimento.
+- Não é sistema contábil, não faz folha de pagamento e não substitui o contador.
+
+## Para quem é
+
+Empresas de pulverização agrícola com drone, comércio de balcão, distribuidoras,
+restaurantes e lanchonetes. O alvo inclui hardware modesto: PC antigo de caixa e celular
+simples.
+
+## Preço
+
+Assinatura mensal, pelo conjunto de módulos contratados. O valor é passado na conversa,
+porque depende do que a empresa usa. Contato: https://decko.app.br/#contato
+
+## Links
+
+- Página inicial: https://decko.app.br/
+- Módulos: https://decko.app.br/#modulos
+- Operação sem internet: https://decko.app.br/#offline
+- Pulverização agrícola e MAPA: https://decko.app.br/#agro
+- Perguntas frequentes: https://decko.app.br/#perguntas
+- Falar com a equipe: https://decko.app.br/#contato

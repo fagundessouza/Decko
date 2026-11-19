@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A lista de páginas do site, para o buscador não depender de achar link por link.
+
+  Hoje é uma página só, e está certo assim: uma página que responde bem vale mais do que
+  seis páginas rasas. Quando entrarem páginas por segmento — "sistema para pulverização
+  agrícola", "PDV para loja de balcão" —, cada uma entra aqui com a sua data.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://decko.app.br/</loc>
+    <lastmod>2026-11-18</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

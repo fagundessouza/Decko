@@ -38,6 +38,18 @@
         "4173"
       ],
       "port": 4173
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "apps/site",
+        "-l",
+        "4321"
+      ],
+      "port": 4321
     }
   ]
 }

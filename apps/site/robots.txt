@@ -1,0 +1,15 @@
+# O que os robôs podem percorrer no decko.app.br.
+#
+# Tudo é liberado de propósito: esta é uma página de prospecção, e o que ela quer é
+# justamente ser encontrada. O que **não** deve ser indexado não mora aqui — o sistema em
+# si fica atrás de login, em outro endereço.
+
+User-agent: *
+Allow: /
+
+# A API não é conteúdo: indexá-la poria respostas de serviço no resultado de busca.
+Disallow: /api/
+
+# Onde está a lista de páginas. É por aqui que o buscador descobre o site inteiro sem
+# depender de encontrar link por link.
+Sitemap: https://decko.app.br/sitemap.xml

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Decko">
+  <!-- Marca provisória, desenhada aqui porque o arquivo oficial ainda não está exportado
+       em SVG: o quadrado carvão da identidade, os pixels verdes e a folha. Troque por
+       `favicon.svg` exportado do material de marca assim que ele existir. -->
+  <rect width="64" height="64" rx="14" fill="#0F172A"/>
+  <rect x="8" y="14" width="7" height="7" rx="1.5" fill="#22C55E"/>
+  <rect x="5" y="25" width="5" height="5" rx="1.2" fill="#22C55E" opacity=".75"/>
+  <path d="M24 16h10a16 16 0 0 1 0 32H24z" fill="#fff"/>
+  <path d="M24 32c6 0 10 4 10 10-6 0-10-4-10-10z" fill="#16A34A"/>
+  <path d="M34 42c0-6 4-10 10-10 0 6-4 10-10 10z" fill="#22C55E"/>
+</svg>
