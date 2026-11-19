@@ -732,3 +732,18 @@ details a {
 .secao--escura .cartao__link {
   color: var(--verde-claro);
 }
+
+/* A lista do que ainda não existe. O marcador muda de cor porque ela diz outra coisa das
+   demais — e dizer isso só com a cor seria dizer para metade das pessoas. O texto de cada
+   item já começa com o "não". */
+.lista--alerta li::before {
+  background: var(--tinta-apagada);
+}
+
+.lista--alerta li strong {
+  color: var(--tinta);
+}
+
+.secao--escura .lista--alerta li strong {
+  color: #fff;
+}

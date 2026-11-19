@@ -34,6 +34,10 @@
 - **Não emite nota fiscal nem cupom fiscal.** A venda registra a saída do estoque; a
   emissão entra com o módulo fiscal, em desenvolvimento.
 - Não é sistema contábil, não faz folha de pagamento e não substitui o contador.
+- **Para distribuidora:** não tem romaneio, acerto de rota, pedido de vendedor externo nem
+  tabela de preço por cliente. O que existe é a base — embalagem em árvore, entrada por
+  nota, lote e validade, balcão e financeiro.
+- **Para restaurante:** não tem comanda nem envio do pedido para a cozinha.
 
 ## Para quem é
 
@@ -52,6 +56,8 @@ porque depende do que a empresa usa. Contato: https://decko.app.br/#contato
   https://decko.app.br/pulverizacao-agricola
 - Ponto de venda para loja de balcão, com operação sem internet:
   https://decko.app.br/pdv-para-loja
+- Distribuidora e atacado, com embalagem em árvore e entrada por nota:
+  https://decko.app.br/sistema-para-distribuidora
 
 ## Links
 

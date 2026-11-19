@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Sistema para distribuidora: estoque por embalagem, nota e caixa | Decko</title>
+    <meta
+      name="description"
+      content="Controle de estoque por unidade, caixa e fardo, entrada pelo XML da nota, lote e validade, e caixa que vende sem internet. O que ainda não existe para distribuidora está dito aqui."
+    />
+    <link rel="canonical" href="https://decko.app.br/sistema-para-distribuidora" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0F172A" />
+
+    <meta property="og:type" content="article" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Decko" />
+    <meta
+      property="og:title"
+      content="Sistema para distribuidora: estoque por embalagem, nota e caixa"
+    />
+    <meta
+      property="og:description"
+      content="Unidade, caixa e fardo no mesmo produto. Entrada pelo XML da nota, lote e validade, e o caixa funcionando com a internet caída."
+    />
+    <meta property="og:url" content="https://decko.app.br/sistema-para-distribuidora" />
+    <meta property="og:image" content="https://decko.app.br/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/estilo.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://decko.app.br/sistema-para-distribuidora#pagina",
+            "url": "https://decko.app.br/sistema-para-distribuidora",
+            "name": "Sistema para distribuidora: estoque por embalagem, nota e caixa",
+            "inLanguage": "pt-BR",
+            "isPartOf": { "@id": "https://decko.app.br/#site" },
+            "about": { "@id": "https://decko.app.br/#produto" },
+            "primaryImageOfPage": "https://decko.app.br/og.png"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Decko",
+                "item": "https://decko.app.br/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Sistema para distribuidora",
+                "item": "https://decko.app.br/sistema-para-distribuidora"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "O Decko controla unidade, caixa e fardo do mesmo produto?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Sim. As embalagens são cadastradas em árvore — fardo contém caixas, caixa contém unidades — e toda entrada e saída é convertida para a unidade base do produto. Você recebe em fardo e vende em unidade sem fazer a conta de cabeça."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "O Decko emite nota fiscal para a distribuidora?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Não. Ele lê o XML da nota que o fornecedor manda e dá entrada no estoque, mas não emite NF-e nem NFC-e. Para uma distribuidora, isso costuma ser decisivo, e por isso está dito logo: hoje o Decko serve ao controle interno, e a emissão entra com o módulo fiscal, em desenvolvimento."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Tem romaneio, acerto de rota e pedido de vendedor externo?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Ainda não. Essa parte não foi construída porque não foi levantada com uma distribuidora de verdade — o método do projeto é ter o documento real em mãos antes de modelar. Se você tem esses papéis em uso, a conversa começa por eles."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "O sistema aguenta um catálogo com dezenas de milhares de itens?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "A busca no balcão é feita no servidor, por código, código de barras ou nome. Para funcionar sem internet, o aparelho guarda um recorte — os produtos vendidos nos últimos noventa dias — porque catálogo inteiro não cabe num celular simples, e item que nunca vendeu também não vai ser vendido offline."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+    <header class="topo">
+      <div class="faixa topo__faixa">
+        <a class="marca" href="/" aria-label="Decko, página inicial">
+          <img class="marca__simbolo" src="/marca.svg" alt="" width="30" height="30" />
+          <span class="marca__nome">Deck<span class="marca__o">O</span></span>
+        </a>
+        <nav aria-label="Seções da página">
+          <a href="/">Início</a>
+          <a href="#estoque">Estoque</a>
+          <a href="#falta">O que falta</a>
+          <a href="#perguntas">Perguntas</a>
+        </nav>
+        <a class="botao botao--pequeno" href="#contato">Falar com a gente</a>
+      </div>
+    </header>
+
+    <main id="conteudo">
+      <nav class="trilha faixa" aria-label="Onde você está">
+        <a href="/">Decko</a> <span aria-hidden="true">›</span> Sistema para distribuidora
+      </nav>
+
+      <section class="heroi heroi--interno">
+        <div class="faixa heroi__faixa">
+          <p class="selo">Para distribuidora e atacado</p>
+          <h1>
+            Recebe em fardo, vende em unidade — e a conta
+            <span class="destaque">é do sistema</span>.
+          </h1>
+          <p class="heroi__texto">
+            Embalagem em árvore, entrada pelo XML da nota do fornecedor, lote e validade, e
+            um caixa que não para quando a internet para. É o que já está pronto. O que
+            ainda não existe para distribuidora está dito nesta mesma página, mais abaixo —
+            antes de você marcar uma reunião.
+          </p>
+          <div class="heroi__acoes">
+            <a class="botao" href="#contato">Quero conversar</a>
+            <a class="botao botao--vazado" href="#falta">Ver o que falta</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="estoque" class="secao">
+        <div class="faixa">
+          <h2>O que já resolve o seu dia</h2>
+          <p class="secao__texto">
+            A base comercial do Decko foi feita para quem compra em uma embalagem e vende em
+            outra — que é onde a planilha começa a errar.
+          </p>
+
+          <div class="cartoes">
+            <article class="cartao">
+              <h3>Unidade, caixa e fardo</h3>
+              <p>
+                As embalagens vivem em árvore: o fardo contém caixas, a caixa contém
+                unidades. Toda movimentação é convertida para a unidade base, sem ninguém
+                multiplicar de cabeça.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Entrada pelo XML da nota</h3>
+              <p>
+                O fornecedor manda o arquivo, o sistema lê, propõe o casamento com o seu
+                cadastro e você confirma. Quem recebe nota todo dia sente a diferença na
+                primeira semana.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Lote e validade</h3>
+              <p>
+                Saldo por lote e aviso do que está vencendo. Em bebida e alimento, validade
+                esquecida é prejuízo que aparece na devolução.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Estoque como razão</h3>
+              <p>
+                Não existe campo de "quantidade atual" que alguém edita: o saldo é a soma
+                das entradas e saídas, cada uma com origem e documento.
+              </p>
+            </article>
+            <article class="cartao">
+              <h3>Balcão e retira</h3>
+              <p>
+                Ponto de venda completo para quem vende no balcão, com as formas de
+                pagamento, devolução e fechamento de caixa com conferência cega.
+              </p>
+            </article>
+            <article class="cartao cartao--destaque">
+              <h3>Clientes e a receber</h3>
+              <p>
+                Carteira com documento conferido, venda identificada no caixa e contas a
+                receber no financeiro.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao secao--escura">
+        <div class="faixa duas-colunas">
+          <div>
+            <h2>Catálogo grande, aparelho pequeno</h2>
+            <p>
+              Distribuidora tem dezenas de milhares de itens, e o balcão costuma rodar em
+              computador antigo. As duas coisas foram tratadas como requisito, e não como
+              detalhe:
+            </p>
+            <ul class="lista">
+              <li>
+                <strong>A busca é do servidor.</strong> Código, código de barras ou nome —
+                com o campo do código mantendo o foco, para o leitor bipar sem parar.
+              </li>
+              <li>
+                <strong>Sem internet, o aparelho guarda um recorte.</strong> Os produtos
+                vendidos nos últimos noventa dias. Catálogo inteiro não cabe num celular
+                simples, e item que nunca vendeu também não vai ser vendido offline.
+              </li>
+              <li>
+                <strong>A venda não para.</strong> Com a rede caída, ela é composta e
+                fechada no próprio aparelho e sobe sozinha depois — inteira, uma vez só.
+              </li>
+            </ul>
+          </div>
+          <div class="quadro">
+            <p class="quadro__titulo">Por que isso importa aqui</p>
+            <p>
+              Numa distribuidora a fila do balcão divide espaço com a carga e a descarga. O
+              sistema que trava quando a operadora oscila não é um incômodo: é gente parada
+              na porta com caminhão esperando.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="falta" class="secao">
+        <div class="faixa faixa--estreita">
+          <h2>O que ainda não existe — dito antes da reunião</h2>
+          <p class="secao__texto">
+            Esta parte raramente aparece numa página de vendas. Ela está aqui porque
+            descobrir depois custa o seu tempo e a nossa reputação.
+          </p>
+
+          <ul class="lista lista--alerta">
+            <li>
+              <strong>Não emite nota fiscal.</strong> O Decko lê o XML que o fornecedor
+              manda e dá entrada no estoque, mas não emite NF-e nem NFC-e. Para
+              distribuidora isso costuma ser decisivo. A emissão entra com o módulo fiscal,
+              que está em desenvolvimento.
+            </li>
+            <li>
+              <strong>Não tem romaneio nem acerto de rota.</strong> Carregamento por
+              veículo, conferência de retorno e acerto com o motorista não foram
+              construídos.
+            </li>
+            <li>
+              <strong>Não tem pedido de vendedor externo.</strong> Nem tabela de preço por
+              cliente ou por região.
+            </li>
+          </ul>
+
+          <div class="quadro quadro--verde">
+            <p class="quadro__titulo">E por que não foi construído ainda</p>
+            <p>
+              Porque ninguém nos mostrou o romaneio de verdade. O módulo de pulverização
+              agrícola nasceu do talão em uso de um operador, campo por campo — e é por isso
+              que ele serve. Fazer o mesmo de cabeça, para distribuidora, seria construir o
+              módulo errado com capricho.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="perguntas" class="secao">
+        <div class="faixa faixa--estreita">
+          <h2>Perguntas de quem distribui</h2>
+
+          <details>
+            <summary>Controla unidade, caixa e fardo do mesmo produto?</summary>
+            <p>
+              Sim. As embalagens são cadastradas em árvore e toda movimentação é convertida
+              para a unidade base. Você recebe em fardo e vende em unidade sem fazer a conta
+              de cabeça.
+            </p>
+          </details>
+          <details>
+            <summary>Emite nota fiscal?</summary>
+            <p>
+              Não. Lê o XML da nota de entrada, mas não emite NF-e nem NFC-e — a emissão
+              entra com o módulo fiscal, em desenvolvimento.
+            </p>
+          </details>
+          <details>
+            <summary>Tem romaneio, rota e pedido de vendedor?</summary>
+            <p>
+              Ainda não, e o motivo está acima: falta o documento real em mãos. Se você tem
+              esses papéis em uso, é exatamente isso que a gente quer ver.
+            </p>
+          </details>
+          <details>
+            <summary>Aguenta dezenas de milhares de itens?</summary>
+            <p>
+              A busca é feita no servidor. O que fica no aparelho, para o caso de a internet
+              cair, é o recorte dos vendidos nos últimos noventa dias — que é o que o balcão
+              alcança num dia sem rede.
+            </p>
+          </details>
+          <details>
+            <summary>E se eu também tiver loja de balcão?</summary>
+            <p>
+              É o mesmo sistema: veja a página do
+              <a href="/pdv-para-loja">PDV para loja de balcão</a>. Você contrata os módulos
+              que usa.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section id="contato" class="secao secao--escura">
+        <div class="faixa faixa--estreita">
+          <h2>Traga o seu romaneio</h2>
+          <p class="secao__texto">
+            A conversa que a gente quer ter com distribuidora agora é de levantamento: como
+            é o seu pedido, o seu carregamento e o seu acerto de rota, em papel ou em Excel.
+            O que já está pronto você pode usar desde já; o que falta é construído a partir
+            do que você usa de verdade.
+          </p>
+
+          <form id="formulario" class="formulario" novalidate>
+            <div class="campo">
+              <label for="nome">Seu nome</label>
+              <input id="nome" name="nome" type="text" required autocomplete="name" />
+            </div>
+            <div class="campo">
+              <label for="empresa">Empresa</label>
+              <input id="empresa" name="empresa" type="text" autocomplete="organization" />
+            </div>
+            <div class="campo">
+              <label for="email">E-mail</label>
+              <input id="email" name="email" type="email" required autocomplete="email" />
+            </div>
+            <div class="campo">
+              <label for="telefone">WhatsApp</label>
+              <input
+                id="telefone"
+                name="telefone"
+                type="tel"
+                autocomplete="tel"
+                placeholder="(64) 9 9999-0000"
+              />
+            </div>
+            <div class="campo campo--largo">
+              <label for="segmento">Ramo da empresa</label>
+              <select id="segmento" name="segmento">
+                <option value="distribuidora" selected>Distribuidora / atacado</option>
+                <option value="comercio">Comércio / loja de balcão</option>
+                <option value="agro">Pulverização agrícola</option>
+                <option value="restaurante">Restaurante / lanchonete</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="campo campo--largo">
+              <label for="mensagem">Como é a sua operação hoje?</label>
+              <textarea id="mensagem" name="mensagem" rows="3"></textarea>
+            </div>
+
+            <div class="armadilha" aria-hidden="true">
+              <label for="site">Não preencha este campo</label>
+              <input id="site" name="site" type="text" tabindex="-1" autocomplete="off" />
+            </div>
+
+            <label class="aceite campo--largo">
+              <input id="consentimento" name="consentimento" type="checkbox" required />
+              <span>
+                Aceito que a Decko entre em contato comigo por e-mail ou WhatsApp sobre esta
+                solicitação. Seus dados não são vendidos nem repassados.
+              </span>
+            </label>
+
+            <button class="botao campo--largo" type="submit">Pedir contato</button>
+            <p id="recado" class="recado" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="rodape">
+      <div class="faixa rodape__faixa">
+        <div>
+          <p class="marca__nome marca__nome--rodape">Deck<span class="marca__o">O</span></p>
+          <p class="rodape__frase">One platform. Infinite possibilities.</p>
+        </div>
+        <nav aria-label="Links do rodapé">
+          <a href="/">Início</a>
+          <a href="/pdv-para-loja">Loja de balcão</a>
+          <a href="/pulverizacao-agricola">Pulverização agrícola</a>
+          <a href="#contato">Contato</a>
+        </nav>
+        <p class="rodape__legal">© <span id="ano">2026</span> Decko. Feito no Brasil.</p>
+      </div>
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

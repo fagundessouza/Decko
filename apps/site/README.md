@@ -23,6 +23,7 @@ Ou, de dentro do Claude Code, o alvo `site` do `.claude/launch.json`.
 | `index.html` | A página inicial. Inclui os dados estruturados (JSON-LD) e as meta de compartilhamento |
 | `pulverizacao-agricola.html` | Página por segmento: operador de ARP, relatório do MAPA, voo do drone |
 | `pdv-para-loja.html` | Página por segmento: loja de balcão, PDV sem internet, estoque |
+| `sistema-para-distribuidora.html` | Página por segmento: distribuidora e atacado |
 | `estilo.css` | Todo o visual, com as cores da identidade (`#16A34A`, `#0F172A`) |
 | `app.js` | Só o envio do formulário e o ano do rodapé |
 | `robots.txt` | O que os robôs podem percorrer, e onde está o sitemap |
@@ -113,7 +114,23 @@ Cada página tem título, descrição, `canonical`, `BreadcrumbList` e **FAQ pr�
 perguntas não se repetem entre elas de propósito: FAQ repetido faz as páginas do mesmo
 site competirem entre si.
 
-Para acrescentar a próxima (distribuidora, restaurante, supermercado):
+**A página de distribuidora é de outro tipo, e isso é de propósito.** A vertical não
+existe: o roadmap tem a Fase 4 em branco, sem entrevista e sem documento real em mãos.
+Então ela vende o que já está pronto — embalagem em árvore, entrada por nota, lote e
+validade, balcão — e diz, numa seção inteira, o que **não** existe: nota fiscal, romaneio,
+acerto de rota, pedido de vendedor externo. O convite no fim é de levantamento: "traga o
+seu romaneio".
+
+É a página fazendo o trabalho que a Fase 4 precisa. Vender a vertical antes de ver o
+documento seria repetir exatamente o erro que o método do projeto existe para evitar — e o
+cliente descobriria na implantação, que é o pior lugar possível.
+
+**Restaurante não tem página**, pelo mesmo critério: o que o dono de restaurante quer é o
+pedido chegando na cozinha, e isso não existe (oito perguntas em aberto em
+`docs/discovery/restaurante-pedido-na-cozinha.md`). Uma página que não pudesse prometer
+isso não teria o que dizer.
+
+Para acrescentar a próxima:
 
 1. Copie `pdv-para-loja.html` e troque título, descrição, `canonical`, o `BreadcrumbList`,
    o conteúdo e as perguntas.
