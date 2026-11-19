@@ -61,6 +61,14 @@ class WeatherCell:
     temperatura: str = ""
     umidade: str = ""
     vento: str = ""
+    #: De onde o vento vinha, em graus e com o rumo ("135° SE").
+    #:
+    #: A Portaria MAPA 298/2021, art. 10, exige **direção e velocidade** do vento no
+    #: registro da aplicação com aeronave remotamente pilotada — o formulário da IN 2/2008,
+    #: que é de aviação tripulada, pede só a velocidade. O dado já era capturado e só ia
+    #: para a seta do croqui; na tabela, a linha não existia. Ver
+    #: `docs/discovery/agro-normas-mapa.md`, seção 2.
+    direcao_vento: str = ""
 
 
 @dataclass
@@ -369,6 +377,8 @@ def _weather(doc: PlanDocument) -> list:
         ("Temperatura (°C)", "temperatura"),
         ("Umidade Relativa (%)", "umidade"),
         ("Vel. do Vento (km/h)", "vento"),
+        # Exigida pela Portaria 298/2021, art. 10, para operação com ARP.
+        ("Direção do Vento", "direcao_vento"),
     ]
     # Três blocos é o que o talão imprime; havendo mais datas, o documento cresce em vez
     # de descartar leitura, porque descartar apagaria registro com efeito legal.

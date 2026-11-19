@@ -44,9 +44,10 @@ Os dados que a operação precisa registrar:
 
 **Duas diferenças que importam:**
 
-1. **Direção do vento é exigida e não é guardada.** O formulário da IN 2/2008 pede só a
-   velocidade; a norma de ARP pede direção *e* velocidade. O provedor de clima já devolve
-   a direção — é campo a acrescentar, não integração nova.
+1. ~~**Direção do vento é exigida e não é guardada.**~~ Guardada em 27/10/2026, e
+   **impressa em 18/11/2026**: ela estava no banco e ia só para a seta do croqui — na
+   tabela do clima, que é o que o fiscal lê, a linha não existia. Sai como grau e rumo
+   ("135° SE"): o grau sozinho obrigaria quem confere a converter de cabeça.
 2. **"Durante a aplicação"**, e não "no início e ao final". A IN 2/2008 pede as duas
    pontas; a de ARP pede o acompanhamento. O modelo atual, de leituras com carimbo de
    tempo, atende as duas — é mais do que qualquer uma pede, e está certo assim.

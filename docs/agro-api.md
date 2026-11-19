@@ -61,6 +61,9 @@ saber o número.
 |---|---|---|
 | `GET` | `/plans` | `agro.plan.read` |
 | `POST` | `/plans` | `agro.plan.write` |
+| `PUT` | `/plans/{plan_id}` | `agro.plan.write` |
+| `PUT` | `/plans/{plan_id}/maintenance` | `agro.plan.write` |
+| `GET` | `/plans/{plan_id}/maintenance` | `agro.plan.read` |
 | `POST` | `/plans/{plan_id}/weather` | `agro.plan.write` |
 | `GET` | `/plans/{plan_id}/weather` | `agro.plan.read` |
 | `GET` | `/plans/{plan_id}/pdf` | `agro.plan.export` |
@@ -84,6 +87,34 @@ não manda `id` — o servidor gera, como sempre fez. Ver a fatia 6 da
 
 Os três primeiros são o que a captura meteorológica confronta. `numero` e `status` são
 atribuídos pelo sistema.
+
+Desde a auditoria de 18/11/2026, `PlanIn` aceita também o resto do talão — `cotacao`,
+`tipo_outros_texto`, `equipamento_tipo`, `equipamento_modelo`, `equipamento_bico_tipo`,
+`equipamento_bico_angulo`, `tempo_servico`, `ha_aplicado`, `emitiu_relatorio_dgps`,
+`termo_higrometro_utilizado` e `observacoes`. **Estes campos existiam na tabela e no PDF e
+não tinham como ser preenchidos:** o documento imprimia o rótulo com a linha em branco,
+para sempre. A quebra estava aqui, no schema, que é onde a corrente arrebenta sem dar erro
+em teste nenhum — cada ponta funcionava.
+
+### Completar o talão — `PUT /plans/{plan_id}`
+
+O talão é preenchido em etapas: nasce com contratante e área, recebe o receituário quando
+ele chega, e só depois do voo tem horímetro, tempo de serviço, tipo de bico e o aparelho
+com que o clima foi medido. Por isso **o que não vem no pedido não é tocado** (semântica de
+`exclude_unset`): salvar uma etapa não pode apagar a anterior. `id` é ignorado — trocar a
+chave deixaria órfãos o voo, a leitura de clima e a assinatura que apontam para o
+planejamento. `404` quando o planejamento não existe.
+
+### Controle de manutenção — `PUT /plans/{plan_id}/maintenance`
+
+O bloco "Controle de Manutenção (Horas x Voo)" do talão. `MaintenanceIn`: `momento`
+(`inicial` ou `final`), `voo`, `translado_ida`, `operacao`, `translado_volta`, `total`. Uma
+linha por momento, e reenviar o mesmo momento **corrige** em vez de duplicar: segunda
+leitura do horímetro é correção, não um segundo voo.
+
+O `total` fica como vem e não é recalculado — o número é lido do mostrador do equipamento,
+e a soma das partes pode legitimamente não fechar com ele. Recalcular poria no documento um
+número que nenhum horímetro mostrou.
 
 ### Captura meteorológica
 

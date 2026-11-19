@@ -15,6 +15,7 @@ from decko_modules.agro import consolidation, croqui, pdf, service, smartfarm
 from decko_modules.agro.models import (
     Aircraft,
     Client,
+    MaintenanceLog,
     OperationalPlan,
     Pilot,
     PlanProduct,
@@ -42,6 +43,8 @@ from decko_modules.agro.schemas import (
     FlightLogPreviewOut,
     HorasDoEquipamentoOut,
     HorimetroOut,
+    MaintenanceIn,
+    MaintenanceOut,
     MonthlyReportOut,
     MonthlyReportRowOut,
     PilotIn,
@@ -51,6 +54,7 @@ from decko_modules.agro.schemas import (
     PlanPrescriptionIn,
     PlanProductIn,
     PlanProductOut,
+    PlanUpdateIn,
     PrescriptionIn,
     PrescriptionOut,
     ProductIn,
@@ -772,16 +776,11 @@ async def preview_flight_log(
                 largura_faixa_max=_ponta(aplicacao.largura_faixa_intervalo, 1),
                 altura_voo_min=_ponta(aplicacao.altura_voo_intervalo, 0),
                 altura_voo_max=_ponta(aplicacao.altura_voo_intervalo, 1),
-                voos_detalhados=[
-                    _voo_lido(voo, deslocamento) for voo in aplicacao.detalhe
-                ],
+                voos_detalhados=[_voo_lido(voo, deslocamento) for voo in aplicacao.detalhe],
             )
             for aplicacao in leitura.aplicacoes
         ],
-        voos_auxiliares=[
-            _voo_lido(voo, deslocamento)
-            for voo in leitura.voos_auxiliares
-        ],
+        voos_auxiliares=[_voo_lido(voo, deslocamento) for voo in leitura.voos_auxiliares],
         horimetro=[
             HorasDoEquipamentoOut(
                 equipamento_serie=horas.equipamento_serie,
@@ -921,3 +920,91 @@ async def read_horimetro(
         primeiro_voo=horas.primeiro_voo,
         ultimo_voo=horas.ultimo_voo,
     )
+
+
+@router.put("/plans/{plan_id}", response_model=PlanOut)
+async def update_plan(
+    plan_id: uuid.UUID,
+    payload: PlanUpdateIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.write"))],
+) -> OperationalPlan:
+    """Completa o planejamento, campo a campo.
+
+    O talão não é preenchido de uma vez: nasce com contratante e área, recebe o receituário
+    quando ele chega, e só depois do voo tem horímetro, tempo de serviço, tipo de bico e o
+    aparelho com que o clima foi medido. **O que não vem no pedido não é tocado** — enviar
+    o formulário pela metade não pode apagar o que a parte anterior preencheu.
+
+    Até 18/11/2026 esta rota não existia, e metade dos campos do documento não tinha como
+    ser preenchida: a coluna estava no banco, o PDF imprimia o rótulo, e a linha saía em
+    branco para sempre. A quebra estava no schema, que é onde a corrente arrebenta sem dar
+    erro em teste nenhum.
+    """
+    plan = await _plan_or_404(session, plan_id)
+
+    for campo, valor in payload.model_dump(exclude_unset=True).items():
+        # A identidade não se troca por formulário: trocá-la deixaria órfão o voo, a
+        # leitura de clima e a assinatura que apontam para este planejamento.
+        if campo == "id":
+            continue
+        setattr(plan, campo, valor)
+
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Contratante, propriedade, aeronave ou receituário não encontrados.",
+        ) from exc
+    return plan
+
+
+@router.put("/plans/{plan_id}/maintenance", response_model=MaintenanceOut)
+async def set_maintenance(
+    plan_id: uuid.UUID,
+    payload: MaintenanceIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("agro.plan.write"))],
+) -> MaintenanceLog:
+    """Grava uma linha do "Controle de Manutenção (Horas x Voo)" do talão.
+
+    Uma por momento — inicial e final —, e o segundo envio do mesmo momento substitui o
+    primeiro: é correção de leitura do horímetro, não um segundo voo.
+
+    O `total` fica como vem e não é recalculado: o número é lido do mostrador do
+    equipamento, e a soma das partes pode legitimamente não fechar com ele. Recalcular aqui
+    poria no documento um número que nenhum horímetro mostrou.
+    """
+    await _plan_or_404(session, plan_id)
+
+    existente = await session.scalar(
+        select(MaintenanceLog).where(
+            MaintenanceLog.plan_id == plan_id, MaintenanceLog.momento == payload.momento
+        )
+    )
+    if existente is None:
+        existente = MaintenanceLog(
+            tenant_id=principal.tenant_id, plan_id=plan_id, momento=payload.momento
+        )
+        session.add(existente)
+
+    for campo, valor in payload.model_dump(exclude={"momento"}).items():
+        setattr(existente, campo, valor)
+
+    await session.flush()
+    return existente
+
+
+@router.get("/plans/{plan_id}/maintenance", response_model=list[MaintenanceOut])
+async def list_maintenance(
+    plan_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("agro.plan.read"))],
+) -> list[MaintenanceLog]:
+    await _plan_or_404(session, plan_id)
+    resultado = await session.execute(
+        select(MaintenanceLog).where(MaintenanceLog.plan_id == plan_id)
+    )
+    return list(resultado.scalars().all())

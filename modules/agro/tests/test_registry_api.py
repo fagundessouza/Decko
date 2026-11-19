@@ -13,6 +13,8 @@ import zipfile
 from base64 import b64encode
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import date, time
+from decimal import Decimal
 from io import BytesIO
 
 import pytest_asyncio
@@ -20,8 +22,10 @@ from httpx import ASGITransport, AsyncClient
 from pypdf import PdfReader
 from sqlalchemy import delete
 
-from decko.db import SessionFactory
+from decko.db import SessionFactory, bind_tenant
 from decko.main import create_app
+from decko_modules.agro.enums import Momento, Periodo, WeatherSource
+from decko_modules.agro.models import WeatherReading
 from decko_modules.core.cli import _bootstrap
 from decko_modules.core.models import Tenant
 
@@ -1056,6 +1060,206 @@ async def test_o_preview_devolve_cada_voo_da_bateria(scenario: Scenario) -> None
     assert segundo["duracao_segundos"] == 461
     # E a soma deles é a duração da aplicação, que é o que o relatório leva.
     assert (
-        primeiro["duracao_segundos"] + segundo["duracao_segundos"]
-        == aplicacao["duracao_segundos"]
+        primeiro["duracao_segundos"] + segundo["duracao_segundos"] == aplicacao["duracao_segundos"]
     )
+
+
+async def _texto_do_pdf(scenario: Scenario) -> str:
+    """O texto do documento emitido. É onde se vê se o campo saiu em branco."""
+    resposta = await scenario.client.get(
+        f"{BASE}/plans/{scenario.plan_id}/pdf", headers=scenario.first.auth
+    )
+    assert resposta.status_code == 200, resposta.text
+    return "\n".join(page.extract_text() for page in PdfReader(BytesIO(resposta.content)).pages)
+
+
+# ------------------------------------- o que a auditoria de 18/11/2026 achou em branco
+#
+# Estes campos existiam na tabela e no PDF, e nenhuma rota os preenchia: o documento
+# imprimia o rótulo com a linha vazia para sempre. A quebra estava no schema — o lugar
+# onde a corrente arrebenta sem dar erro em teste nenhum, porque cada ponta funciona.
+
+
+async def test_o_termo_higrometro_entra_e_sai_impresso(scenario: Scenario) -> None:
+    """O aparelho com que o clima foi medido, de ponta a ponta.
+
+    É ele que torna a leitura rastreável a um instrumento, e não a uma lembrança — a dor
+    nº 1 do discovery é justamente leitura meteorológica preenchida de memória.
+    """
+    alterado = await scenario.client.put(
+        f"{BASE}/plans/{scenario.plan_id}",
+        headers=scenario.first.auth,
+        json={"termo_higrometro_utilizado": "Termo-higrômetro Instrutherm HT-600, aferido"},
+    )
+
+    assert alterado.status_code == 200, alterado.text
+    assert alterado.json()["termo_higrometro_utilizado"].startswith("Termo-higrômetro")
+
+    texto = await _texto_do_pdf(scenario)
+    assert "Termo Higrômetro Utilizado" in texto
+    assert "Instrutherm HT-600" in texto
+
+
+async def test_o_equipamento_e_o_bico_entram_e_saem_impressos(scenario: Scenario) -> None:
+    """Modelo e ângulo da ponta de pulverização são exigidos pela Portaria 298/2021."""
+    alterado = await scenario.client.put(
+        f"{BASE}/plans/{scenario.plan_id}",
+        headers=scenario.first.auth,
+        json={
+            "equipamento_tipo": "barras_bicos",
+            "equipamento_modelo": "Agras T50",
+            "equipamento_bico_tipo": "XR11003",
+            "equipamento_bico_angulo": "110",
+            "cotacao": "2026-0042",
+            "emitiu_relatorio_dgps": True,
+            "observacoes": "Aplicação concluída sem intercorrência.",
+        },
+    )
+    assert alterado.status_code == 200, alterado.text
+
+    texto = await _texto_do_pdf(scenario)
+    assert "XR11003" in texto
+    assert "Agras T50" in texto
+    assert "2026-0042" in texto
+    assert "sem intercorrência" in texto
+
+
+async def test_o_que_nao_vem_no_pedido_nao_e_apagado(scenario: Scenario) -> None:
+    """O talão é preenchido em etapas, e salvar uma não pode apagar a anterior.
+
+    Era o risco de resolver isto com um `PUT` que substitui tudo: quem grava o horímetro
+    depois do voo zeraria o receituário que outra pessoa vinculou antes.
+    """
+    await scenario.client.put(
+        f"{BASE}/plans/{scenario.plan_id}",
+        headers=scenario.first.auth,
+        json={"termo_higrometro_utilizado": "Higrômetro do piloto"},
+    )
+
+    depois = await scenario.client.put(
+        f"{BASE}/plans/{scenario.plan_id}",
+        headers=scenario.first.auth,
+        json={"tempo_servico": "1.50"},
+    )
+
+    assert depois.status_code == 200, depois.text
+    corpo = depois.json()
+    assert corpo["tempo_servico"] == "1.50"
+    assert corpo["termo_higrometro_utilizado"] == "Higrômetro do piloto"
+    # E o que o planejamento já tinha de origem continua lá.
+    assert corpo["cultura"] == "soja"
+
+
+async def test_a_identidade_do_planejamento_nao_se_troca_por_formulario(
+    scenario: Scenario,
+) -> None:
+    """Trocar a chave deixaria órfãos o voo, a leitura de clima e a assinatura."""
+    alterado = await scenario.client.put(
+        f"{BASE}/plans/{scenario.plan_id}",
+        headers=scenario.first.auth,
+        json={"id": str(uuid.uuid4()), "cotacao": "2026-0043"},
+    )
+
+    assert alterado.status_code == 200, alterado.text
+    assert alterado.json()["id"] == str(scenario.plan_id)
+    assert alterado.json()["cotacao"] == "2026-0043"
+
+
+async def test_planejamento_que_nao_existe_e_404(scenario: Scenario) -> None:
+    alterado = await scenario.client.put(
+        f"{BASE}/plans/{uuid.uuid4()}",
+        headers=scenario.first.auth,
+        json={"cotacao": "2026-0044"},
+    )
+
+    assert alterado.status_code == 404, alterado.text
+
+
+# ------------------------------------- o controle de manutenção, que não tinha rota
+
+
+async def test_o_horimetro_do_talao_entra_e_sai_impresso(scenario: Scenario) -> None:
+    """O bloco "Controle de Manutenção (Horas x Voo)" saía em branco: faltava a rota."""
+    inicial = await scenario.client.put(
+        f"{BASE}/plans/{scenario.plan_id}/maintenance",
+        headers=scenario.first.auth,
+        json={
+            "momento": "inicial",
+            "voo": "120.40",
+            "translado_ida": "0.30",
+            "operacao": "1.20",
+            "translado_volta": "0.30",
+            "total": "122.20",
+        },
+    )
+    assert inicial.status_code == 200, inicial.text
+
+    final = await scenario.client.put(
+        f"{BASE}/plans/{scenario.plan_id}/maintenance",
+        headers=scenario.first.auth,
+        json={"momento": "final", "voo": "122.20", "total": "124.00"},
+    )
+    assert final.status_code == 200, final.text
+
+    linhas = await scenario.client.get(
+        f"{BASE}/plans/{scenario.plan_id}/maintenance", headers=scenario.first.auth
+    )
+    assert {linha["momento"] for linha in linhas.json()} == {"inicial", "final"}
+
+    texto = await _texto_do_pdf(scenario)
+    assert "122.20" in texto or "122,20" in texto
+
+
+async def test_reenviar_o_mesmo_momento_corrige_em_vez_de_duplicar(
+    scenario: Scenario,
+) -> None:
+    """Segunda leitura do mesmo momento é correção do horímetro, não um segundo voo."""
+    for voo in ("120.40", "121.00"):
+        resposta = await scenario.client.put(
+            f"{BASE}/plans/{scenario.plan_id}/maintenance",
+            headers=scenario.first.auth,
+            json={"momento": "inicial", "voo": voo},
+        )
+        assert resposta.status_code == 200, resposta.text
+
+    linhas = await scenario.client.get(
+        f"{BASE}/plans/{scenario.plan_id}/maintenance", headers=scenario.first.auth
+    )
+    assert len(linhas.json()) == 1
+    assert linhas.json()[0]["voo"] == "121.00"
+
+
+# ------------------------------------- a direção do vento, exigida para ARP
+
+
+async def test_a_direcao_do_vento_sai_na_tabela_do_clima(scenario: Scenario) -> None:
+    """A Portaria 298/2021, art. 10, exige **direção e velocidade** do vento.
+
+    O formulário da IN 2/2008 é de aviação tripulada e pede só a velocidade; a norma de
+    ARP pede as duas. O dado já era capturado e só ia para a seta do croqui — na tabela,
+    a linha não existia.
+    """
+    async with SessionFactory() as session, session.begin():
+        await bind_tenant(session, scenario.first.tenant_id)
+        session.add(
+            WeatherReading(
+                tenant_id=scenario.first.tenant_id,
+                plan_id=scenario.plan_id,
+                data=date(2026, 8, 15),
+                periodo=Periodo.MATUTINO,
+                momento=Momento.INICIO,
+                hora=time(7, 30),
+                temperatura_c=Decimal("24.0"),
+                umidade_relativa_pct=Decimal("72.0"),
+                velocidade_vento_kmh=Decimal("8.0"),
+                direcao_vento_graus=Decimal("135.0"),
+                source=WeatherSource.MANUAL,
+            )
+        )
+
+    texto = await _texto_do_pdf(scenario)
+
+    assert "Direção do Vento" in texto
+    # O grau e o rumo: o grau sozinho obrigaria o fiscal a converter de cabeça.
+    assert "135" in texto
+    assert "SE" in texto

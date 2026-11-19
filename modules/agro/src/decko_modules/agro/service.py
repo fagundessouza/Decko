@@ -123,6 +123,7 @@ async def build_document(session: AsyncSession, plan: OperationalPlan) -> PlanDo
             temperatura=_decimal_text(reading.temperatura_c),
             umidade=_decimal_text(reading.umidade_relativa_pct),
             vento=_decimal_text(reading.velocidade_vento_kmh),
+            direcao_vento=_rumo_do_vento(reading.direcao_vento_graus),
         )
         if reading.violou_parametro:
             alerts.extend(evaluate(_observation_of(reading), limits_of(plan)))
@@ -240,6 +241,22 @@ def _maintenance_values(log: MaintenanceLog | None) -> dict[str, Decimal | None]
         "translado_volta": log.translado_volta,
         "total": log.total,
     }
+
+
+#: Os oito rumos, na ordem dos graus. É como se fala de vento em campo.
+RUMOS = ("N", "NE", "L", "SE", "S", "SO", "O", "NO")
+
+
+def _rumo_do_vento(graus: Decimal | None) -> str:
+    """ "135° SE" — o número e o rumo, porque o documento é lido por gente.
+
+    Só o grau exigiria do fiscal e do produtor converter de cabeça; só o rumo perderia
+    precisão que o provedor deu. Os dois juntos custam seis caracteres.
+    """
+    if graus is None:
+        return ""
+    indice = int((float(graus) % 360) / 45 + 0.5) % 8
+    return f"{_decimal_text(graus)}° {RUMOS[indice]}"
 
 
 def _observation_of(reading: WeatherReading) -> Observation:

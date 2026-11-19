@@ -8,6 +8,8 @@ from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Fiel
 from decko.documents import pydantic_cpf_cnpj
 from decko_modules.agro.enums import (
     Cultura,
+    EquipamentoTipo,
+    MaintenanceMoment,
     Momento,
     Periodo,
     PlanStatus,
@@ -134,6 +136,42 @@ class PlanIn(BaseModel):
     param_largura_faixa_m: Decimal | None = Field(default=None, ge=0)
     param_altura_voo_m: Decimal | None = Field(default=None, ge=0)
 
+    # ------------------------------------------------- o resto do talão
+    #
+    # Estes campos existiam na tabela e no PDF, e **não havia como preenchê-los**: o
+    # documento imprimia o rótulo com a linha em branco para sempre. A auditoria de
+    # 18/11/2026 achou a quebra no schema, que é onde a corrente arrebenta sem dar erro.
+    cotacao: str | None = Field(default=None, max_length=60)
+    tipo_outros_texto: str | None = Field(default=None, max_length=120)
+    #: Barras/bicos, eletrostático, sólidos, atomizadores, outros.
+    equipamento_tipo: EquipamentoTipo | None = None
+    equipamento_modelo: str | None = Field(default=None, max_length=120)
+    #: Modelo e ângulo da ponta de pulverização, exigidos pela Portaria 298/2021, art. 10.
+    equipamento_bico_tipo: str | None = Field(default=None, max_length=120)
+    equipamento_bico_angulo: str | None = Field(default=None, max_length=40)
+    tempo_servico: Decimal | None = Field(default=None, ge=0)
+    ha_aplicado: Decimal | None = Field(default=None, ge=0)
+    emitiu_relatorio_dgps: bool | None = None
+    #: O aparelho com que o clima foi medido em campo. É o que torna a leitura rastreável
+    #: a um instrumento, e não a uma lembrança — ver a seção 4.7 do discovery.
+    termo_higrometro_utilizado: str | None = Field(default=None, max_length=200)
+    observacoes: str | None = None
+
+
+class PlanUpdateIn(PlanIn):
+    """O planejamento sendo completado, campo a campo.
+
+    O talão não é preenchido de uma vez: nasce com contratante e área, recebe o receituário
+    quando ele chega, e só depois do voo tem horímetro, tempo de serviço e o aparelho com
+    que o clima foi medido. Por isso **o que não vem no pedido não é tocado** — enviar o
+    formulário pela metade não pode apagar o que a parte anterior preencheu.
+
+    Os vínculos ficam opcionais aqui pelo mesmo motivo: eles já existem no planejamento.
+    """
+
+    client_id: uuid.UUID | None = None  # type: ignore[assignment]
+    property_id: uuid.UUID | None = None  # type: ignore[assignment]
+
 
 class PlanOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -149,6 +187,17 @@ class PlanOut(BaseModel):
     data_aplicacao: date | None
     cultura: Cultura | None
     area_ha: Decimal | None
+    cotacao: str | None
+    tipo_outros_texto: str | None
+    equipamento_tipo: EquipamentoTipo | None
+    equipamento_modelo: str | None
+    equipamento_bico_tipo: str | None
+    equipamento_bico_angulo: str | None
+    tempo_servico: Decimal | None
+    ha_aplicado: Decimal | None
+    emitiu_relatorio_dgps: bool | None
+    termo_higrometro_utilizado: str | None
+    observacoes: str | None
     param_temperatura_maxima_c: Decimal | None
     param_umidade_relativa_min_pct: Decimal | None
     param_velocidade_vento_max_kmh: Decimal | None
@@ -594,3 +643,26 @@ class HorimetroOut(BaseModel):
     area_ha: Decimal
     primeiro_voo: datetime | None
     ultimo_voo: datetime | None
+
+
+class MaintenanceIn(BaseModel):
+    """Uma linha do bloco "Controle de Manutenção (Horas x Voo)" do talão.
+
+    São duas por planejamento, inicial e final, e até 18/11/2026 **não havia rota que as
+    preenchesse**: a tabela existia, o PDF imprimia o quadro, e o quadro saía em branco.
+    """
+
+    momento: MaintenanceMoment
+    voo: Decimal | None = Field(default=None, ge=0)
+    translado_ida: Decimal | None = Field(default=None, ge=0)
+    operacao: Decimal | None = Field(default=None, ge=0)
+    translado_volta: Decimal | None = Field(default=None, ge=0)
+    #: Total declarado. Fica como vem, e não é recalculado: o horímetro é lido do
+    #: equipamento, e a soma das partes pode não fechar com o que o mostrador diz.
+    total: Decimal | None = Field(default=None, ge=0)
+
+
+class MaintenanceOut(MaintenanceIn):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
