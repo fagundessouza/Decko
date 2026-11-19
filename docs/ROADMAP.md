@@ -268,6 +268,16 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
       BYPASSRLS, serviços no boot, túnel e cópia diária que se testa restaurando. Feito num
       TV box Amlogic S912 com 1,7 GB de RAM em 09/11/2026. **O backup ainda não sai da
       máquina** — enquanto não sair, o item de backup do `NEGOCIO.md` continua aberto
+- [ ] **Pedido pelo WhatsApp, com catálogo nativo e agente conversacional.** Pedido do dono
+      do projeto em 19/11/2026, com proposta de arquitetura própria. A apuração está em
+      `docs/discovery/whatsapp-pedido-por-chat.md`: **o desenho está certo e a fundação não
+      existe** — fila assíncrona, canal de tempo real, entidade de pedido com ciclo de vida
+      e guarda de segredo por empresa são todas pasta vazia hoje. Duas travas decidem o
+      módulo antes do código: o módulo é o **oposto do offline-first** (se o servidor não
+      responder ao webhook, o pedido do cliente final se perde e não há "sincronizar
+      depois"), o que exige hospedagem com responsabilidade de disponibilidade; e ele passa
+      a guardar dado pessoal de quem **não é cliente do Decko**, mudando contrato e papel na
+      LGPD
 - [ ] **Pedido do caixa para a cozinha.** Restaurante do setor do dono do projeto: hoje
       entrega ficha de papel e o cliente caminha até o fundo, onde a fila se forma de novo.
       Quer que o pedido apareça lá sozinho. **Não precisa de emissão fiscal** — é dor de
