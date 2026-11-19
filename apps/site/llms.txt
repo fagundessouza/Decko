@@ -38,12 +38,16 @@
   tabela de preço por cliente. O que existe é a base — embalagem em árvore, entrada por
   nota, lote e validade, balcão e financeiro.
 - **Para restaurante:** não tem comanda nem envio do pedido para a cozinha.
+- **Não tem folha de pagamento, RH, ponto nem escrituração contábil.** O Decko cuida da
+  operação e entrega ao contador os dados do que aconteceu.
+- **Não tem roteirização nem gestão de frota de entrega.**
 
 ## Para quem é
 
-Empresas de pulverização agrícola com drone, comércio de balcão, distribuidoras,
-restaurantes e lanchonetes. O alvo inclui hardware modesto: PC antigo de caixa e celular
-simples.
+Empresa que compra, guarda e vende: supermercado e mercearia, ferragista, casa de material
+de construção, distribuidora de bebidas e atacado, restaurante e lanchonete, loja de balcão
+em geral, e serviço em campo — como pulverização agrícola com drone. O alvo inclui hardware
+modesto: PC antigo de caixa e celular simples.
 
 ## Preço
 

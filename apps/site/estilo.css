@@ -152,10 +152,12 @@ a {
 
 .topo nav {
   display: none;
-  gap: 1.5rem;
+  gap: 1.4rem;
   margin-left: auto;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   color: var(--tinta-fraca);
+  /* Sem isto, um item de duas palavras quebra a linha e desalinha o cabeçalho inteiro. */
+  white-space: nowrap;
 }
 
 .topo nav a:hover {
@@ -166,7 +168,9 @@ a {
   margin-left: auto;
 }
 
-@media (min-width: 880px) {
+/* Só a partir daqui cabem menu e botão na mesma linha com folga. Abaixo disso, o
+   cabeçalho fica com marca e botão de contato, que é o que importa no celular. */
+@media (min-width: 1000px) {
   .topo nav {
     display: flex;
   }
@@ -208,6 +212,9 @@ a {
   min-height: 40px;
   padding: 0.5rem 1.1rem;
   font-size: 0.95rem;
+  /* O texto do botão não quebra: quebrado, ele vira uma bolha alta no cabeçalho. */
+  white-space: nowrap;
+  flex: none;
 }
 
 .botao--vazado {
@@ -819,5 +826,64 @@ details a {
   display: block;
   margin-top: 0.3rem;
   color: var(--tinta-fraca);
+  font-size: 0.95rem;
+}
+
+/* ------------------------------------------------------------------ barra de prova */
+
+/* Quatro fatos conferíveis logo abaixo do herói. Ela ocupa o lugar onde normalmente vai o
+   mural de logos de clientes — que aqui seria invenção, porque o produto é novo. Número
+   grande e frase curta: é lido de relance, que é como essa faixa é lida. */
+.prova {
+  background: var(--papel-morno);
+  border-bottom: 1px solid var(--linha);
+}
+
+.prova__faixa {
+  display: grid;
+  gap: 1.5rem 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  padding-block: 2rem;
+}
+
+.prova__numero {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--verde-escuro);
+}
+
+.prova__texto {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--tinta-fraca);
+}
+
+/* ------------------------------------------------------------------ ramos atendidos */
+
+/* Mais leve que os cartões: aqui o objetivo é a pessoa achar o próprio ramo em dois
+   segundos, não ler. Por isso são seis blocos curtos e nenhum cartão com borda forte. */
+.ramos {
+  display: grid;
+  gap: 1.75rem 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 2.5rem;
+}
+
+.ramo h3 {
+  margin-bottom: 0.35rem;
+  font-size: 1.02rem;
+}
+
+.ramo p {
+  margin: 0;
+  color: var(--tinta-fraca);
+  font-size: 0.95rem;
+}
+
+.ramo .cartao__link {
+  margin-top: 0;
   font-size: 0.95rem;
 }

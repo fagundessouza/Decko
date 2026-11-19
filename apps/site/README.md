@@ -169,6 +169,18 @@ mecanismo que a torna verdadeira.** "Funciona offline" é promessa; "cada regist
 com identidade própria, então mandar duas vezes não vira dois registros" é mecanismo — e é
 o que o comprador cético precisa para acreditar.
 
+O esqueleto da home segue a ordem em que a objeção aparece na cabeça de quem lê:
+
+1. **Promessa** (herói) — o que é, em uma frase.
+2. **Prova conferível** (barra logo abaixo) — ocupa o lugar do mural de logos.
+3. **Para quem é** — a pessoa precisa achar o próprio ramo em dois segundos.
+4. **Diferença, com mecanismo** — por que isto funciona e o concorrente não faz.
+5. **Perda** — o que já está custando continuar como está.
+6. **Garantia / risco zero** — tira o medo de ficar preso.
+7. **Prova social invertida** — por que não há logo de cliente nesta página.
+8. **Objeções** — as perguntas para fazer a qualquer fornecedor.
+9. **Convite de baixo atrito** — quinze minutos, sem cadastro e sem cartão.
+
 Os gatilhos usados, e por que cada um é honesto aqui:
 
 | Gatilho | Como aparece | Por que não é mentira |
@@ -179,6 +191,17 @@ Os gatilhos usados, e por que cada um é honesto aqui:
 | Autoridade | artigos da Portaria 298/2021 citados | Fonte primária, lida e registrada em `docs/discovery/` |
 | Contraste de categoria | "no padrão do mercado", "ERP tradicional" | Fala da categoria, nunca de uma empresa |
 | Risco invertido | "se não servir, eu digo na primeira mensagem" | É o que de fato acontece: as páginas dizem o que falta |
+| Garantia | dados em planilha, sem implantação, mensal | As três são verdade hoje, e nenhuma delas é promessa comercial nova |
+| Baixo atrito | "sem cadastro, sem cartão, sem demonstração de uma hora" | É assim que o formulário funciona |
+| Escassez | "é uma pessoa só atendendo, por ordem de chegada" | É literalmente verdade, e não um contador de vagas inventado |
+
+**Prova social sem cliente para mostrar.** É o gatilho mais difícil aqui, porque o produto é
+novo e não há depoimento nem logo autorizado. A saída foi não fingir: a barra de prova traz
+fatos conferíveis (em produção numa operação real, mais de mil testes automáticos, os
+artigos da norma conferidos, o servidor de 1,7 GB), e há uma seção que explica **por que não
+há logo de cliente na página** — e transforma o tamanho pequeno em vantagem real: quem
+responde é quem escreve o sistema. Esconder que somos novos seria pior, porque o comprador
+descobre em dois minutos de busca e perde a confiança no resto.
 
 O que **não** entra: depoimento inventado, número de clientes, logo de quem não é cliente,
 comparação nominal com concorrente, e promessa de funcionalidade que não existe. A seção
