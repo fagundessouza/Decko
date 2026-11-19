@@ -1041,8 +1041,8 @@ button.cartao__link {
 }
 
 /* A porta de quem já é cliente.
-   Ela existe porque o sistema saiu da raiz do domínio: quem tinha `decko.app.br` no
-   favorito passa a cair nesta página, e sem este link ficaria sem caminho de volta. */
+   O sistema fica na raiz do domínio e esta página num subdomínio, então quem chega aqui
+   por busca e já é cliente precisa de um caminho para entrar sem redigitar o endereço. */
 .entrar {
   margin-left: auto;
   font-weight: 700;

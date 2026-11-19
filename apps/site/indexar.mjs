@@ -30,7 +30,7 @@ import { argv, env, exit } from "node:process";
 /* A origem é o endereço do site; a propriedade é como o Search Console chama ele. Os dois
  * existem separados porque propriedade de domínio (a verificada por DNS, que cobre
  * subdomínio e http junto) se escreve `sc-domain:decko.app.br`, e isso não é uma URL. */
-const ORIGEM = env.DECKO_SITE_URL ?? "https://decko.app.br/";
+const ORIGEM = env.DECKO_SITE_URL ?? "https://web.decko.app.br/";
 const PROPRIEDADE = env.DECKO_SEARCH_CONSOLE_PROPERTY ?? ORIGEM;
 const SITEMAP = new URL("sitemap.xml", ORIGEM).href;
 

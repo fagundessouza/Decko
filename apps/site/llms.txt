@@ -56,23 +56,23 @@ modesto: PC antigo de caixa e celular simples.
 
 Assinatura mensal, pelo conjunto de módulos contratados. O valor é passado na conversa com
 o consultor, porque depende do que a empresa usa. Contato:
-https://decko.app.br/#contato
+https://web.decko.app.br/#contato
 
 ## Páginas por segmento
 
 - Pulverização agrícola, relatório do MAPA e importação do voo do drone:
-  https://decko.app.br/pulverizacao-agricola
+  https://web.decko.app.br/pulverizacao-agricola
 - Ponto de venda para loja de balcão, com operação sem internet:
-  https://decko.app.br/pdv-para-loja
+  https://web.decko.app.br/pdv-para-loja
 - Distribuidora e atacado, com embalagem em árvore e entrada de mercadoria:
-  https://decko.app.br/sistema-para-distribuidora
+  https://web.decko.app.br/sistema-para-distribuidora
 
 ## Links
 
-- Página inicial: https://decko.app.br/
-- O que o Decko resolve: https://decko.app.br/#resolve
-- Comparação com o padrão do mercado: https://decko.app.br/#comparar
-- Ramos atendidos: https://decko.app.br/#ramos
-- Garantias: https://decko.app.br/#garantia
-- Perguntas frequentes: https://decko.app.br/#perguntas
-- Falar com um consultor: https://decko.app.br/#contato
+- Página inicial: https://web.decko.app.br/
+- O que o Decko resolve: https://web.decko.app.br/#resolve
+- Comparação com o padrão do mercado: https://web.decko.app.br/#comparar
+- Ramos atendidos: https://web.decko.app.br/#ramos
+- Garantias: https://web.decko.app.br/#garantia
+- Perguntas frequentes: https://web.decko.app.br/#perguntas
+- Falar com um consultor: https://web.decko.app.br/#contato

@@ -72,84 +72,84 @@ uv run --with pillow python infra/marca/extrair-marca.py infra/marca/decko-marca
 
 As coordenadas de corte estão no próprio script, com o motivo de cada uma.
 
-## A virada do domínio
-
-Hoje `decko.app.br` serve **o sistema** (o aplicativo React, na Vercel), e a landing page
-não está publicada em lugar nenhum. A página de prospecção quer a raiz do domínio — é ela
-que o Google indexa e que as pessoas digitam. O arranjo de chegada:
+## Os três endereços
 
 | Endereço | O que serve | Hoje |
 |---|---|---|
-| `decko.app.br` | esta página | serve o sistema |
-| `app.decko.app.br` | o sistema, onde o cliente entra | não existe |
+| `decko.app.br` | o sistema, onde o cliente entra | já é assim |
+| `web.decko.app.br` | esta página de prospecção | não existe |
 | `api.decko.app.br` | a API, no túnel da caixa | já é assim |
 
-### A ordem importa, e o passo 1 é o que quebra tudo se for pulado
+A decisão de manter o sistema na raiz é do dono do projeto, de 19/11/2026, e tem dois
+efeitos que vale ter escritos:
 
-Hoje a API aceita **uma única origem**, `https://decko.app.br` — dá para conferir com:
+- **Nada sai do ar para publicar a landing.** O sistema não muda de endereço, então não há
+  janela de indisponibilidade nem risco de CORS para quem já é cliente. É a diferença
+  prática em relação ao arranjo inverso.
+- **A raiz não aparece na busca.** O sistema responde `X-Robots-Tag: noindex, nofollow` —
+  é tela de login atrás de autenticação, e o `rewrite` dele devolve `200` em qualquer
+  endereço, o que encheria o índice do Google de URLs vazias. Em troca, quem procurar
+  "Decko" no Google vai achar `web.decko.app.br`, e não a raiz. A página de vendas disputa
+  busca por conta própria, sem herdar a autoridade do domínio principal.
 
-```powershell
-curl.exe -s -o NUL -D - -X OPTIONS https://api.decko.app.br/api/v1/core/leads -H "Origin: https://app.decko.app.br" -H "Access-Control-Request-Method: POST"
-```
+**Toda URL que estas páginas declaram sobre si mesmas aponta para `web.decko.app.br`** —
+`canonical`, `og:url`, o `@id` do JSON-LD, o `sitemap.xml`, o `robots.txt` e o `llms.txt`.
+Se alguma ficasse na raiz, o Google leria que a página verdadeira é a tela de login, e ela
+não ranquearia nada. É o erro silencioso deste arranjo: não quebra nada visível, só apaga
+a página da busca.
 
-Enquanto essa chamada responder `400`, mover o sistema para `app.decko.app.br` tira o
-cliente do ar: toda chamada dele passa a bater em CORS.
+### A virada, em quatro passos
 
-**1. Liberar a origem nova, antes de qualquer outra coisa.** Na caixa, em
+**1. Liberar a origem da landing no CORS.** O formulário de contato chama a API do
+navegador do visitante, e hoje a API aceita uma origem só. Na caixa, em
 `/etc/decko/decko.env` — não na Vercel:
 
 ```
-DECKO_CORS_ORIGINS=https://decko.app.br,https://app.decko.app.br
+DECKO_CORS_ORIGINS=https://decko.app.br,https://web.decko.app.br
 ```
 
-E reiniciar a API. As duas juntas durante a virada: a raiz continua servindo o sistema
-enquanto o subdomínio não está de pé, e depois continua servindo o formulário desta
-página, que também chama a API do navegador. Repita o `curl` acima: tem de responder
-`200`.
+E reiniciar a API. A raiz fica na lista porque é de lá que o sistema chama. Conferir:
 
-**2. Dar o subdomínio ao sistema.** No projeto do sistema na Vercel, *Settings* →
-*Domains* → acrescentar `app.decko.app.br`. A Vercel dá o registro DNS; na Cloudflare ele
-entra como **CNAME** `app` → o alvo que ela indicar, **sem proxy** (nuvem cinza). Abra
-`https://app.decko.app.br` e entre: tem de funcionar com a raiz ainda no ar.
+```powershell
+curl.exe -s -o NUL -D - -X OPTIONS https://api.decko.app.br/api/v1/core/leads -H "Origin: https://web.decko.app.br" -H "Access-Control-Request-Method: POST"
+```
 
-**3. Publicar esta pasta.** Projeto novo na Vercel, com *Root Directory* `apps/site`,
+Tem de responder `200` com `access-control-allow-origin`. Enquanto responder `400`, o
+formulário da landing não grava lead nenhum — e falha em silêncio para o visitante.
+
+**2. Publicar esta pasta.** Projeto novo na Vercel, com *Root Directory* `apps/site`,
 *Framework Preset* Other, build e output vazios. Confira pela URL de pré-visualização
 antes de encostar no domínio.
 
-**4. Trocar a raiz.** No projeto do sistema, **remover** `decko.app.br`; no projeto do
-site, **acrescentar** `decko.app.br` (e `www.decko.app.br`, que a Vercel redireciona
-sozinha). É o único momento de indisponibilidade da virada, e dura o tempo de a Vercel
-reemitir o certificado — minutos.
+**3. Dar o subdomínio ao site.** No projeto novo, *Settings* → *Domains* →
+`web.decko.app.br`. A Vercel dá o registro DNS; na Cloudflare ele entra como **CNAME**
+`web` → o alvo que ela indicar, **sem proxy** (nuvem cinza).
 
-**5. Conferir que a raiz virou site de verdade:**
+**4. Conferir que é site de verdade, e entregar o sitemap:**
 
 ```powershell
-curl.exe -s -o NUL -w "%{http_code} %{content_type}`n" https://decko.app.br/sitemap.xml
+curl.exe -s -o NUL -w "%{http_code} %{content_type}`n" https://web.decko.app.br/sitemap.xml
 ```
 
-Tem de responder `200 application/xml`. Enquanto responder `text/html`, a raiz ainda está
-no projeto do sistema — o `rewrite` dele devolve o HTML do app para qualquer endereço, e é
-por isso que hoje `/sitemap.xml`, `/robots.txt` e `/llms.txt` devolvem a tela de login.
-
-**6. Entregar o sitemap ao Google**, que só agora tem o que ler:
+Tem de responder `200 application/xml`. Então:
 
 ```powershell
 node apps/site/indexar.mjs sitemap
 ```
 
+A propriedade do Search Console é a **de domínio** (`sc-domain:decko.app.br`), verificada
+por DNS em 19/11/2026 — ela cobre `web.decko.app.br` sem verificação nova. É a vantagem de
+ter escolhido propriedade de domínio e não de prefixo de URL.
+
 ### O que já está preparado no repositório
 
 - **O `Entrar` no cabeçalho e no rodapé das quatro páginas** aponta para
-  `https://app.decko.app.br`. Quem tinha `decko.app.br` no favorito passa a cair na página
-  de vendas, e sem esse link ficaria sem caminho de volta.
-- **`apps/web/vercel.json` manda `X-Robots-Tag: noindex, nofollow`.** O sistema é tela de
-  login atrás de autenticação: não há o que indexar, e o `rewrite` dele responde `200` em
-  qualquer endereço — sem o cabeçalho, o Google indexaria URLs infinitas do subdomínio
-  concorrendo com esta página. Cabeçalho, e não `robots.txt`, justamente porque o
-  `rewrite` engoliria o arquivo.
-- **`VITE_API_URL` não muda:** continua `https://api.decko.app.br`. Mas valor `VITE_` entra
-  no pacote na montagem, então o passo 2 precisa de um build novo se a variável for
-  mexida.
+  `https://decko.app.br`. Quem chega aqui por busca e já é cliente entra sem precisar
+  redigitar o endereço.
+- **`apps/web/vercel.json` manda `X-Robots-Tag: noindex, nofollow`** no sistema, pelo
+  motivo descrito acima. Cabeçalho, e não `robots.txt`, porque o `rewrite` do sistema
+  engoliria o arquivo — é o mesmo motivo de `decko.app.br/sitemap.xml` devolver HTML.
+- **`VITE_API_URL` não muda:** continua `https://api.decko.app.br`.
 
 ## Publicar na Vercel
 
@@ -167,7 +167,7 @@ O `vercel.json` cuida dos cabeçalhos de segurança e do cache.
 ### 1. Verificar o domínio no Search Console
 
 <https://search.google.com/search-console> → **Adicionar propriedade** → **Domínio**
-(`decko.app.br`). A propriedade de domínio é a certa aqui: ela cobre `www`, `app`, `api`,
+(`decko.app.br`). A propriedade de domínio é a certa aqui: ela cobre `www`, `web`, `api`,
 `http` e `https` de uma vez, enquanto a de prefixo de URL cobre só o endereço exato.
 
 A verificação é um registro **TXT** no DNS — no Registro.br ou na Cloudflare, onde o
@@ -186,7 +186,7 @@ de vez em quando, e sem ele a propriedade cai e as chamadas de API param.
 
 ### 2. Mandar o sitemap
 
-Pela tela, em *Sitemaps* → `https://decko.app.br/sitemap.xml`. Ou pela API, que é o que o
+Pela tela, em *Sitemaps* → `https://web.decko.app.br/sitemap.xml`. Ou pela API, que é o que o
 `indexar.mjs` faz:
 
 ```
@@ -205,7 +205,7 @@ esse empurrão, a primeira passada pode levar dias.
 
 ```
 node apps/site/indexar.mjs estado                       # todas as URLs do sitemap
-node apps/site/indexar.mjs estado https://decko.app.br/ # uma só
+node apps/site/indexar.mjs estado https://web.decko.app.br/ # uma só
 ```
 
 Responde o que a tela de inspeção responde: cobertura, última passada do robô, **qual
@@ -316,7 +316,7 @@ build seria complexidade comprada sem necessidade.
 ## `llms.txt`: o que ele é, e o que ele não é
 
 É um resumo do site em texto, pensado para assistentes de IA entenderem o produto sem
-precisar interpretar HTML. Fica em `https://decko.app.br/llms.txt`.
+precisar interpretar HTML. Fica em `https://web.decko.app.br/llms.txt`.
 
 **Não é um padrão adotado como o `robots.txt`.** Não há garantia de que ChatGPT, Gemini ou
 Claude vão lê-lo. Ele custa um arquivo de texto e pode ajudar; não substitui o que de fato

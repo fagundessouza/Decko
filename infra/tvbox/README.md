@@ -141,15 +141,16 @@ que já está no ar.**
    As duas juntas durante a virada: a tela antiga continua funcionando enquanto a nova não
    está publicada.
 
-   **Quando o site de prospecção assumir a raiz** (roteiro em `apps/site/README.md`), esta
-   variável precisa das duas origens finais, e antes de o sistema mudar de endereço:
+   **Quando o site de prospecção for publicado** em `web.decko.app.br` (roteiro em
+   `apps/site/README.md`), esta variável precisa das duas origens finais:
 
    ```
-   DECKO_CORS_ORIGINS=https://decko.app.br,https://app.decko.app.br
+   DECKO_CORS_ORIGINS=https://decko.app.br,https://web.decko.app.br
    ```
 
-   A raiz fica na lista porque o formulário de contato da landing chama a API do próprio
-   navegador do visitante.
+   A raiz continua na lista porque é de lá que o sistema chama. O subdomínio entra porque o
+   formulário de contato da landing chama a API do próprio navegador do visitante — e, sem
+   ele, o formulário falha em silêncio.
 4. **Na Vercel**, acrescente o domínio `decko.app.br` ao projeto, aponte `VITE_API_URL`
    para `https://api.decko.app.br` e promova um build novo da `main`. Valor `VITE_` entra
    no pacote na montagem, então sem build novo nada muda.
