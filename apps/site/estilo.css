@@ -1049,3 +1049,43 @@ button.cartao__link {
     font-size: 0.88rem;
   }
 }
+
+/* A porta de quem já é cliente.
+   Ela existe porque o sistema saiu da raiz do domínio: quem tinha `decko.app.br` no
+   favorito passa a cair nesta página, e sem este link ficaria sem caminho de volta. */
+.entrar {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--tinta-fraca);
+  white-space: nowrap;
+}
+
+.entrar:hover {
+  color: var(--verde-escuro);
+}
+
+/* O "Entrar" passou a ser quem empurra o grupo para a direita, então o botão perde a
+   margem automática — com as duas, os dois se separariam no meio do cabeçalho. */
+.topo .botao--pequeno {
+  margin-left: 0;
+}
+
+/* Com o menu na tela, quem empurra os dois para a direita é o "Entrar". */
+@media (min-width: 1000px) {
+  .entrar {
+    margin-left: 0;
+  }
+}
+
+/* No celular estreito cabem símbolo, "Entrar" e botão — mas só sem o nome escrito da
+   marca ao lado do símbolo. O símbolo sozinho continua sendo a marca. */
+@media (max-width: 430px) {
+  .topo .marca__nome {
+    display: none;
+  }
+
+  .entrar {
+    font-size: 0.9rem;
+  }
+}

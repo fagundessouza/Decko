@@ -46,29 +46,84 @@ Nenhum é bloqueio para subir, e todos melhoram o resultado.
    `/marca.svg`.
 3. **`apple-touch-icon.png`** — 180×180, para quem salva o site na tela inicial do iPhone.
 
-## O domínio: uma decisão que precisa ser tomada antes
+## A virada do domínio
 
-Hoje `decko.app.br` serve **o sistema** (o aplicativo React, na Vercel). Uma landing page
-de prospecção quer a raiz do domínio — é ela que o Google indexa e que as pessoas digitam.
-O arranjo normal é:
+Hoje `decko.app.br` serve **o sistema** (o aplicativo React, na Vercel), e a landing page
+não está publicada em lugar nenhum. A página de prospecção quer a raiz do domínio — é ela
+que o Google indexa e que as pessoas digitam. O arranjo de chegada:
 
-| Endereço | O que serve |
-|---|---|
-| `decko.app.br` | esta página |
-| `app.decko.app.br` | o sistema (onde o cliente entra) |
-| `api.decko.app.br` | a API (já é assim) |
+| Endereço | O que serve | Hoje |
+|---|---|---|
+| `decko.app.br` | esta página | serve o sistema |
+| `app.decko.app.br` | o sistema, onde o cliente entra | não existe |
+| `api.decko.app.br` | a API, no túnel da caixa | já é assim |
 
-Mudar isso exige três passos, e o segundo é o que quebra se for esquecido:
+### A ordem importa, e o passo 1 é o que quebra tudo se for pulado
 
-1. Apontar o projeto do sistema na Vercel para `app.decko.app.br` e criar um projeto novo
-   para `apps/site` na raiz.
-2. **Acrescentar `https://app.decko.app.br` ao `DECKO_CORS_ORIGINS` da API**, senão o
-   sistema passa a receber erro de CORS em toda chamada.
-3. Conferir se o `VITE_API_URL` do sistema continua apontando para
-   `https://api.decko.app.br`.
+Hoje a API aceita **uma única origem**, `https://decko.app.br` — dá para conferir com:
 
-A página de prospecção **também** precisa estar no CORS, porque o formulário chama a API
-direto do navegador: `https://decko.app.br` já está na lista.
+```powershell
+curl.exe -s -o NUL -D - -X OPTIONS https://api.decko.app.br/api/v1/core/leads -H "Origin: https://app.decko.app.br" -H "Access-Control-Request-Method: POST"
+```
+
+Enquanto essa chamada responder `400`, mover o sistema para `app.decko.app.br` tira o
+cliente do ar: toda chamada dele passa a bater em CORS.
+
+**1. Liberar a origem nova, antes de qualquer outra coisa.** Na caixa, em
+`/etc/decko/decko.env` — não na Vercel:
+
+```
+DECKO_CORS_ORIGINS=https://decko.app.br,https://app.decko.app.br
+```
+
+E reiniciar a API. As duas juntas durante a virada: a raiz continua servindo o sistema
+enquanto o subdomínio não está de pé, e depois continua servindo o formulário desta
+página, que também chama a API do navegador. Repita o `curl` acima: tem de responder
+`200`.
+
+**2. Dar o subdomínio ao sistema.** No projeto do sistema na Vercel, *Settings* →
+*Domains* → acrescentar `app.decko.app.br`. A Vercel dá o registro DNS; na Cloudflare ele
+entra como **CNAME** `app` → o alvo que ela indicar, **sem proxy** (nuvem cinza). Abra
+`https://app.decko.app.br` e entre: tem de funcionar com a raiz ainda no ar.
+
+**3. Publicar esta pasta.** Projeto novo na Vercel, com *Root Directory* `apps/site`,
+*Framework Preset* Other, build e output vazios. Confira pela URL de pré-visualização
+antes de encostar no domínio.
+
+**4. Trocar a raiz.** No projeto do sistema, **remover** `decko.app.br`; no projeto do
+site, **acrescentar** `decko.app.br` (e `www.decko.app.br`, que a Vercel redireciona
+sozinha). É o único momento de indisponibilidade da virada, e dura o tempo de a Vercel
+reemitir o certificado — minutos.
+
+**5. Conferir que a raiz virou site de verdade:**
+
+```powershell
+curl.exe -s -o NUL -w "%{http_code} %{content_type}`n" https://decko.app.br/sitemap.xml
+```
+
+Tem de responder `200 application/xml`. Enquanto responder `text/html`, a raiz ainda está
+no projeto do sistema — o `rewrite` dele devolve o HTML do app para qualquer endereço, e é
+por isso que hoje `/sitemap.xml`, `/robots.txt` e `/llms.txt` devolvem a tela de login.
+
+**6. Entregar o sitemap ao Google**, que só agora tem o que ler:
+
+```powershell
+node apps/site/indexar.mjs sitemap
+```
+
+### O que já está preparado no repositório
+
+- **O `Entrar` no cabeçalho e no rodapé das quatro páginas** aponta para
+  `https://app.decko.app.br`. Quem tinha `decko.app.br` no favorito passa a cair na página
+  de vendas, e sem esse link ficaria sem caminho de volta.
+- **`apps/web/vercel.json` manda `X-Robots-Tag: noindex, nofollow`.** O sistema é tela de
+  login atrás de autenticação: não há o que indexar, e o `rewrite` dele responde `200` em
+  qualquer endereço — sem o cabeçalho, o Google indexaria URLs infinitas do subdomínio
+  concorrendo com esta página. Cabeçalho, e não `robots.txt`, justamente porque o
+  `rewrite` engoliria o arquivo.
+- **`VITE_API_URL` não muda:** continua `https://api.decko.app.br`. Mas valor `VITE_` entra
+  no pacote na montagem, então o passo 2 precisa de um build novo se a variável for
+  mexida.
 
 ## Publicar na Vercel
 
