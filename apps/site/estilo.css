@@ -747,3 +747,77 @@ details a {
 .secao--escura .lista--alerta li strong {
   color: #fff;
 }
+
+/* ------------------------------------------------------------------ argumentos */
+
+/* Os cartões numerados do bloco de diferenciais. Três colunas é o limite: quatro viram
+   lista, e lista ninguém lê. */
+.cartoes--numerados {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.cartao__numero {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--verde);
+  margin-bottom: 0.5rem;
+}
+
+/* A frase que sustenta a afirmação do cartão. Fica visualmente separada porque é ela que
+   transforma promessa em mecanismo — e é o que o comprador cético procura. */
+.cartao__prova {
+  margin-top: 0.9rem !important;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--linha);
+  font-size: 0.92rem !important;
+}
+
+.cartao__prova strong {
+  color: var(--verde-escuro);
+}
+
+/* As perguntas que o comprador deve fazer. Numeradas de verdade, porque a ordem importa:
+   a primeira é a que separa um sistema do outro. */
+.perguntas-de-compra {
+  margin: 2.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: pergunta;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.perguntas-de-compra li {
+  counter-increment: pergunta;
+  position: relative;
+  padding-left: 3rem;
+}
+
+.perguntas-de-compra li::before {
+  content: counter(pergunta);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--verde-soft, rgb(22 163 74 / 12%));
+  color: var(--verde-escuro);
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: grid;
+  place-items: center;
+}
+
+.perguntas-de-compra strong {
+  display: block;
+  font-size: 1.02rem;
+}
+
+.perguntas-de-compra span {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--tinta-fraca);
+  font-size: 0.95rem;
+}

@@ -159,6 +159,40 @@ Quando mudar o que o Decko faz, mude os dois: o `llms.txt` e o bloco `FAQPage` d
 `index.html`. Descrição velha em dado estruturado é pior do que nenhuma — ela faz o
 buscador afirmar com confiança algo que não é mais verdade.
 
+## O tom do texto, e o que sustenta cada frase
+
+Reescrito em 19/11/2026, porque a primeira versão era genérica — descrevia funcionalidade
+em vez de vender resultado.
+
+A regra que vale para a próxima página: **toda afirmação de vantagem vem acompanhada do
+mecanismo que a torna verdadeira.** "Funciona offline" é promessa; "cada registro nasce
+com identidade própria, então mandar duas vezes não vira dois registros" é mecanismo — e é
+o que o comprador cético precisa para acreditar.
+
+Os gatilhos usados, e por que cada um é honesto aqui:
+
+| Gatilho | Como aparece | Por que não é mentira |
+|---|---|---|
+| Custo da inação | "Sábado, 11h, a internet cai" · "o dia 15 chega assim mesmo" | A perda é real: fila parada, e sanção prevista em norma |
+| Especificidade | 1,7 GB de memória, 90 dias de catálogo, 30 dias de sessão | Números do próprio sistema, conferíveis no código |
+| Prova por mecanismo | o bloco "Como funciona" em cada diferencial | Descreve o que o código faz |
+| Autoridade | artigos da Portaria 298/2021 citados | Fonte primária, lida e registrada em `docs/discovery/` |
+| Contraste de categoria | "no padrão do mercado", "ERP tradicional" | Fala da categoria, nunca de uma empresa |
+| Risco invertido | "se não servir, eu digo na primeira mensagem" | É o que de fato acontece: as páginas dizem o que falta |
+
+O que **não** entra: depoimento inventado, número de clientes, logo de quem não é cliente,
+comparação nominal com concorrente, e promessa de funcionalidade que não existe. A seção
+"o que ainda não existe" da página da distribuidora é parte do argumento de venda, e não
+uma concessão.
+
+### O benchmark que embasa o contraste
+
+`docs/benchmark/odoo-20-comparativo.md` tem a comparação técnica feita com o ERP aberto
+mais usado do mundo: 1,7 GB em disco, cada processo carregando 696 módulos, offline como
+caso especial do PDV e não propriedade do sistema, e nenhum conceito de "contratar por
+ramo". É daí que saem os três diferenciais da home — mas o nome da empresa **não** aparece
+no site, pela regra abaixo.
+
 ## Marca de terceiro não entra no texto
 
 Decisão do dono do projeto, em 18/11/2026: o site não cita o nome de aplicativo,
