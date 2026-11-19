@@ -1,7 +1,10 @@
+import csv
 import uuid
+from datetime import UTC, datetime
+from io import StringIO
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +17,7 @@ from decko.seed import apply_seed, has_seed
 from decko_modules.core import activation, audit, service
 from decko_modules.core.breach import SenhaVazadaError
 from decko_modules.core.deps import CurrentPrincipal, require, require_platform_admin
-from decko_modules.core.models import Tenant, User
+from decko_modules.core.models import Lead, Tenant, User
 from decko_modules.core.schemas import (
     AuditEntryOut,
     AuditPageOut,
@@ -22,6 +25,10 @@ from decko_modules.core.schemas import (
     DefinirPinIn,
     EmpresaDaPlataformaOut,
     EntrarPorPinIn,
+    LeadAtendimentoIn,
+    LeadIn,
+    LeadOut,
+    LeadRecebidoOut,
     LoginRequest,
     MembroIn,
     MembroOut,
@@ -959,3 +966,157 @@ async def listar_empresas_da_plataforma(
     return list(
         (await session.execute(select(Tenant).order_by(Tenant.created_at.desc()))).scalars().all()
     )
+
+
+# ------------------------------------------------------------- pedido de contato
+#
+# A porta mais aberta do sistema: formulário público, sem login, na página do produto.
+# Ver `docs/adr/0021-nivel-de-plataforma.md` — o lead vive fora da fronteira de empresa,
+# porque ainda não é empresa nenhuma.
+
+
+@router.post("/leads", response_model=LeadRecebidoOut, status_code=status.HTTP_201_CREATED)
+async def receber_lead(
+    payload: LeadIn,
+    request: Request,
+    session: SessionDep,
+) -> LeadRecebidoOut:
+    """Recebe um pedido de contato da página pública.
+
+    **Sem autenticação, de propósito:** quem preenche ainda não tem conta — é o começo da
+    conversa, não o uso do sistema. Em troca, três cuidados:
+
+    - **Campo-armadilha.** O formulário tem um campo invisível que pessoa nenhuma preenche
+      e preenchedor automático preenche sempre. Chega preenchido, a resposta é a mesma de
+      sucesso — robô que recebe erro aprende a contornar; robô que recebe "obrigado" vai
+      embora achando que conseguiu.
+    - **Teto por IP e por hora**, no serviço.
+    - **Nada é devolvido além do recebido.** Esta rota não lista, não confere e-mail
+      existente nem diz se alguém já se cadastrou: seria um jeito de descobrir quem é
+      cliente perguntando de fora.
+
+    O consentimento é obrigatório porque é ele que autoriza o contato depois.
+    """
+    if payload.site:
+        # A armadilha pegou. Responde como se tivesse dado certo e não grava nada.
+        return LeadRecebidoOut(recebido=True)
+
+    if not payload.consentimento:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Para entrarmos em contato, é preciso aceitar que a gente fale com você.",
+        )
+
+    dados = payload.model_dump(exclude={"site", "consentimento"})
+    try:
+        await service.registrar_lead(session, dados=dados, ip=_ip_de(request))
+    except service.LeadError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+    return LeadRecebidoOut(recebido=True)
+
+
+def _ip_de(request: Request) -> str | None:
+    """O IP de quem mandou, atrás do túnel.
+
+    O Cloudflare põe o IP de origem em `CF-Connecting-IP`; sem ele, o do soquete — que
+    atrás de proxy é o do próprio proxy, e aí o teto por IP vira teto global. Por isso o
+    cabeçalho vem primeiro, e por isso ele é o único aceito: confiar em `X-Forwarded-For`
+    cru deixaria qualquer um escolher o próprio IP e furar o teto.
+    """
+    return request.headers.get("CF-Connecting-IP") or (
+        request.client.host if request.client else None
+    )
+
+
+@router.get("/plataforma/leads", response_model=list[LeadOut])
+async def listar_leads(
+    session: SessionDep,
+    _: Annotated[object, Depends(require_platform_admin)],
+    pendentes: bool = False,
+) -> list[Lead]:
+    """Os pedidos de contato, do mais novo para o mais antigo.
+
+    `pendentes=true` traz só quem ainda não foi atendido — que é a pergunta que se faz de
+    manhã, e não "quem já falou com a gente".
+    """
+    consulta = select(Lead).order_by(Lead.created_at.desc())
+    if pendentes:
+        consulta = consulta.where(Lead.atendido_em.is_(None))
+    return list((await session.execute(consulta)).scalars().all())
+
+
+@router.get("/plataforma/leads.csv", response_class=Response)
+async def exportar_leads(
+    session: SessionDep,
+    _: Annotated[object, Depends(require_platform_admin)],
+) -> Response:
+    """A planilha dos pedidos de contato, para abrir no Excel ou no Sheets.
+
+    Ponto e vírgula e BOM porque é assim que o Excel em português abre sem o passo de
+    importação — o mesmo motivo do exportador da consolidação do agro.
+    """
+    linhas = list(
+        (await session.execute(select(Lead).order_by(Lead.created_at.desc()))).scalars().all()
+    )
+
+    buffer = StringIO()
+    escritor = csv.writer(buffer, delimiter=";", lineterminator="\r\n")
+    escritor.writerow(
+        [
+            "Recebido em",
+            "Nome",
+            "Empresa",
+            "E-mail",
+            "Telefone",
+            "Segmento",
+            "Origem",
+            "Mensagem",
+            "Atendido em",
+            "Observação",
+        ]
+    )
+    for lead in linhas:
+        escritor.writerow(
+            [
+                lead.created_at.strftime("%d/%m/%Y %H:%M"),
+                lead.nome,
+                lead.empresa or "",
+                lead.email,
+                lead.telefone or "",
+                lead.segmento or "",
+                lead.origem or "",
+                (lead.mensagem or "").replace("\n", " "),
+                lead.atendido_em.strftime("%d/%m/%Y %H:%M") if lead.atendido_em else "",
+                (lead.observacao or "").replace("\n", " "),
+            ]
+        )
+
+    return Response(
+        content=buffer.getvalue().encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="leads-decko.csv"'},
+    )
+
+
+@router.put("/plataforma/leads/{lead_id}", response_model=LeadOut)
+async def marcar_lead(
+    lead_id: uuid.UUID,
+    payload: LeadAtendimentoIn,
+    session: SessionDep,
+    _: Annotated[object, Depends(require_platform_admin)],
+) -> Lead:
+    """Marca que alguém falou com a pessoa, e o que ficou combinado."""
+    lead = await session.get(Lead, lead_id)
+    if lead is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Pedido de contato não encontrado."
+        )
+
+    lead.atendido_em = datetime.now(UTC) if payload.atendido else None
+    if payload.observacao is not None:
+        lead.observacao = payload.observacao
+    await session.flush()
+    return lead

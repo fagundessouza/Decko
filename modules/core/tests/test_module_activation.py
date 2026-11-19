@@ -181,8 +181,12 @@ async def test_activating_opens_the_module(client: AsyncClient) -> None:
 
     activated = await client.post(f"{CORE}/modules/agro/activate", headers=_auth(company))
     assert activated.status_code == 200
-    assert [m["name"] for m in activated.json()] == ["agro"]
-    assert activated.json()[0]["active"] is True
+    # O que o módulo declara em `depends` entra junto, e na ordem em que é preciso: desde
+    # 17/11/2026 a pulverização dá baixa de defensivo no estoque, então `comercial` vem
+    # antes. Contratar o agro sem o estoque deixaria a confirmação do voo quebrada na
+    # primeira baixa — ver `docs/adr/0007-dependencia-entre-modulos.md`.
+    assert [m["name"] for m in activated.json()] == ["comercial", "agro"]
+    assert all(m["active"] for m in activated.json())
 
     assert (await client.get(f"{AGRO}/clients", headers=_auth(company))).status_code == 200
 

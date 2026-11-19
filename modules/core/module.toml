@@ -28,6 +28,10 @@ provides = [
   "core.user.deactivate",
   "core.role.read",
   "core.role.assign",
+  # Montar e ajustar papel. Separada de `assign` de proposito: dar um papel pronto a
+  # alguem e uma coisa; decidir o que aquele papel concede e outra, e e a que mexe no que
+  # a empresa inteira pode fazer.
+  "core.role.write",
   "core.audit.read",
   "core.module.read",
   "core.module.activate",

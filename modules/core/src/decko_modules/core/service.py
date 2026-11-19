@@ -4,15 +4,18 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decko.config import get_settings
 from decko.db import SessionFactory, bind_tenant
+from decko.modules import discover
 from decko_modules.core import security
 from decko_modules.core.breach import recusar_se_vazada
 from decko_modules.core.models import (
+    Lead,
     RefreshToken,
     Role,
     RolePermission,
@@ -268,8 +271,8 @@ class PapelComPermissoes:
 async def listar_papeis(session: AsyncSession, tenant_id: uuid.UUID) -> list[PapelComPermissoes]:
     """Os papéis da empresa e o que cada um concede.
 
-    O dono precisa ver o que está dando antes de dar. Nesta versão ele **escolhe** entre os
-    papéis existentes; montar um do zero é o passo seguinte — ADR 0020.
+    O dono precisa ver o que está dando antes de dar — e desde 13/11/2026 também monta e
+    ajusta papel, não só escolhe entre os semeados.
     """
     papeis = list(
         (await session.execute(select(Role).where(Role.tenant_id == tenant_id).order_by(Role.name)))
@@ -584,3 +587,232 @@ async def entrar_por_pin(
 
     user.last_login_at = datetime.now(UTC)
     return user, tenant, await _load_permissions(session, user.id)
+
+
+# ----------------------------------------------------------------- montar papel
+#
+# Até 13/11/2026 o dono **escolhia** entre os papéis semeados pelos manifestos. Escolher
+# cobre o caso comum e é o que o Odoo tem nativamente, mas não é "controle do que o
+# operador pode fazer" — loja que quer um operador que devolve, ou um supervisor que não
+# fecha, precisa montar o papel dela. Ver docs/adr/0020-operador-supervisor-e-papeis.md.
+
+# As permissões sem as quais a empresa fica sem dono: quem as tem administra gente e
+# papel. Se a última pessoa que as tem perdê-las, não há caminho de volta pela interface.
+PERMISSOES_DE_DONO = ("core.user.read", "core.role.write")
+
+
+async def _quem_ainda_administra(session: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """Quantas pessoas ativas ainda conseguem administrar gente e papel nesta empresa."""
+    linhas = (
+        await session.execute(
+            select(User.id)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(RolePermission, RolePermission.role_id == UserRole.role_id)
+            .where(
+                User.tenant_id == tenant_id,
+                User.is_active.is_(True),
+                RolePermission.permission.in_(PERMISSOES_DE_DONO),
+            )
+            .group_by(User.id)
+            .having(func.count(RolePermission.permission.distinct()) == len(PERMISSOES_DE_DONO))
+        )
+    ).all()
+    return len(linhas)
+
+
+async def _recusar_empresa_sem_dono(session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    """Depois de mexer em papel, confere se ainda há quem administre.
+
+    É a única trava desta área, e ela é sobre a empresa, não sobre quem está pedindo:
+    proibir alguém de editar o próprio papel resolveria o caso mais óbvio e deixaria
+    passar o de tirar a permissão do colega que era o outro administrador.
+
+    A conferência roda **depois** da alteração, dentro da mesma transação: é o estado
+    final que importa, e desfazer é o que a transação faz de graça.
+    """
+    if await _quem_ainda_administra(session, tenant_id) == 0:
+        raise EquipeError(
+            "Isto deixaria a empresa sem ninguém que administre gente e papel. "
+            "Dê a permissão a outra pessoa antes."
+        )
+
+
+def _permissoes_declaradas(ativos: Sequence[str]) -> set[str]:
+    """O que os módulos ativos declaram. É a lista que um papel pode conceder.
+
+    A fonte é o manifesto, como em todo o resto: conceder permissão de módulo que a
+    empresa não tem entraria no papel sem levar a lugar nenhum, e conceder permissão
+    inventada entraria sem nunca casar com rota nenhuma.
+    """
+    manifests = discover(get_settings().modules_dir)
+    return {
+        permissao
+        for nome, manifest in manifests.items()
+        # O núcleo entra sempre: ele não aparece em `tenant_module` porque é obrigatório.
+        if nome in ativos or nome == "core"
+        for permissao in manifest.permissions
+    }
+
+
+async def criar_papel(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    nome: str,
+    descricao: str | None,
+    permissoes: Sequence[str],
+    ativos: Sequence[str],
+) -> Role:
+    titulo = nome.strip()
+    if not titulo:
+        raise EquipeError("Dê um nome ao papel.")
+
+    ja_existe = await session.scalar(
+        select(Role.id).where(Role.tenant_id == tenant_id, Role.name == titulo)
+    )
+    if ja_existe is not None:
+        raise EquipeError(f"Já existe um papel chamado '{titulo}'.")
+
+    papel = Role(tenant_id=tenant_id, name=titulo, description=(descricao or "").strip() or None)
+    session.add(papel)
+    await session.flush()
+
+    await _trocar_permissoes(session, papel=papel, permissoes=permissoes, ativos=ativos)
+    return papel
+
+
+async def editar_papel(
+    session: AsyncSession,
+    *,
+    papel: Role,
+    nome: str,
+    descricao: str | None,
+    permissoes: Sequence[str],
+    ativos: Sequence[str],
+) -> Role:
+    titulo = nome.strip()
+    if not titulo:
+        raise EquipeError("Dê um nome ao papel.")
+
+    conflito = await session.scalar(
+        select(Role.id).where(
+            Role.tenant_id == papel.tenant_id, Role.name == titulo, Role.id != papel.id
+        )
+    )
+    if conflito is not None:
+        raise EquipeError(f"Já existe um papel chamado '{titulo}'.")
+
+    papel.name = titulo
+    papel.description = (descricao or "").strip() or None
+    await _trocar_permissoes(session, papel=papel, permissoes=permissoes, ativos=ativos)
+    await _recusar_empresa_sem_dono(session, papel.tenant_id)
+    return papel
+
+
+async def _trocar_permissoes(
+    session: AsyncSession, *, papel: Role, permissoes: Sequence[str], ativos: Sequence[str]
+) -> None:
+    """Substitui o conjunto: a tela mostra tudo, e quem desmarca espera que saia."""
+    declaradas = _permissoes_declaradas(ativos)
+    pedidas = set(permissoes)
+
+    desconhecidas = sorted(pedidas - declaradas)
+    if desconhecidas:
+        raise EquipeError(f"Permissão que nenhum módulo ativo declara: {', '.join(desconhecidas)}.")
+
+    await session.execute(delete(RolePermission).where(RolePermission.role_id == papel.id))
+    for permissao in sorted(pedidas):
+        session.add(
+            RolePermission(tenant_id=papel.tenant_id, role_id=papel.id, permission=permissao)
+        )
+    await session.flush()
+
+
+async def apagar_papel(session: AsyncSession, *, papel: Role) -> None:
+    """Apaga um papel que ninguém tem.
+
+    Com gente dentro, apagar tiraria o acesso de alguém por um caminho que não se parece
+    com isso — tirar acesso é na tela da pessoa, dito com o nome dela.
+    """
+    em_uso = await session.scalar(
+        select(func.count(UserRole.id)).where(UserRole.role_id == papel.id)
+    )
+    if em_uso:
+        raise EquipeError(
+            f"{em_uso} pessoa(s) ainda têm este papel. Troque o papel delas primeiro."
+        )
+
+    await session.delete(papel)
+    await session.flush()
+    await _recusar_empresa_sem_dono(session, papel.tenant_id)
+
+
+# ------------------------------------------------------------- lead da página pública
+
+#: Quantos pedidos de contato o mesmo IP pode mandar por hora.
+#:
+#: Dez é folgado para gente e apertado para robô. O formulário é a porta mais aberta do
+#: sistema — sem login, por definição —, e sem um teto ele vira caixa de entrada de spam
+#: na primeira varredura automática que encontrar a página.
+LEADS_POR_HORA = 10
+
+#: Por quanto tempo o IP de quem pediu contato fica guardado.
+#:
+#: Ele serve só para conter enxurrada. Guardar além disso seria guardar rastro de gente
+#: sem motivo — e motivo é o que a LGPD cobra.
+DIAS_DE_IP = 60
+
+
+class LeadError(Exception):
+    """Pedido de contato recusado. Vira 422 na borda."""
+
+
+async def registrar_lead(
+    session: AsyncSession,
+    *,
+    dados: dict[str, Any],
+    ip: str | None,
+) -> Lead:
+    """Guarda um pedido de contato vindo da página pública.
+
+    Duas defesas, e nenhuma delas é CAPTCHA — que empurra o custo do nosso spam para a
+    paciência de quem quer falar com a gente:
+
+    - **Teto por IP e por hora.** Gente não manda dez pedidos numa hora; robô manda mil.
+    - **Campo-armadilha**, conferido na borda: o formulário tem um campo invisível que
+      pessoa nenhuma preenche e preenchedor automático preenche sempre.
+
+    O consentimento é gravado com a hora porque é ele que autoriza o contato depois.
+    """
+    if ip is not None:
+        desde = datetime.now(UTC) - timedelta(hours=1)
+        quantos = await session.scalar(
+            select(func.count())
+            .select_from(Lead)
+            .where(Lead.ip == ip, Lead.created_at >= desde)
+        )
+        if (quantos or 0) >= LEADS_POR_HORA:
+            raise LeadError(
+                "Recebemos vários pedidos deste mesmo lugar na última hora. "
+                "Se foi você, aguarde um pouco ou escreva direto para a gente."
+            )
+
+    lead = Lead(**dados, ip=ip, consentimento_em=datetime.now(UTC))
+    session.add(lead)
+    await session.flush()
+    return lead
+
+
+async def esquecer_ip_antigo(session: AsyncSession) -> int:
+    """Apaga o IP dos pedidos velhos, mantendo o pedido.
+
+    O IP serve para conter robô na hora; depois, é rastro de gente guardado sem motivo. O
+    lead continua inteiro — quem pediu contato continua tendo pedido contato.
+    """
+    corte = datetime.now(UTC) - timedelta(days=DIAS_DE_IP)
+    resultado = await session.execute(
+        update(Lead)
+        .where(Lead.ip.is_not(None), Lead.created_at < corte)
+        .values(ip=None)
+    )
+    return resultado.rowcount or 0

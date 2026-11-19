@@ -222,6 +222,22 @@ class EmpresaDaPlataformaOut(BaseModel):
     created_at: datetime
 
 
+class PapelIn(BaseModel):
+    """Um papel montado pelo dono: nome, por que existe, e o que concede."""
+
+    name: str = Field(min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=300)
+    permissoes: list[str] = Field(default_factory=list)
+
+
+class ModuloPermissoesOut(BaseModel):
+    """As permissões de um módulo, agrupadas para a tela não virar uma lista de sessenta."""
+
+    modulo: str
+    label: str
+    permissoes: list[str]
+
+
 class MembroOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
@@ -292,3 +308,61 @@ class OperadorOut(BaseModel):
 
     id: uuid.UUID
     nome: str
+
+
+class LeadIn(BaseModel):
+    """O pedido de contato vindo da página pública.
+
+    Pede só o que serve para ligar de volta. Nada de CPF, nada de endereço: é formulário
+    aberto na internet, e cada campo a mais é dado pessoal guardado sem necessidade.
+    """
+
+    nome: str = Field(min_length=2, max_length=200)
+    email: EmailStr
+    empresa: str | None = Field(default=None, max_length=200)
+    telefone: str | None = Field(default=None, max_length=30)
+    segmento: str | None = Field(default=None, max_length=80)
+    mensagem: str | None = Field(default=None, max_length=2000)
+    #: De onde a pessoa veio: campanha, indicação, busca.
+    origem: str | None = Field(default=None, max_length=200)
+    #: Marcar que aceita ser contatada. É a base legal do contato, então é obrigatório.
+    consentimento: bool
+    #: Campo-armadilha: invisível na página, preenchido só por robô. Chega preenchido, o
+    #: pedido é recusado — sem CAPTCHA, que empurraria o custo do nosso spam para a
+    #: paciência de quem quer falar com a gente.
+    site: str | None = Field(default=None, max_length=200)
+
+
+class LeadOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nome: str
+    empresa: str | None
+    email: str
+    telefone: str | None
+    segmento: str | None
+    mensagem: str | None
+    origem: str | None
+    created_at: datetime
+    consentimento_em: datetime
+    atendido_em: datetime | None
+    observacao: str | None
+
+
+class LeadAtendimentoIn(BaseModel):
+    """O que mudou depois de alguém falar com a pessoa."""
+
+    atendido: bool = True
+    observacao: str | None = Field(default=None, max_length=2000)
+
+
+class LeadRecebidoOut(BaseModel):
+    """A resposta do formulário público.
+
+    Devolve só isto, e sempre isto: dizer mais — "já existe um cadastro com este e-mail",
+    por exemplo — transformaria a página numa forma de descobrir quem é cliente do Decko
+    perguntando de fora.
+    """
+
+    recebido: bool

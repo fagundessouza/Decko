@@ -344,3 +344,47 @@ TENANT_SCOPED_TABLES = (
     TenantModule.__tablename__,
     SeedRecord.__tablename__,
 )
+
+
+class Lead(TimestampMixin, Base):
+    """Quem pediu contato pela página do Decko.
+
+    **Não herda ``TenantMixin``**, como ``Tenant``: um lead ainda não é empresa nenhuma —
+    é gente de fora pedindo para falar com quem vende. Ver
+    ``docs/adr/0021-nivel-de-plataforma.md``.
+
+    **Isto é dado pessoal de terceiro**, e entra pela porta mais aberta que o sistema tem:
+    um formulário público, sem login. Três consequências que estão no código, e não só
+    aqui no comentário:
+
+    - Só o que serve para ligar de volta é pedido. Nada de CPF, nada de endereço.
+    - O consentimento é registrado com a hora — é ele que autoriza o contato.
+    - O IP é guardado por sessenta dias para conter enxurrada de robô, e não para perfilar
+      ninguém; quem apaga é a rotina de limpeza, não a memória de alguém.
+    """
+
+    __tablename__ = "core_lead"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    nome: Mapped[str] = mapped_column(String(200), nullable=False)
+    empresa: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    telefone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    #: O ramo que a pessoa marcou. Texto livre porque a lista da página vai mudar antes
+    #: desta tabela, e um enum faria a página esperar migração para oferecer outro ramo.
+    segmento: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    mensagem: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: De onde a pessoa veio: campanha, indicação, busca. É o que diz o que vale a pena
+    #: pagar — sem isto, anúncio e boca a boca ficam indistinguíveis no fim do mês.
+    origem: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    #: Quando a pessoa marcou que aceita ser contatada. É a base legal do contato.
+    consentimento_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    #: Guardado para conter robô, e apagado pela limpeza. Ver a classe acima.
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    #: Quando alguém falou com a pessoa. Nulo é "ainda não".
+    atendido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
