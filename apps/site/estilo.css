@@ -111,17 +111,7 @@ a {
   gap: 0.6rem;
 }
 
-/* O símbolo vem de `marca.svg`, um arquivo só — é ele que se troca quando a marca
-   oficial for exportada do material de identidade, sem mexer em página nenhuma.
-   Antes isto era desenhado em CSS, e os quadrados saíam para fora da caixa: no cabeçalho
-   grudado no topo eles encostavam na borda da página e pareciam defeito. */
-.marca__simbolo {
-  width: 30px;
-  height: 30px;
-  flex: none;
-  display: block;
-}
-
+/* O nome escrito só sobrou no rodapé, onde o fundo é escuro e a arte da marca sumiria. */
 .marca__nome {
   font-weight: 700;
   font-size: 1.35rem;
@@ -1081,11 +1071,16 @@ button.cartao__link {
 /* No celular estreito cabem símbolo, "Entrar" e botão — mas só sem o nome escrito da
    marca ao lado do símbolo. O símbolo sozinho continua sendo a marca. */
 @media (max-width: 430px) {
-  .topo .marca__nome {
-    display: none;
-  }
-
   .entrar {
     font-size: 0.9rem;
   }
+}
+
+/* A marca passou a ser a arte oficial, e não um desenho aproximado: por isso é imagem, e
+   não símbolo mais texto. A altura manda; a largura segue, porque a palavra e o símbolo
+   têm proporções diferentes e quem troca entre eles é o `picture` do HTML. */
+.marca__logo {
+  display: block;
+  height: 29px;
+  width: auto;
 }

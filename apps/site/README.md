@@ -31,20 +31,46 @@ Ou, de dentro do Claude Code, o alvo `site` do `.claude/launch.json`.
 | `sitemap.xml` | A lista de páginas, para o buscador não depender de achar link por link |
 | `llms.txt` | O resumo do produto para assistentes de IA — ver abaixo |
 | `vercel.json` | Cabeçalhos de segurança e cache |
-| `marca.svg` | O símbolo da marca, usado no cabeçalho das três páginas |
-| `favicon.svg` | O mesmo símbolo dentro do quadrado escuro, para a aba do navegador |
+| `marca.png` | A marca escrita, no cabeçalho das quatro páginas a partir de 560px |
+| `simbolo.png` | Só a folha e o D, no cabeçalho do celular |
+| `favicon.png` | O símbolo no quadrado branco, para a aba do navegador |
+| `apple-touch-icon.png` | O mesmo ícone, para quem salva na tela inicial do iPhone |
+| `og.png` | A imagem que aparece quando o link é colado no WhatsApp ou no LinkedIn |
 
-## Antes de publicar: três arquivos que faltam
+## A marca
 
-Nenhum é bloqueio para subir, e todos melhoram o resultado.
+Os cinco arquivos de imagem saíram da **arte oficial** que o dono do projeto entregou em
+19/11/2026 — não são mais desenho aproximado. O que foi feito com ela:
 
-1. **`og.png`** — 1200×630, a imagem que aparece quando o link é colado no WhatsApp ou no
-   LinkedIn. O `index.html` já aponta para ela. Sem o arquivo, o link vai sem imagem.
-2. **A marca oficial** — `marca.svg` e `favicon.svg` são aproximações desenhadas aqui, a
-   partir da folha de identidade. Quando o arquivo oficial for exportado, **substitua os
-   dois arquivos** e pronto: nenhuma página precisa mudar, porque as três apontam para
-   `/marca.svg`.
-3. **`apple-touch-icon.png`** — 180×180, para quem salva o site na tela inicial do iPhone.
+| Arquivo | Como foi tirado |
+|---|---|
+| `marca.png` | A palavra inteira, recortada e com o fundo claro virado em transparência |
+| `simbolo.png` | Só a folha e o D, até a primeira coluna vazia da palavra |
+| `favicon.png` | O símbolo centralizado num quadrado branco de cantos arredondados |
+| `apple-touch-icon.png` | O mesmo arquivo, 180×180 |
+| `og.png` | A arte inteira, cortada de 16:9 para os 1200×630 que o WhatsApp espera |
+
+**Transparência de verdade, e não retângulo branco.** A arte vem com fundo em degradê. O
+recorte calcula o alfa pela distância entre a luminância do pixel e a do fundo local, e
+depois "desmistura" a cor — sem isso, a borda antisserrilhada carregaria um halo claro que
+aparece em qualquer fundo que não seja branco.
+
+**O cabeçalho troca de arquivo sozinho.** É um `<picture>`: abaixo de 560px entra o
+`simbolo.png`, acima entra a palavra. Com dois `<img>` e `display: none`, o celular
+baixaria os dois.
+
+**O rodapé continua com o nome escrito em texto**, e não com a imagem: o fundo lá é
+escuro, e a marca é azul-petróleo — ela sumiria.
+
+**O recorte é reprodutível.** A arte original e o script que a fatia ficam em
+`infra/marca/` — fora desta pasta de propósito, porque tudo que mora em `apps/site/` vai
+para o ar. Se a arte for reexportada:
+
+```powershell
+uv run --with pillow python infra/marca/extrair-marca.py infra/marca/decko-marca.webp
+```
+
+As coordenadas de corte estão no próprio script, com o motivo de cada uma.
 
 ## A virada do domínio
 
