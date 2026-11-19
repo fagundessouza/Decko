@@ -9,7 +9,7 @@
     <title>Sistema para pulverização agrícola com drone e relatório do MAPA | Decko</title>
     <meta
       name="description"
-      content="Planejamento operacional, clima com registro probatório, croqui do voo e o relatório mensal do MAPA. Importa o registro de voo do DJI SmartFarm e funciona na lavoura sem sinal."
+      content="Planejamento operacional, clima com registro probatório, croqui do voo e o relatório mensal do MAPA. Importa o registro de voo do seu drone e funciona na lavoura sem sinal."
     />
     <link rel="canonical" href="https://decko.app.br/pulverizacao-agricola" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
@@ -94,10 +94,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Dá para importar os voos do DJI SmartFarm?",
+                "name": "Dá para importar os voos do aplicativo do drone?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Sim. Você exporta a planilha de voos do aplicativo, arrasta no Decko e ele lê horário, área aplicada, volume de calda, largura de faixa e altura de voo. Os voos do mesmo talhão no mesmo dia são agrupados numa aplicação, e translado e calibração ficam separados, alimentando o horímetro da aeronave."
+                  "text": "Sim. Você exporta a planilha de voos do aplicativo que já usa, arrasta no Decko e ele lê horário, área aplicada, volume de calda, largura de faixa e altura de voo. Os voos do mesmo talhão no mesmo dia são agrupados numa aplicação, e translado e calibração ficam separados, alimentando o horímetro da aeronave."
                 }
               },
               {
@@ -129,11 +129,7 @@
     <header class="topo">
       <div class="faixa topo__faixa">
         <a class="marca" href="/" aria-label="Decko, página inicial">
-          <span class="marca__simbolo" aria-hidden="true">
-            <span class="marca__pixel"></span>
-            <span class="marca__pixel"></span>
-            <span class="marca__pixel"></span>
-          </span>
+          <img class="marca__simbolo" src="/marca.svg" alt="" width="30" height="30" />
           <span class="marca__nome">Deck<span class="marca__o">O</span></span>
         </a>
         <nav aria-label="Seções da página">
@@ -234,9 +230,10 @@
           <div>
             <h2>O registro de voo do drone entra por arquivo</h2>
             <p>
-              Não existe API pública do SmartFarm, e o log que fica no controle é
-              criptografado. O que existe é a planilha que você já consegue exportar — e é
-              ela que o Decko lê:
+              O aplicativo que acompanha o equipamento não abre os dados para outros
+              sistemas, e o registro que fica no controle é criptografado pelo fabricante.
+              O que existe é a planilha que você já consegue exportar — e é ela que o Decko
+              lê:
             </p>
             <ul class="lista">
               <li>
@@ -245,9 +242,10 @@
                 e as horas de execução somadas.
               </li>
               <li>
-                <strong>A unidade é lida do arquivo, nunca suposta.</strong> A área do
-                SmartFarm costuma vir em <em>mu</em> — 1/15 de hectare. Lê-la como hectare
-                poria no relatório uma área quinze vezes maior, sem erro em tela nenhuma.
+                <strong>A unidade é lida do arquivo, nunca suposta.</strong> A área costuma
+                vir em <em>mu</em> — 1/15 de hectare —, porque é assim que a conta do
+                aplicativo vem configurada. Lê-la como hectare poria no relatório uma área
+                quinze vezes maior, sem erro em tela nenhuma.
               </li>
               <li>
                 <strong>Translado e calibração não são descartados.</strong> Eles ficam
@@ -341,7 +339,7 @@
             </p>
           </details>
           <details>
-            <summary>Dá para importar os voos do DJI SmartFarm?</summary>
+            <summary>Dá para importar os voos do aplicativo do drone?</summary>
             <p>
               Sim, pela planilha que o aplicativo exporta (<code>.xlsx</code> ou
               <code>.csv</code>). O Decko agrupa os voos por talhão e dia, converte a área
@@ -351,9 +349,9 @@
           <details>
             <summary>E o registro que fica no controle remoto?</summary>
             <p>
-              Esse é criptografado pela fabricante, e ler o conteúdo depende dela. Por isso
-              o caminho é a planilha — que funciona hoje, sem depender de ninguém abrir
-              nada.
+              Esse é criptografado pelo fabricante do equipamento, e ler o conteúdo depende
+              dele. Por isso o caminho é a planilha — que funciona hoje, sem depender de
+              ninguém abrir nada.
             </p>
           </details>
           <details>

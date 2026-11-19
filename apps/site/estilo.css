@@ -111,46 +111,15 @@ a {
   gap: 0.6rem;
 }
 
-/* O símbolo é desenhado em CSS de propósito: o arquivo da marca ainda não está exportado
-   em SVG, e um PNG esticado no cabeçalho seria pior do que três quadrados honestos. Troque
-   por `logo.svg` assim que ele existir — o README diz onde. */
+/* O símbolo vem de `marca.svg`, um arquivo só — é ele que se troca quando a marca
+   oficial for exportada do material de identidade, sem mexer em página nenhuma.
+   Antes isto era desenhado em CSS, e os quadrados saíam para fora da caixa: no cabeçalho
+   grudado no topo eles encostavam na borda da página e pareciam defeito. */
 .marca__simbolo {
-  position: relative;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: linear-gradient(135deg, var(--carvao), var(--carvao-claro));
+  width: 30px;
+  height: 30px;
   flex: none;
-}
-
-.marca__pixel {
-  position: absolute;
-  background: var(--verde-claro);
-  border-radius: 2px;
-}
-
-.marca__pixel:nth-child(1) {
-  width: 7px;
-  height: 7px;
-  left: -5px;
-  top: 2px;
-}
-
-.marca__pixel:nth-child(2) {
-  width: 5px;
-  height: 5px;
-  left: -9px;
-  top: 11px;
-  opacity: 0.8;
-}
-
-.marca__pixel:nth-child(3) {
-  width: 9px;
-  height: 9px;
-  left: 8px;
-  bottom: 4px;
-  border-radius: 0 9px 0 9px;
-  background: var(--verde);
+  display: block;
 }
 
 .marca__nome {

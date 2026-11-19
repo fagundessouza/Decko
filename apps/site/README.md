@@ -29,7 +29,8 @@ Ou, de dentro do Claude Code, o alvo `site` do `.claude/launch.json`.
 | `sitemap.xml` | A lista de páginas, para o buscador não depender de achar link por link |
 | `llms.txt` | O resumo do produto para assistentes de IA — ver abaixo |
 | `vercel.json` | Cabeçalhos de segurança e cache |
-| `favicon.svg` | Marca provisória, desenhada em SVG |
+| `marca.svg` | O símbolo da marca, usado no cabeçalho das três páginas |
+| `favicon.svg` | O mesmo símbolo dentro do quadrado escuro, para a aba do navegador |
 
 ## Antes de publicar: três arquivos que faltam
 
@@ -37,9 +38,10 @@ Nenhum é bloqueio para subir, e todos melhoram o resultado.
 
 1. **`og.png`** — 1200×630, a imagem que aparece quando o link é colado no WhatsApp ou no
    LinkedIn. O `index.html` já aponta para ela. Sem o arquivo, o link vai sem imagem.
-2. **`logo.svg`** — a marca exportada do material de identidade. Hoje o cabeçalho desenha
-   um símbolo provisório em CSS (`.marca__simbolo`), e o favicon é um SVG aproximado.
-   Quando o arquivo oficial existir, troque os dois.
+2. **A marca oficial** — `marca.svg` e `favicon.svg` são aproximações desenhadas aqui, a
+   partir da folha de identidade. Quando o arquivo oficial for exportado, **substitua os
+   dois arquivos** e pronto: nenhuma página precisa mudar, porque as três apontam para
+   `/marca.svg`.
 3. **`apple-touch-icon.png`** — 180×180, para quem salva o site na tela inicial do iPhone.
 
 ## O domínio: uma decisão que precisa ser tomada antes
@@ -139,6 +141,20 @@ são as perguntas frequentes.
 Quando mudar o que o Decko faz, mude os dois: o `llms.txt` e o bloco `FAQPage` do
 `index.html`. Descrição velha em dado estruturado é pior do que nenhuma — ela faz o
 buscador afirmar com confiança algo que não é mais verdade.
+
+## Marca de terceiro não entra no texto
+
+Decisão do dono do projeto, em 18/11/2026: o site não cita o nome de aplicativo,
+fabricante ou concorrente. O texto fala do **equipamento** e do **aplicativo que
+acompanha o equipamento**, nunca do nome deles.
+
+São dois motivos, e os dois valem. O primeiro é jurídico: marca registrada de terceiro em
+página comercial é terreno de quem tem advogado, e o ganho é nenhum. O segundo é de
+produto: citar um fabricante faz o cliente de outro achar que o Decko não serve para ele —
+e o leitor de planilha de voo não liga para a marca do drone.
+
+A documentação interna (`docs/`) continua citando formatos e nomes reais: lá a precisão é
+que vale, e ninguém de fora lê.
 
 ## A esteira de marcas do rodapé
 

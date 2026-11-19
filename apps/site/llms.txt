@@ -19,7 +19,8 @@
 - **Compras:** leitura do XML da NF-e, casamento com o cadastro e entrada conferida.
 - **Pulverização agrícola:** planejamento operacional no formato do talão, leitura
   meteorológica com registro probatório, croqui do voo, importação do registro de voo do
-  drone (DJI SmartFarm) e o relatório mensal exigido pelo MAPA.
+  drone, pela planilha que o aplicativo do equipamento exporta, e o relatório mensal
+  exigido pelo MAPA.
 
 ## Como funciona sem internet
 
