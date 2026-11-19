@@ -7,7 +7,7 @@
     <title>Sistema para distribuidora: estoque por embalagem, nota e caixa | Decko</title>
     <meta
       name="description"
-      content="Controle de estoque por unidade, caixa e fardo, entrada pelo XML da nota, lote e validade, e caixa que vende sem internet. O que ainda não existe para distribuidora está dito aqui."
+      content="Controle de estoque por unidade, caixa e fardo, cadastro de produto automatizado, lote e validade, e caixa que vende sem internet. O que ainda não existe para distribuidora está dito aqui."
     />
     <link rel="canonical" href="https://decko.app.br/sistema-para-distribuidora" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
@@ -22,7 +22,7 @@
     />
     <meta
       property="og:description"
-      content="Unidade, caixa e fardo no mesmo produto. Entrada pelo XML da nota, lote e validade, e o caixa funcionando com a internet caída."
+      content="Unidade, caixa e fardo no mesmo produto. Cadastro de produto automatizado, lote e validade, e o caixa funcionando com a internet caída."
     />
     <meta property="og:url" content="https://decko.app.br/sistema-para-distribuidora" />
     <meta property="og:image" content="https://decko.app.br/og.png" />
@@ -81,14 +81,6 @@
               },
               {
                 "@type": "Question",
-                "name": "O Decko emite nota fiscal para a distribuidora?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Não. Ele lê o XML da nota que o fornecedor manda e dá entrada no estoque, mas não emite NF-e nem NFC-e. Para uma distribuidora, isso costuma ser decisivo, e por isso está dito logo: hoje o Decko serve ao controle interno, e a emissão entra com o módulo fiscal, em desenvolvimento."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "Tem romaneio, acerto de rota e pedido de vendedor externo?",
                 "acceptedAnswer": {
                   "@type": "Answer",
@@ -142,10 +134,10 @@
             <span class="destaque">não é mais sua</span>.
           </h1>
           <p class="heroi__texto">
-            Embalagem em árvore, entrada pelo XML da nota do fornecedor, lote e validade, e
-            um caixa que não para quando a internet para. É o que já está pronto. O que
-            ainda não existe para distribuidora está dito nesta mesma página, mais abaixo —
-            antes de você marcar uma reunião.
+            Embalagem em árvore, cadastro de produto automatizado na entrada, lote e
+            validade, e um caixa que não para quando a internet para. É o que já está
+            pronto. O que ainda não existe para distribuidora está dito nesta mesma página,
+            mais abaixo — antes de você marcar uma reunião.
           </p>
           <div class="heroi__acoes">
             <a class="botao" href="#contato">Quero conversar</a>
@@ -172,11 +164,11 @@
               </p>
             </article>
             <article class="cartao">
-              <h3>Entrada pelo XML da nota</h3>
+              <h3>Cadastro de produto automatizado</h3>
               <p>
-                O fornecedor manda o arquivo, o sistema lê, propõe o casamento com o seu
-                cadastro e você confirma. Quem recebe nota todo dia sente a diferença na
-                primeira semana.
+                A carga que chega traz os produtos para o seu cadastro, já casados com o que
+                existe. Você confere na tela e confirma — quem recebe mercadoria todo dia
+                sente a diferença na primeira semana.
               </p>
             </article>
             <article class="cartao">
@@ -257,12 +249,6 @@
 
           <ul class="lista lista--alerta">
             <li>
-              <strong>Não emite nota fiscal.</strong> O Decko lê o XML que o fornecedor
-              manda e dá entrada no estoque, mas não emite NF-e nem NFC-e. Para
-              distribuidora isso costuma ser decisivo. A emissão entra com o módulo fiscal,
-              que está em desenvolvimento.
-            </li>
-            <li>
               <strong>Não tem romaneio nem acerto de rota.</strong> Carregamento por
               veículo, conferência de retorno e acerto com o motorista não foram
               construídos.
@@ -295,13 +281,6 @@
               Sim. As embalagens são cadastradas em árvore e toda movimentação é convertida
               para a unidade base. Você recebe em fardo e vende em unidade sem fazer a conta
               de cabeça.
-            </p>
-          </details>
-          <details>
-            <summary>Emite nota fiscal?</summary>
-            <p>
-              Não. Lê o XML da nota de entrada, mas não emite NF-e nem NFC-e — a emissão
-              entra com o módulo fiscal, em desenvolvimento.
             </p>
           </details>
           <details>

@@ -4,27 +4,25 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- O título é o que aparece na aba do Google, e ele tem ~60 caracteres de espaço:
-         o que passa disso é cortado com reticências. Primeiro o que a pessoa procura
-         ("sistema de gestão"), depois a marca. -->
-    <title>Decko — ERP modular para comércio, estoque e distribuição</title>
+    <title>Decko — sistema de gestão para comércio, estoque e distribuição</title>
     <meta
       name="description"
-      content="Sistema de gestão modular para supermercado, ferragista, material de construção, distribuidora, restaurante e agro: PDV, estoque, compras, clientes e financeiro. Monte só os módulos que a sua empresa usa."
+      content="Sistema de gestão para supermercado, ferragista, material de construção, distribuidora, restaurante e loja de balcão. Caixa rápido, estoque sempre certo e cadastro de produto automatizado. Fale com um consultor."
     />
     <link rel="canonical" href="https://decko.app.br/" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#0F172A" />
 
-    <!-- O que aparece quando o link é colado no WhatsApp, no LinkedIn ou no X. Sem isto,
-         o link vira texto cru — e link cru em grupo de WhatsApp quase não é clicado. -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pt_BR" />
     <meta property="og:site_name" content="Decko" />
-    <meta property="og:title" content="Decko — ERP e PDV modular que funciona sem internet" />
+    <meta
+      property="og:title"
+      content="Decko — sistema de gestão para comércio, estoque e distribuição"
+    />
     <meta
       property="og:description"
-      content="A venda fecha no aparelho mesmo com a internet caída e sobe sozinha quando ela volta — uma vez só, com o estoque batendo. PDV, estoque, financeiro e agro."
+      content="Caixa que não para, estoque que bate e cadastro de produto automatizado. Monte só os módulos que a sua empresa usa."
     />
     <meta property="og:url" content="https://decko.app.br/" />
     <meta property="og:image" content="https://decko.app.br/og.png" />
@@ -39,10 +37,6 @@
     />
     <link rel="stylesheet" href="/estilo.css" />
 
-    <!-- Dados estruturados. É o que faz o buscador e os assistentes entenderem **o que**
-         esta página é, em vez de adivinharem pelo texto. Três blocos, e cada um responde
-         uma pergunta diferente: quem é a empresa, o que é o produto, e o que as pessoas
-         perguntam antes de comprar. -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -52,8 +46,8 @@
             "@id": "https://decko.app.br/#organizacao",
             "name": "Decko",
             "url": "https://decko.app.br/",
-            "logo": "https://decko.app.br/logo.svg",
-            "description": "Plataforma de gestão modular para comércio e agronegócio, com ponto de venda, estoque, financeiro e documentação do MAPA.",
+            "logo": "https://decko.app.br/marca.svg",
+            "description": "Sistema de gestão modular para comércio, estoque, distribuição e serviço em campo.",
             "areaServed": { "@type": "Country", "name": "Brasil" },
             "knowsLanguage": "pt-BR"
           },
@@ -62,19 +56,18 @@
             "@id": "https://decko.app.br/#produto",
             "name": "Decko",
             "applicationCategory": "BusinessApplication",
-            "applicationSubCategory": "ERP, PDV",
+            "applicationSubCategory": "ERP, PDV, Controle de estoque",
             "operatingSystem": "Web, Android, Windows, Linux",
             "url": "https://decko.app.br/",
             "publisher": { "@id": "https://decko.app.br/#organizacao" },
             "inLanguage": "pt-BR",
             "featureList": [
-              "Ponto de venda que opera sem internet",
-              "Controle de estoque com entrada por XML da nota",
-              "Cadastro de clientes e carteira",
-              "Contas a pagar e a receber",
-              "Planejamento operacional de pulverização agrícola",
-              "Importação do registro de voo do drone",
-              "Relatório mensal para o MAPA"
+              "Caixa que continua vendendo sem internet",
+              "Controle de estoque com saldo conferido a cada venda",
+              "Cadastro de produto automatizado pela entrada de mercadoria",
+              "Clientes e contas a receber",
+              "Contas a pagar e fechamento de caixa",
+              "Documentação de serviço em campo"
             ],
             "offers": {
               "@type": "Offer",
@@ -97,34 +90,34 @@
             "mainEntity": [
               {
                 "@type": "Question",
-                "name": "O Decko funciona sem internet?",
+                "name": "Serve para o meu ramo?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Sim. O ponto de venda compõe e fecha a venda no próprio aparelho, o cadastro de clientes continua funcionando e o planejamento de pulverização é preenchido na lavoura. O que foi feito sobe sozinho quando a conexão volta, sem ninguém pedir."
+                  "text": "Se a sua empresa compra, guarda e vende, serve: supermercado, ferragista, material de construção, distribuidora, restaurante, lanchonete e loja de balcão em geral. O que muda de um ramo para outro é o conjunto de módulos, e isso já vem configurado na contratação."
                 }
               },
               {
                 "@type": "Question",
-                "name": "O Decko emite nota fiscal?",
+                "name": "Quanto tempo até eu estar usando?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Ainda não. A venda registra a saída do estoque e o Decko lê o XML da nota do fornecedor para dar entrada. A emissão de cupom e nota entra com o módulo fiscal, que está em desenvolvimento."
+                  "text": "No mesmo dia. Não existe projeto de implantação de meses: você contrata o ramo, o sistema já entra configurado com o que aquele tipo de empresa usa, e a equipe começa pelo caixa."
                 }
               },
               {
                 "@type": "Question",
-                "name": "O Decko serve para empresa de pulverização agrícola?",
+                "name": "E se a internet cair no meio do movimento?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Sim, e é o módulo mais fundo do sistema: planejamento operacional no formato do talão, leitura meteorológica com registro probatório, croqui a partir do voo, importação do registro de voo do drone e o relatório mensal exigido pelo MAPA."
+                  "text": "A venda continua. O caixa fecha a venda no próprio aparelho e acerta tudo sozinho quando a conexão volta, com o estoque já atualizado e sem ninguém redigitar nada."
                 }
               },
               {
                 "@type": "Question",
-                "name": "Quanto custa o Decko?",
+                "name": "Se eu sair, levo meus dados?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "A assinatura é mensal e depende dos módulos contratados: o cliente escolhe o ramo da empresa e o sistema instala o que aquele segmento usa. Peça uma conversa pelo formulário para receber o valor do seu caso."
+                  "text": "Sim. Clientes, produtos e vendas saem em planilha que abre no Excel, sem taxa e sem prazo."
                 }
               }
             ]
@@ -143,380 +136,210 @@
           <img class="marca__simbolo" src="/marca.svg" alt="" width="30" height="30" />
           <span class="marca__nome">Deck<span class="marca__o">O</span></span>
         </a>
-        <!-- Cinco itens, e não oito: menu que quebra em duas linhas empurra o botão
-             de contato para fora do lugar e passa a impressão de site desalinhado. O
-             que saiu daqui continua alcançável pelo corpo da página e pelo rodapé. -->
         <nav aria-label="Seções da página">
-          <a href="#para-quem">Para quem</a>
-          <a href="#diferenca">Diferença</a>
-          <a href="/pulverizacao-agricola">Agro</a>
-          <a href="/pdv-para-loja">Loja</a>
+          <a href="#ramos">Para quem é</a>
+          <a href="#resolve">O que resolve</a>
+          <a href="#comparar">Comparar</a>
           <a href="#perguntas">Perguntas</a>
         </nav>
-        <a class="botao botao--pequeno" href="#contato">Falar com a gente</a>
+        <a class="botao botao--pequeno" href="#contato">Falar com consultor</a>
       </div>
     </header>
 
     <main id="conteudo">
       <section class="heroi">
         <div class="faixa heroi__faixa">
-          <p class="selo">
-            Comércio · Estoque · Distribuição · Serviço em campo
-          </p>
+          <p class="selo">Comércio · Estoque · Distribuição · Serviço em campo</p>
           <h1>
-            O sistema de gestão que você monta
-            <span class="destaque">do jeito que a sua empresa trabalha</span>.
+            Pare de descobrir no fim do mês que o estoque
+            <span class="destaque">não bate</span>.
           </h1>
           <p class="heroi__texto">
-            Você escolhe o ramo e já entra operando com o que ele usa — e liga ou desliga
-            módulo quando quiser, sem projeto de implantação e sem pagar por tela que nunca
-            abre. Rápido o bastante para o balcão com fila, leve o bastante para o
-            computador que você já tem, e teimoso o bastante para continuar vendendo quando
-            a internet cai.
+            Caixa rápido, estoque conferido a cada venda e produto cadastrado sozinho. Um
+            consultor entende a sua operação e mostra como fica na sua empresa.
           </p>
           <div class="heroi__acoes">
-            <a class="botao" href="#contato">Falar com quem escreve o sistema</a>
-            <a class="botao botao--vazado" href="#diferenca">Ver as diferenças</a>
+            <a class="botao" href="#contato">Quero falar com um consultor</a>
+            <a class="botao botao--vazado" href="#resolve">O que ele resolve</a>
           </div>
           <p class="heroi__nota">
-            Assinatura mensal pelos módulos que você usa · Você entra operando no mesmo dia
-            · Seus dados saem em planilha quando você quiser
+            Começa a usar no mesmo dia · Assinatura mensal · Seus dados saem em planilha
+            quando você quiser
           </p>
         </div>
       </section>
 
-      <!-- A barra de prova. Substitui o mural de logos que a gente não tem: em vez de
-           dizer "confiam em nós", mostra o que dá para conferir. -->
-      <section class="prova" aria-label="O que dá para conferir sobre o Decko">
+      <!-- Benefício em quatro palavras-chave, para quem passa o olho e não lê. -->
+      <section class="prova" aria-label="O que você ganha">
         <div class="faixa prova__faixa">
           <div class="prova__item">
-            <p class="prova__numero">Em produção</p>
+            <p class="prova__numero">Vende sempre</p>
             <p class="prova__texto">
-              Operação de pulverização agrícola usando todo dia, com documento indo ao MAPA
+              Internet caiu, o caixa continua. Sem anotar em papel e redigitar depois
             </p>
           </div>
           <div class="prova__item">
-            <p class="prova__numero">1.000+</p>
+            <p class="prova__numero">Estoque certo</p>
             <p class="prova__texto">
-              Testes automáticos que falham se alguém quebrar uma regra do seu negócio
+              Cada venda baixa na hora. O saldo da tela é o da prateleira
             </p>
           </div>
           <div class="prova__item">
-            <p class="prova__numero">Art. 10 e 11</p>
+            <p class="prova__numero">No mesmo dia</p>
             <p class="prova__texto">
-              Da Portaria MAPA 298/2021, conferidos exigência por exigência no documento
+              Sem projeto de implantação e sem consultoria paga para começar
             </p>
           </div>
           <div class="prova__item">
-            <p class="prova__numero">1,7 GB</p>
+            <p class="prova__numero">Só o que usa</p>
             <p class="prova__texto">
-              A memória do servidor que atende o primeiro cliente — o sistema inteiro cabe
-              ali
+              Liga e desliga módulo quando precisar, e paga pelo que está ligado
             </p>
           </div>
         </div>
       </section>
 
-      <section id="para-quem" class="secao">
+      <section id="resolve" class="secao">
         <div class="faixa">
-          <h2>Para empresa que vende, estoca e entrega</h2>
-          <p class="secao__texto">
-            O Decko não é sistema de um ramo só. A base — produto, estoque, caixa, clientes,
-            compras e financeiro — serve a qualquer empresa que compre, guarde e venda; o
-            que muda de um ramo para outro é o que entra por cima dela.
-          </p>
-
-          <div class="ramos">
-            <article class="ramo">
-              <h3>Supermercado e mercearia</h3>
-              <p>
-                Caixa rápido com leitor, controle de validade e entrada das notas do
-                fornecedor sem redigitar item por item.
-              </p>
-            </article>
-            <article class="ramo">
-              <h3>Ferragista e material de construção</h3>
-              <p>
-                Catálogo grande com busca por código, venda por unidade ou pacote, e saldo
-                que não depende de alguém lembrar de dar baixa.
-              </p>
-            </article>
-            <article class="ramo">
-              <h3>Distribuidora e atacado</h3>
-              <p>
-                Fardo, caixa e unidade do mesmo produto, com a conversão feita pelo sistema.
-                <a class="cartao__link" href="/sistema-para-distribuidora">Ver a página →</a>
-              </p>
-            </article>
-            <article class="ramo">
-              <h3>Restaurante e lanchonete</h3>
-              <p>
-                Caixa com recebimento dividido, controle do que sai do estoque e fechamento
-                que bate com a gaveta.
-              </p>
-            </article>
-            <article class="ramo">
-              <h3>Loja de balcão em geral</h3>
-              <p>
-                Roupa, peça, papelaria, pet: onde existe balcão, fila e estoque, o caixa é o
-                mesmo.
-                <a class="cartao__link" href="/pdv-para-loja">Ver a página →</a>
-              </p>
-            </article>
-            <article class="ramo">
-              <h3>Serviço em campo</h3>
-              <p>
-                Equipe que trabalha longe do escritório, com documento que precisa sair
-                certo — como a pulverização agrícola.
-                <a class="cartao__link" href="/pulverizacao-agricola">Ver a página →</a>
-              </p>
-            </article>
-          </div>
-
-          <p class="secao__nota">
-            Não achou o seu ramo? A base atende empresa que vende e controla estoque, seja
-            qual for o produto. <a class="cartao__link" href="#contato">Conte o seu caso →</a>
-          </p>
-        </div>
-      </section>
-
-      <section id="diferenca" class="secao">
-        <div class="faixa">
-          <h2>Quatro coisas que a gente faz diferente — e o porquê de cada uma</h2>
-          <p class="secao__texto">
-            Não é "mais fácil de usar" nem "pensado para você". São decisões de engenharia
-            que dão para conferir, e cada uma tem um custo que a gente aceitou de propósito.
-          </p>
-
-          <div class="cartoes cartoes--numerados">
-            <article class="cartao">
-              <p class="cartao__numero">01</p>
-              <h3>Você monta o sistema, não escolhe entre pacotes prontos</h3>
-              <p>
-                Cada módulo é uma peça inteira — caixa, estoque, clientes, financeiro,
-                compras, pulverização — e você liga só os que usa. Precisou de mais,
-                acrescenta em um clique, sem reimplantação e sem migrar nada.
-              </p>
-              <p class="cartao__prova">
-                <strong>Por que isso é raro:</strong> o caminho comum é comprar módulos
-                avulsos e pagar consultoria para alguém montar o seu segmento. Aqui o ramo
-                já vem como conjunto: contratar deixa configurado o que aquele tipo de
-                empresa usa, e o que você não contratou fica invisível na tela de quem
-                opera.
-              </p>
-            </article>
-
-            <article class="cartao">
-              <p class="cartao__numero">02</p>
-              <h3>Rápido onde a velocidade decide: no balcão</h3>
-              <p>
-                O campo do código mantém o foco entre uma bipada e outra, as teclas de
-                função recebem o pagamento, e a tela não recarrega a cada item. Quem atende
-                não tira a mão do teclado.
-              </p>
-              <p class="cartao__prova">
-                <strong>Como foi feito:</strong> peso de página e consulta lenta são
-                tratados como defeito, com prazo para corrigir — e não como "a internet do
-                cliente". O alvo é o PC de caixa com oito anos de uso, não a máquina do
-                escritório.
-              </p>
-            </article>
-
-            <article class="cartao">
-              <p class="cartao__numero">03</p>
-              <h3>Sem internet é um estado normal, não um modo de emergência</h3>
-              <p>
-                No padrão do mercado, trabalhar offline é um recurso do caixa: o resto do
-                sistema — cadastro, estoque, documento de campo — exige servidor respondendo.
-                Aqui a operação inteira foi desenhada para a falta de rede.
-              </p>
-              <p class="cartao__prova">
-                <strong>Como funciona:</strong> cada registro feito offline nasce com
-                identidade própria, então mandar duas vezes não vira dois registros. A fila
-                sobe sozinha, na ordem em que as coisas aconteceram. E quando duas pessoas
-                mexem no mesmo dado, a divergência é mostrada com endereço — qual venda,
-                qual produto, quanto faltou — em vez de o sistema escolher sozinho uma
-                versão.
-              </p>
-            </article>
-
-            <article class="cartao">
-              <p class="cartao__numero">04</p>
-              <h3>Cabe no equipamento que a sua empresa já comprou</h3>
-              <p>
-                ERP tradicional pede servidor dedicado e máquina de escritório. Aqui o alvo
-                é o computador antigo do caixa e o celular simples de quem está na rua.
-              </p>
-              <p class="cartao__prova">
-                <strong>Prova disso:</strong> o servidor que atende o primeiro cliente em
-                produção é uma caixinha com 1,7 GB de memória, do tamanho de um livro, com
-                cópia diária e religamento automático depois de queda de energia. Se roda
-                ali, roda na sua loja.
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section id="modulos" class="secao">
-        <div class="faixa">
-          <h2>Um sistema por ramo, e não um sistema genérico</h2>
-          <p class="secao__texto">
-            Cada módulo resolve uma dor inteira, e só entra se a empresa precisar dele. O
-            que você não contrata não aparece na tela de ninguém.
-          </p>
+          <h2>As quatro dores que ele tira da sua semana</h2>
 
           <div class="cartoes">
             <article class="cartao">
-              <h3>Ponto de venda</h3>
+              <h3>Estoque que ninguém confia</h3>
               <p>
-                Balcão com leitor de código de barras, recebimento em dinheiro, débito,
-                crédito e Pix, sangria, devolução e fechamento de caixa com conferência
-                cega.
+                Compra o que já tinha, falta o que vendia, e o inventário vira briga. Aqui o
+                saldo sai do que de fato entrou e saiu, com aviso do que está acabando.
               </p>
-              <p><a class="cartao__link" href="/pdv-para-loja">Ver o PDV por dentro →</a></p>
+              <button class="cartao__link" type="button" data-abre="m-estoque">
+                Como funciona
+              </button>
             </article>
+
             <article class="cartao">
-              <h3>Estoque e produtos</h3>
+              <h3>Cadastrar produto um por um</h3>
               <p>
-                Entrada pelo XML da nota do fornecedor, razão de movimentação, lote e
-                validade, aviso do que está acabando e do que está vencendo.
+                Chegou mercadoria nova e alguém passa a tarde digitando. Aqui o cadastro
+                entra automatizado pela entrada: você confere e confirma.
               </p>
-              <p>
-                <a class="cartao__link" href="/sistema-para-distribuidora">
-                  Para distribuidora e atacado →
-                </a>
-              </p>
+              <button class="cartao__link" type="button" data-abre="m-cadastro">
+                Como funciona
+              </button>
             </article>
+
             <article class="cartao">
-              <h3>Clientes</h3>
+              <h3>Fila parada quando a internet cai</h3>
               <p>
-                Carteira com documento conferido pelo dígito verificador, histórico de
-                compras e venda identificada no caixa.
+                O cliente vai embora e a venda some. Aqui o caixa fecha a venda do mesmo
+                jeito e acerta tudo sozinho quando a conexão volta.
               </p>
+              <button class="cartao__link" type="button" data-abre="m-caixa">
+                Como funciona
+              </button>
             </article>
+
             <article class="cartao">
-              <h3>Financeiro</h3>
+              <h3>Não saber quanto sobrou</h3>
               <p>
-                Contas a pagar e a receber, contas de recebimento por forma de pagamento e
-                o fechamento do caixa batendo com o que entrou.
+                Dinheiro na gaveta, Pix na conta, cartão a receber e a conta do fornecedor
+                vencendo. Aqui isso fecha no mesmo lugar, todo dia.
               </p>
-            </article>
-            <article class="cartao">
-              <h3>Compras</h3>
-              <p>
-                O fornecedor manda o XML, o sistema lê, propõe o casamento com o seu
-                cadastro e você confirma. O estoque entra conferido.
-              </p>
-            </article>
-            <article class="cartao cartao--destaque">
-              <h3>Pulverização agrícola</h3>
-              <p>
-                Planejamento operacional no formato do talão, clima com registro
-                probatório, croqui do voo e o relatório mensal que o MAPA exige.
-              </p>
-              <p>
-                <a class="cartao__link" href="/pulverizacao-agricola">
-                  Ver o módulo agro por dentro →
-                </a>
-              </p>
+              <button class="cartao__link" type="button" data-abre="m-financeiro">
+                Como funciona
+              </button>
             </article>
           </div>
         </div>
       </section>
 
-      <section id="offline" class="secao secao--escura">
-        <div class="faixa duas-colunas">
-          <div>
-            <h2>O que você já perdeu este mês sem perceber</h2>
-            <p>
-              Meia hora de internet fora num sábado é fila indo embora e caixa fechando sem
-              bater. Estoque que não confere vira compra repetida do que já tinha e falta do
-              que vendia. E documento preenchido de memória, à noite, é multa esperando
-              fiscal — no agro, a sanção prevista vai de multa a suspensão do registro.
-            </p>
-            <p>
-              Nenhuma dessas perdas aparece numa linha do extrato. É por isso que elas
-              continuam acontecendo:
-            </p>
-            <ul class="lista">
-              <li>
-                <strong>A venda acontece no aparelho.</strong> O item entra pelo catálogo
-                guardado, a conta é feita ali, a venda fecha e sobe inteira quando a rede
-                voltar.
-              </li>
-              <li>
-                <strong>Recarregar a página não derruba ninguém.</strong> A sessão fica
-                guardada no aparelho e reabre o sistema por até 30 dias sem sincronizar.
-              </li>
-              <li>
-                <strong>Nada é perdido e nada é duplicado.</strong> O que você fez sem rede
-                tem identidade própria: mandar duas vezes não vira dois registros.
-              </li>
-              <li>
-                <strong>A divergência aparece.</strong> Se dois caixas venderam o mesmo
-                último item, o saldo negativo é mostrado com endereço — qual venda, qual
-                produto, quanto faltou.
-              </li>
-            </ul>
-          </div>
-          <div class="quadro">
-            <p class="quadro__titulo">Feito para o hardware que você já tem</p>
-            <p>
-              O alvo inclui PC antigo de caixa e celular fraco. Peso de pacote e consulta
-              lenta são tratados como defeito, não como detalhe — o Decko roda hoje em um
-              servidor do tamanho de um livro.
-            </p>
-            <p class="quadro__titulo">Seus dados, isolados no banco</p>
-            <p>
-              A separação entre empresas é feita pelo PostgreSQL, com política no próprio
-              banco. Não é um filtro na consulta que alguém pode esquecer de escrever.
-            </p>
+      <section id="comparar" class="secao secao--escura">
+        <div class="faixa">
+          <h2>Como costuma ser, e como é aqui</h2>
+          <p class="secao__texto">
+            A comparação não é com um concorrente específico: é com o que a maioria dos
+            sistemas de gestão faz hoje, e que o lojista já conhece de perto.
+          </p>
+
+          <div class="tabela-rolante">
+            <table class="tabela tabela--comparar">
+              <caption class="esconde">
+                Comparação entre o padrão do mercado e o Decko
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Na hora de</th>
+                  <th scope="col">O que costuma acontecer</th>
+                  <th scope="col">No Decko</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Começar a usar</td>
+                  <td>Projeto de implantação de semanas, com consultoria à parte</td>
+                  <td>Contratou, começou — já configurado para o seu ramo</td>
+                </tr>
+                <tr>
+                  <td>A internet cair</td>
+                  <td>Caixa travado, venda no papel e redigitação depois</td>
+                  <td>A venda fecha e acerta sozinha quando a conexão volta</td>
+                </tr>
+                <tr>
+                  <td>Crescer a equipe</td>
+                  <td>Mensalidade sobe a cada usuário novo</td>
+                  <td>A conta é pelos módulos que a empresa usa</td>
+                </tr>
+                <tr>
+                  <td>Entrar mercadoria</td>
+                  <td>Digitar produto por produto a cada compra</td>
+                  <td>Cadastro automatizado, para conferir e confirmar</td>
+                </tr>
+                <tr>
+                  <td>Usar o que precisa</td>
+                  <td>Pacote fechado, com telas que a sua empresa nunca vai abrir</td>
+                  <td>Liga e desliga módulo quando quiser</td>
+                </tr>
+                <tr>
+                  <td>Querer sair</td>
+                  <td>Exportação cobrada, demorada ou "fale com o comercial"</td>
+                  <td>Seus dados saem em planilha, na hora, sem taxa</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      <section id="agro" class="secao">
-        <div class="faixa duas-colunas">
-          <div>
-            <h2>Para quem pulveriza: o documento sai pronto</h2>
-            <p>
-              O relatório da aviação agrícola é obrigatório, vai ao MAPA até o dia 15 do mês
-              seguinte, e hoje é preenchido à mão — muitas vezes de memória. O Decko fecha
-              esse caminho inteiro:
-            </p>
-            <ul class="lista">
-              <li>
-                <strong>O registro de voo do drone entra por arquivo.</strong> Você exporta
-                a planilha do aplicativo, o sistema lê, agrupa os voos de cada talhão e
-                mostra área, calda, dose e horas de execução para você conferir.
-              </li>
-              <li>
-                <strong>Translado e calibração não são descartados.</strong> Eles ficam
-                separados do que foi aplicado e alimentam o horímetro da aeronave.
-              </li>
-              <li>
-                <strong>O clima vira prova.</strong> Cada leitura guarda fonte, hora e o
-                retorno íntegro do provedor — o que faz diferença numa disputa de deriva.
-              </li>
-              <li>
-                <strong>Nada é gravado sem você confirmar.</strong> O sistema propõe; quem
-                assina o documento decide.
-              </li>
-            </ul>
-            <p class="secao__nota">
-              <a class="cartao__link" href="/pulverizacao-agricola">
-                Ver tudo o que o módulo de pulverização faz →
-              </a>
-            </p>
-          </div>
-          <div class="quadro quadro--verde">
-            <p class="quadro__titulo">Por que isso importa</p>
-            <p>
-              Relatório errado ou divergente não é só retrabalho: a sanção prevista vai de
-              multa a suspensão e cancelamento do registro. O sistema foi construído para
-              recusar o que não consegue garantir, em vez de preencher por palpite.
-            </p>
+      <section id="ramos" class="secao">
+        <div class="faixa">
+          <h2>Para empresa que vende, estoca e entrega</h2>
+          <p class="secao__texto">
+            Toque no seu ramo para ver o que muda. Sem sair desta página.
+          </p>
+
+          <div class="ramos">
+            <button class="ramo" type="button" data-abre="m-supermercado">
+              <h3>Supermercado e mercearia</h3>
+              <p>Caixa com leitor, validade controlada e entrada rápida de mercadoria.</p>
+            </button>
+            <button class="ramo" type="button" data-abre="m-ferragista">
+              <h3>Ferragista e material de construção</h3>
+              <p>Catálogo grande, venda por unidade ou pacote, saldo sempre batendo.</p>
+            </button>
+            <button class="ramo" type="button" data-abre="m-distribuidora">
+              <h3>Distribuidora e atacado</h3>
+              <p>Fardo, caixa e unidade do mesmo produto, com conversão automática.</p>
+            </button>
+            <button class="ramo" type="button" data-abre="m-restaurante">
+              <h3>Restaurante e lanchonete</h3>
+              <p>Recebimento dividido, controle do que sai e fechamento que bate.</p>
+            </button>
+            <button class="ramo" type="button" data-abre="m-loja">
+              <h3>Loja de balcão em geral</h3>
+              <p>Roupa, peça, papelaria, pet: onde há fila e estoque, o caixa é o mesmo.</p>
+            </button>
+            <button class="ramo" type="button" data-abre="m-campo">
+              <h3>Serviço em campo</h3>
+              <p>Equipe longe do escritório, com documento que precisa sair certo.</p>
+            </button>
           </div>
         </div>
       </section>
@@ -524,203 +347,78 @@
       <section id="garantia" class="secao secao--escura">
         <div class="faixa">
           <h2>O risco de experimentar não é seu</h2>
-          <p class="secao__texto">
-            Trocar de sistema assusta por três motivos, e todos têm a ver com ficar preso.
-            Então os três estão resolvidos por escrito, antes de você perguntar:
-          </p>
-
           <div class="cartoes">
             <article class="cartao">
-              <h3>Seus dados saem quando você quiser</h3>
+              <h3>Seus dados são seus</h3>
               <p>
-                Clientes, produtos, vendas e pedidos saem em planilha que abre no Excel —
-                sem taxa, sem prazo, sem precisar pedir para alguém. Se um dia você sair,
-                sai com tudo na mão.
+                Clientes, produtos e vendas saem em planilha quando você quiser, sem taxa e
+                sem prazo.
               </p>
             </article>
             <article class="cartao">
-              <h3>Sem projeto de implantação</h3>
+              <h3>Sem obra para começar</h3>
               <p>
-                Você contrata o ramo e entra operando no mesmo dia. Não existe fase de
-                consultoria de três meses para começar a usar — nem fatura de consultoria
-                junto.
+                Nada de projeto de implantação: você contrata e a equipe começa a usar no
+                mesmo dia.
               </p>
             </article>
             <article class="cartao">
-              <h3>Assinatura mensal, módulo a módulo</h3>
+              <h3>Mensal, e só o que usa</h3>
               <p>
-                Pagou o mês, usou o mês. Precisou de mais um módulo, liga; não usou mais,
-                desliga. O que você não contratou nem aparece na tela de quem opera.
+                Pagou o mês, usou o mês. Ligou o módulo que precisa, desligou o que não
+                precisa mais.
               </p>
             </article>
-          </div>
-        </div>
-      </section>
-
-      <!-- A ausência de prova social virada do avesso. Esconder que somos novos seria
-           pior: o comprador percebe em dois minutos de busca, e aí perde a confiança no
-           resto da página. -->
-      <section class="secao">
-        <div class="faixa faixa--estreita">
-          <h2>Por que não tem logo de cliente nesta página</h2>
-          <p class="secao__texto">
-            Porque seria mentira. O Decko é novo, está rodando em operação real desde 2026 e
-            ainda não tem mural de marcas para mostrar — e inventar logo de empresa que não
-            é cliente é o tipo de coisa que você descobriria em dois minutos de busca.
-          </p>
-          <p class="secao__texto">
-            O que dá para conferir, e que vale mais do que mural: o sistema está em produção
-            todo dia numa operação de pulverização, com documento indo ao MAPA; o módulo
-            agro foi construído campo a campo a partir de um talão em uso de verdade, não de
-            um formulário genérico; e cada regra de negócio tem teste automático que falha
-            se alguém a quebrar.
-          </p>
-          <p class="secao__texto">
-            <strong>Ser pequeno tem um lado bom:</strong> quem responde é quem escreve o
-            sistema. Você fala com o desenvolvedor, não com um atendente que abre chamado —
-            e o que a sua operação precisar entra no caminho do produto, não numa fila de
-            sugestões.
-          </p>
-        </div>
-      </section>
-
-      <section id="comparar" class="secao">
-        <div class="faixa faixa--estreita">
-          <h2>Antes de assinar qualquer sistema — inclusive o nosso</h2>
-          <p class="secao__texto">
-            Quase todo arrependimento com sistema de gestão vem de algo que não foi
-            perguntado na reunião de venda. Leve estas cinco perguntas para qualquer
-            fornecedor que você estiver avaliando:
-          </p>
-
-          <ol class="perguntas-de-compra">
-            <li>
-              <strong>"O que acontece se a internet cair no meio de uma venda?"</strong>
-              <span>
-                Pergunte o que exatamente continua funcionando — e o que o operador precisa
-                fazer quando a conexão volta. "Temos modo contingência" não responde isso.
-              </span>
-            </li>
-            <li>
-              <strong>"A mensalidade é por usuário?"</strong>
-              <span>
-                Cobrança por usuário faz a conta crescer justamente quando a empresa
-                cresce. Pergunte quanto custa o quinto operador antes de precisar dele.
-              </span>
-            </li>
-            <li>
-              <strong>"Tem taxa de implantação, de migração ou por nota emitida?"</strong>
-              <span>
-                É onde mora a diferença entre o preço anunciado e a fatura. Peça tudo por
-                escrito, somado, com o reajuste anual previsto em contrato.
-              </span>
-            </li>
-            <li>
-              <strong>"Quanto tempo até eu estar operando de verdade?"</strong>
-              <span>
-                Implantação longa tem um custo que ninguém coloca na proposta: o seu tempo
-                e o da sua equipe, durante meses.
-              </span>
-            </li>
-            <li>
-              <strong>"Se eu sair, levo meus dados em que formato?"</strong>
-              <span>
-                A resposta certa é um arquivo que abre no Excel, sem taxa e sem prazo.
-              </span>
-            </li>
-          </ol>
-
-          <div class="quadro quadro--verde">
-            <p class="quadro__titulo">Nossas respostas, nesta ordem</p>
-            <p>
-              A venda fecha no aparelho e sobe sozinha quando a rede volta, sem ninguém
-              redigitar nada. A assinatura é mensal, pelos módulos que você usa. Você entra
-              operando no ramo contratado, sem projeto de implantação. E seus dados saem em
-              planilha, quando você quiser.
-            </p>
           </div>
         </div>
       </section>
 
       <section id="perguntas" class="secao">
         <div class="faixa faixa--estreita">
-          <h2>Perguntas que todo mundo faz</h2>
+          <h2>Perguntas frequentes</h2>
 
-          <details>
-            <summary>O Decko funciona sem internet?</summary>
-            <p>
-              Sim. O ponto de venda compõe e fecha a venda no próprio aparelho, o cadastro
-              de clientes continua funcionando e o planejamento de pulverização é preenchido
-              na lavoura. O que foi feito sobe sozinho quando a conexão volta.
-            </p>
-          </details>
-          <details>
-            <summary>O Decko emite nota fiscal?</summary>
-            <p>
-              Ainda não. A venda registra a saída do estoque, e o Decko lê o XML da nota do
-              fornecedor para dar entrada. A emissão de cupom e nota entra com o módulo
-              fiscal, que está em desenvolvimento — e isso está dito aqui porque descobrir
-              depois seria pior.
-            </p>
-          </details>
-          <details>
-            <summary>Serve para empresa de pulverização agrícola?</summary>
-            <p>
-              Sim, e é o módulo mais fundo do sistema: planejamento operacional no formato
-              do talão, leitura meteorológica com registro probatório, croqui do voo,
-              importação do registro de voo do drone e o relatório mensal do MAPA.
-            </p>
-          </details>
-          <details>
-            <summary>Quanto custa?</summary>
-            <p>
-              A assinatura é mensal e depende dos módulos contratados — o cliente escolhe o
-              ramo e o sistema instala o que aquele segmento usa. Peça uma conversa no
-              formulário abaixo e a gente manda o valor do seu caso.
-            </p>
-          </details>
-          <details>
-            <summary>Tem folha de pagamento, RH ou contabilidade?</summary>
-            <p>
-              Ainda não, e é melhor dizer agora: o Decko cuida da operação — vender,
-              comprar, estocar, receber e pagar — e entrega ao seu contador os dados do que
-              aconteceu. Folha, ponto, admissão e escrituração contábil são módulos
-              próprios, e entram quando houver levantamento com quem faz isso todo dia, do
-              mesmo jeito que o módulo agro foi feito.
-            </p>
-          </details>
           <details>
             <summary>Serve para o meu ramo?</summary>
             <p>
-              Se a sua empresa compra, guarda e vende — supermercado, ferragista, material
-              de construção, distribuidora, restaurante, loja de balcão — a base serve, e o
-              que muda é o que entra por cima dela. Se o seu ramo tem um documento ou uma
-              rotina própria, conte qual: é assim que os módulos nascem aqui.
+              Se a sua empresa compra, guarda e vende, serve. O que muda de um ramo para
+              outro é o conjunto de módulos, e isso já vem configurado na contratação.
             </p>
           </details>
           <details>
-            <summary>Meus dados ficam onde?</summary>
+            <summary>Quanto tempo até eu estar usando?</summary>
             <p>
-              Em banco PostgreSQL com isolamento por empresa aplicado no próprio banco, com
-              cópia diária. Dados pessoais e fiscais são tratados com criptografia, controle
-              de acesso por papel e trilha de auditoria desde o primeiro dia.
+              No mesmo dia. A equipe começa pelo caixa, que é onde o retorno aparece
+              primeiro, e o resto entra na sequência.
             </p>
+          </details>
+          <details>
+            <summary>E se a internet cair no meio do movimento?</summary>
+            <p>
+              A venda continua e acerta sozinha quando a conexão volta, com o estoque já
+              atualizado — sem ninguém redigitar nada.
+            </p>
+          </details>
+          <details>
+            <summary>Preciso trocar os computadores?</summary>
+            <p>
+              Não. O sistema abre no navegador e foi feito para rodar no computador de caixa
+              que você já tem e no celular de quem está na rua.
+            </p>
+          </details>
+          <details>
+            <summary>Se eu sair, levo meus dados?</summary>
+            <p>Sim, em planilha que abre no Excel, na hora, sem taxa e sem prazo.</p>
           </details>
         </div>
       </section>
 
       <section id="contato" class="secao secao--escura">
         <div class="faixa faixa--estreita">
-          <h2>Quinze minutos, e você sai sabendo se serve</h2>
+          <h2>Um consultor entra em contato</h2>
           <p class="secao__texto">
-            Sem cadastro, sem cartão, sem demonstração de uma hora. Escreva em uma linha o
-            que a sua empresa faz e a resposta vem com as duas metades: o que o Decko
-            resolve no seu caso e <strong>o que ele ainda não resolve</strong>. Se não
-            servir, eu digo na primeira mensagem — e você economiza a reunião inteira.
-          </p>
-          <p class="secao__texto">
-            Quem responde é quem escreve o sistema. Como é uma pessoa só atendendo, a
-            conversa é por ordem de chegada.
+            Deixe seus dados e conte em uma linha o que a sua empresa faz. O consultor
+            responde com o que o Decko resolve no seu caso e o preço do seu conjunto de
+            módulos.
           </p>
 
           <form id="formulario" class="formulario" novalidate>
@@ -750,10 +448,12 @@
               <label for="segmento">Ramo da empresa</label>
               <select id="segmento" name="segmento">
                 <option value="">Escolha um</option>
-                <option value="agro">Pulverização agrícola</option>
-                <option value="comercio">Comércio / loja de balcão</option>
-                <option value="distribuidora">Distribuidora</option>
+                <option value="supermercado">Supermercado / mercearia</option>
+                <option value="ferragista">Ferragista / material de construção</option>
+                <option value="distribuidora">Distribuidora / atacado</option>
                 <option value="restaurante">Restaurante / lanchonete</option>
+                <option value="comercio">Loja de balcão</option>
+                <option value="agro">Serviço em campo / agro</option>
                 <option value="outro">Outro</option>
               </select>
             </div>
@@ -762,9 +462,6 @@
               <textarea id="mensagem" name="mensagem" rows="3"></textarea>
             </div>
 
-            <!-- Campo-armadilha: invisível para gente, irresistível para preenchedor
-                 automático. É o que substitui o CAPTCHA, que faria quem quer falar com a
-                 gente pagar pelo spam de terceiros. -->
             <div class="armadilha" aria-hidden="true">
               <label for="site">Não preencha este campo</label>
               <input id="site" name="site" type="text" tabindex="-1" autocomplete="off" />
@@ -778,17 +475,154 @@
               </span>
             </label>
 
-            <button class="botao campo--largo" type="submit">Pedir contato</button>
+            <button class="botao campo--largo" type="submit">Quero o contato</button>
             <p id="recado" class="recado" role="status" aria-live="polite"></p>
           </form>
         </div>
       </section>
     </main>
 
+    <!-- ====================================================== modais ================
+         O detalhe abre aqui, na mesma página. Pular de tela em tela para descobrir se o
+         sistema serve para o seu ramo é o jeito mais rápido de perder a visita. -->
+
+    <dialog id="m-estoque" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Estoque que você pode conferir</h3>
+        <ul class="lista">
+          <li>Cada venda baixa na hora, e cada entrada soma conferida.</li>
+          <li>Aviso do que está acabando e do que está perto do vencimento.</li>
+          <li>Saldo por lote, para quem trabalha com validade.</li>
+          <li>Nenhum número é digitado à mão: o saldo é a soma do que aconteceu.</li>
+        </ul>
+        <button class="botao" type="button" data-fecha>Entendi</button>
+      </div>
+    </dialog>
+
+    <dialog id="m-cadastro" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Cadastro de produto automatizado</h3>
+        <ul class="lista">
+          <li>A mercadoria que chega traz os produtos para o seu cadastro sozinha.</li>
+          <li>O sistema reconhece o que já existe e só pergunta o que está em dúvida.</li>
+          <li>Você confere na tela e confirma: o estoque entra pronto.</li>
+          <li>Acaba a tarde digitando item por item a cada compra.</li>
+        </ul>
+        <button class="botao" type="button" data-fecha>Entendi</button>
+      </div>
+    </dialog>
+
+    <dialog id="m-caixa" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Caixa que não trava</h3>
+        <ul class="lista">
+          <li>Leitor de código, teclas de função e pagamento dividido.</li>
+          <li>Sangria, devolução e fechamento conferido no fim do turno.</li>
+          <li>Internet caiu: a venda continua e acerta sozinha depois.</li>
+          <li>Cada venda no nome de quem vendeu, com liberação de supervisor quando a loja exige.</li>
+        </ul>
+        <button class="botao" type="button" data-fecha>Entendi</button>
+      </div>
+    </dialog>
+
+    <dialog id="m-financeiro" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Saber quanto sobrou, todo dia</h3>
+        <ul class="lista">
+          <li>Contas a pagar e a receber no mesmo lugar do caixa.</li>
+          <li>O que entrou em dinheiro, Pix, débito e crédito, separado.</li>
+          <li>Fechamento que bate com a gaveta, sem planilha paralela.</li>
+        </ul>
+        <button class="botao" type="button" data-fecha>Entendi</button>
+      </div>
+    </dialog>
+
+    <dialog id="m-supermercado" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Supermercado e mercearia</h3>
+        <ul class="lista">
+          <li>Caixa com leitor, sem o operador tirar a mão do teclado.</li>
+          <li>Validade acompanhada, com aviso antes de virar perda.</li>
+          <li>Entrada de mercadoria com cadastro automatizado.</li>
+          <li>Fechamento por turno e por operador.</li>
+        </ul>
+        <a class="botao" href="#contato" data-fecha>Falar com um consultor</a>
+      </div>
+    </dialog>
+
+    <dialog id="m-ferragista" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Ferragista e material de construção</h3>
+        <ul class="lista">
+          <li>Busca por código, código de barras ou nome, direto no balcão.</li>
+          <li>Venda por unidade, caixa ou pacote, com a conversão feita pelo sistema.</li>
+          <li>Saldo que não depende de alguém lembrar de dar baixa.</li>
+          <li>Cliente com cadastro e contas a receber.</li>
+        </ul>
+        <a class="botao" href="#contato" data-fecha>Falar com um consultor</a>
+      </div>
+    </dialog>
+
+    <dialog id="m-distribuidora" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Distribuidora e atacado</h3>
+        <ul class="lista">
+          <li>Fardo contém caixa, caixa contém unidade — a conta é do sistema.</li>
+          <li>Entrada de carga com cadastro automatizado.</li>
+          <li>Lote e validade, com aviso do que precisa girar primeiro.</li>
+          <li>Balcão e retira com o mesmo caixa.</li>
+        </ul>
+        <a class="botao" href="#contato" data-fecha>Falar com um consultor</a>
+      </div>
+    </dialog>
+
+    <dialog id="m-restaurante" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Restaurante e lanchonete</h3>
+        <ul class="lista">
+          <li>Recebimento dividido entre dinheiro, Pix e cartão.</li>
+          <li>Controle do que sai da despensa a cada venda.</li>
+          <li>Fechamento do turno que bate com a gaveta.</li>
+        </ul>
+        <a class="botao" href="#contato" data-fecha>Falar com um consultor</a>
+      </div>
+    </dialog>
+
+    <dialog id="m-loja" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Loja de balcão em geral</h3>
+        <ul class="lista">
+          <li>Caixa rápido, com devolução e troca resolvidas na tela.</li>
+          <li>Cadastro de cliente e histórico de compra.</li>
+          <li>Estoque conferido a cada venda.</li>
+        </ul>
+        <a class="botao" href="#contato" data-fecha>Falar com um consultor</a>
+      </div>
+    </dialog>
+
+    <dialog id="m-campo" class="modal">
+      <div class="modal__caixa">
+        <button class="modal__fechar" type="button" data-fecha aria-label="Fechar">×</button>
+        <h3>Serviço em campo</h3>
+        <ul class="lista">
+          <li>Registro feito no local, mesmo sem sinal, e enviado sozinho depois.</li>
+          <li>Documentação do serviço saindo pronta, sem redigitar à noite.</li>
+          <li>Controle de equipamento e de horas por serviço.</li>
+        </ul>
+        <a class="botao" href="#contato" data-fecha>Falar com um consultor</a>
+      </div>
+    </dialog>
+
     <footer class="rodape">
-      <!-- A esteira de marcas. Hoje ela mostra os segmentos que o sistema atende, porque
-           inventar logo de cliente que não existe é mentira com cara de prova social. O
-           componente já está pronto para receber as marcas de verdade: ver o README. -->
       <div class="esteira" aria-label="Segmentos atendidos pelo Decko">
         <div class="esteira__trilho">
           <span class="esteira__item">Supermercado</span>
@@ -799,7 +633,7 @@
           <span class="esteira__item">Restaurante</span>
           <span class="esteira__item">Lanchonete</span>
           <span class="esteira__item">Loja de balcão</span>
-          <span class="esteira__item">Pulverização agrícola</span>
+          <span class="esteira__item">Serviço em campo</span>
           <span class="esteira__item" aria-hidden="true">Supermercado</span>
           <span class="esteira__item" aria-hidden="true">Ferragista</span>
           <span class="esteira__item" aria-hidden="true">Material de construção</span>
@@ -808,7 +642,7 @@
           <span class="esteira__item" aria-hidden="true">Restaurante</span>
           <span class="esteira__item" aria-hidden="true">Lanchonete</span>
           <span class="esteira__item" aria-hidden="true">Loja de balcão</span>
-          <span class="esteira__item" aria-hidden="true">Pulverização agrícola</span>
+          <span class="esteira__item" aria-hidden="true">Serviço em campo</span>
         </div>
       </div>
 
@@ -818,16 +652,13 @@
           <p class="rodape__frase">One platform. Infinite possibilities.</p>
         </div>
         <nav aria-label="Links do rodapé">
-          <a href="#modulos">Módulos</a>
-          <a href="/pulverizacao-agricola">Pulverização agrícola</a>
-          <a href="/pdv-para-loja">PDV para loja</a>
+          <a href="#ramos">Para quem é</a>
+          <a href="/pdv-para-loja">Loja de balcão</a>
           <a href="/sistema-para-distribuidora">Distribuidora</a>
-          <a href="#perguntas">Perguntas</a>
+          <a href="/pulverizacao-agricola">Serviço em campo</a>
           <a href="#contato">Contato</a>
         </nav>
-        <p class="rodape__legal">
-          © <span id="ano">2026</span> Decko. Feito no Brasil.
-        </p>
+        <p class="rodape__legal">© <span id="ano">2026</span> Decko. Feito no Brasil.</p>
       </div>
     </footer>
 

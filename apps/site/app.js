@@ -106,3 +106,24 @@ formulario?.addEventListener("submit", async (evento) => {
     if (botao) botao.disabled = false;
   }
 });
+
+/* Os modais dos ramos e dos módulos.
+ *
+ * `<dialog>` nativo: sem biblioteca, com tecla Esc e devolução de foco funcionando de
+ * graça. O detalhe abre na mesma página porque ninguém quer pular de tela em tela para
+ * descobrir se o sistema serve para o ramo dele. */
+for (const gatilho of document.querySelectorAll("[data-abre]")) {
+  gatilho.addEventListener("click", () => {
+    document.getElementById(gatilho.dataset.abre)?.showModal();
+  });
+}
+
+for (const dialogo of document.querySelectorAll("dialog")) {
+  // Clique fora da caixa fecha: é o gesto que todo mundo tenta primeiro.
+  dialogo.addEventListener("click", (evento) => {
+    if (evento.target === dialogo) dialogo.close();
+  });
+  for (const fecha of dialogo.querySelectorAll("[data-fecha]")) {
+    fecha.addEventListener("click", () => dialogo.close());
+  }
+}

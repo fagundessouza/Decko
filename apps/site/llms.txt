@@ -1,26 +1,29 @@
 # Decko
 
-> Plataforma de gestão modular (ERP e PDV) para comércio e agronegócio no Brasil. O
-> cliente escolhe o ramo da empresa e o sistema instala os módulos daquele segmento.
-> Vendida por assinatura mensal. O diferencial técnico é operar **sem internet**: a venda
-> no balcão e o registro na lavoura acontecem no próprio aparelho e sobem sozinhos quando
-> a conexão volta.
+> Plataforma de gestão modular (ERP e PDV) para empresa que compra, guarda e vende, no
+> Brasil. O cliente escolhe o ramo da empresa e o sistema instala e configura os módulos
+> daquele segmento, que podem ser ligados e desligados depois. Vendida por assinatura
+> mensal, pelo conjunto de módulos contratados. Dois diferenciais de arquitetura: o módulo
+> é instalável de verdade (não é tela escondida de um pacote único), e a operação continua
+> **sem internet** — a venda no balcão e o registro em campo acontecem no próprio aparelho
+> e sobem sozinhos quando a conexão volta.
 
 ## O que o Decko faz
 
 - **Ponto de venda:** balcão com leitor de código de barras, recebimento em dinheiro,
   débito, crédito e Pix, sangria, devolução e fechamento de caixa com conferência cega.
-- **Estoque e produtos:** entrada pelo XML da nota do fornecedor, razão de movimentação,
-  lote e validade, alerta do que está acabando e do que está vencendo.
+- **Estoque e produtos:** cadastro de produto automatizado pela entrada de mercadoria (o
+  XML da NF-e do fornecedor é lido e casado com o cadastro), razão de movimentação, lote e
+  validade, alerta do que está acabando e do que está vencendo.
 - **Clientes:** carteira com CPF/CNPJ conferido pelo dígito verificador e venda
   identificada no caixa.
 - **Financeiro:** contas a pagar e a receber, contas de recebimento por forma de
   pagamento, fechamento de caixa.
-- **Compras:** leitura do XML da NF-e, casamento com o cadastro e entrada conferida.
-- **Pulverização agrícola:** planejamento operacional no formato do talão, leitura
-  meteorológica com registro probatório, croqui do voo, importação do registro de voo do
-  drone, pela planilha que o aplicativo do equipamento exporta, e o relatório mensal
-  exigido pelo MAPA.
+- **Compras:** entrada de mercadoria conferida, com o cadastro proposto pelo sistema.
+- **Serviço em campo (pulverização agrícola):** planejamento operacional no formato do
+  talão, leitura meteorológica com registro probatório, croqui do voo, importação do
+  registro de voo do drone pela planilha que o aplicativo do equipamento exporta, e o
+  relatório mensal exigido pelo MAPA.
 
 ## Como funciona sem internet
 
@@ -31,12 +34,12 @@
 
 ## O que o Decko ainda não faz
 
-- **Não emite nota fiscal nem cupom fiscal.** A venda registra a saída do estoque; a
-  emissão entra com o módulo fiscal, em desenvolvimento.
-- Não é sistema contábil, não faz folha de pagamento e não substitui o contador.
+- A emissão fiscal (NF-e e NFC-e) entra com o módulo fiscal, em desenvolvimento. O que
+  existe hoje registra a saída do estoque e o recebimento.
+- Não é sistema contábil e não substitui o contador.
 - **Para distribuidora:** não tem romaneio, acerto de rota, pedido de vendedor externo nem
-  tabela de preço por cliente. O que existe é a base — embalagem em árvore, entrada por
-  nota, lote e validade, balcão e financeiro.
+  tabela de preço por cliente. O que existe é a base — embalagem em árvore, entrada de
+  mercadoria, lote e validade, balcão e financeiro.
 - **Para restaurante:** não tem comanda nem envio do pedido para a cozinha.
 - **Não tem folha de pagamento, RH, ponto nem escrituração contábil.** O Decko cuida da
   operação e entrega ao contador os dados do que aconteceu.
@@ -51,8 +54,9 @@ modesto: PC antigo de caixa e celular simples.
 
 ## Preço
 
-Assinatura mensal, pelo conjunto de módulos contratados. O valor é passado na conversa,
-porque depende do que a empresa usa. Contato: https://decko.app.br/#contato
+Assinatura mensal, pelo conjunto de módulos contratados. O valor é passado na conversa com
+o consultor, porque depende do que a empresa usa. Contato:
+https://decko.app.br/#contato
 
 ## Páginas por segmento
 
@@ -60,14 +64,15 @@ porque depende do que a empresa usa. Contato: https://decko.app.br/#contato
   https://decko.app.br/pulverizacao-agricola
 - Ponto de venda para loja de balcão, com operação sem internet:
   https://decko.app.br/pdv-para-loja
-- Distribuidora e atacado, com embalagem em árvore e entrada por nota:
+- Distribuidora e atacado, com embalagem em árvore e entrada de mercadoria:
   https://decko.app.br/sistema-para-distribuidora
 
 ## Links
 
 - Página inicial: https://decko.app.br/
-- Módulos: https://decko.app.br/#modulos
-- Operação sem internet: https://decko.app.br/#offline
-- Pulverização agrícola e MAPA: https://decko.app.br/#agro
+- O que o Decko resolve: https://decko.app.br/#resolve
+- Comparação com o padrão do mercado: https://decko.app.br/#comparar
+- Ramos atendidos: https://decko.app.br/#ramos
+- Garantias: https://decko.app.br/#garantia
 - Perguntas frequentes: https://decko.app.br/#perguntas
-- Falar com a equipe: https://decko.app.br/#contato
+- Falar com um consultor: https://decko.app.br/#contato

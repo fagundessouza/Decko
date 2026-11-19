@@ -887,3 +887,165 @@ details a {
   margin-top: 0;
   font-size: 0.95rem;
 }
+
+/* O ramo virou botão: clicar nele abre o detalhe aqui mesmo, sem trocar de página.
+   Botão zera fonte, alinhamento e fundo, então o visual é refeito à mão. */
+.ramo {
+  appearance: none;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  background: var(--papel);
+  padding: 1.15rem 1.25rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.ramo:hover {
+  border-color: var(--verde);
+  box-shadow: var(--sombra);
+  transform: translateY(-2px);
+}
+
+.ramo::after {
+  content: "Como funciona →";
+  display: block;
+  margin-top: 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--verde-escuro);
+}
+
+/* O "Como funciona" dos cartões também é botão, e precisa parecer o link que era. */
+button.cartao__link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--verde-escuro);
+  cursor: pointer;
+}
+
+.secao--escura button.cartao__link {
+  color: var(--verde-claro);
+}
+
+/* ------------------------------------------------------------------ modais */
+
+/* O detalhe abre sobre a página. `dialog` nativo já traz foco preso, Esc que fecha e
+   fundo inerte — nada disso precisa de script. */
+.modal {
+  width: min(560px, calc(100% - 2rem));
+  max-height: 85vh;
+  padding: 0;
+  border: 0;
+  border-radius: var(--raio);
+  background: var(--papel);
+  color: var(--tinta);
+  box-shadow: 0 24px 64px -16px rgb(15 23 42 / 45%);
+}
+
+.modal::backdrop {
+  background: rgb(15 23 42 / 55%);
+  backdrop-filter: blur(2px);
+}
+
+.modal__caixa {
+  position: relative;
+  padding: 2rem 1.9rem 1.9rem;
+}
+
+.modal__caixa h3 {
+  margin: 0 2rem 1rem 0;
+  font-size: 1.25rem;
+}
+
+.modal__caixa .lista {
+  margin-top: 0;
+}
+
+.modal__caixa .botao {
+  margin-top: 1.6rem;
+}
+
+.modal__fechar {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.7rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  display: grid;
+  place-items: center;
+  appearance: none;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--tinta-fraca);
+  cursor: pointer;
+}
+
+.modal__fechar:hover {
+  background: var(--papel-morno);
+  color: var(--tinta);
+}
+
+/* Coluna do meio é o problema, a da direita é a solução: a cor separa as duas sem
+   precisar de legenda. */
+.tabela--comparar td:nth-child(2) {
+  color: var(--tinta-fraca);
+}
+
+.tabela--comparar td:last-child {
+  font-weight: 500;
+  color: var(--verde-escuro);
+}
+
+/* A tabela nasceu para seção clara. Na seção escura, linha e cabeçalho precisam inverter —
+   senão o texto da terceira coluna, que é justamente a resposta, é o mais difícil de ler. */
+.secao--escura .tabela-rolante {
+  border-color: rgb(255 255 255 / 12%);
+}
+
+.secao--escura .tabela th,
+.secao--escura .tabela td {
+  border-bottom-color: rgb(255 255 255 / 10%);
+}
+
+.secao--escura .tabela thead th {
+  background: rgb(255 255 255 / 5%);
+  color: var(--tinta-apagada);
+}
+
+.secao--escura .tabela td {
+  color: #cbd5e1;
+}
+
+.secao--escura .tabela td:first-child {
+  color: var(--papel);
+}
+
+.secao--escura .tabela--comparar td:nth-child(2) {
+  color: var(--tinta-apagada);
+}
+
+.secao--escura .tabela--comparar td:last-child {
+  color: var(--verde-claro);
+}
+
+/* No celular estreito o cabeçalho é marca + botão, e o botão é o mais largo dos dois.
+   Sem isto, "Falar com consultor" empurra a página 6px para fora da tela. */
+@media (max-width: 430px) {
+  .topo__faixa {
+    gap: 0.75rem;
+  }
+
+  .topo .botao--pequeno {
+    padding-inline: 0.9rem;
+    font-size: 0.88rem;
+  }
+}
