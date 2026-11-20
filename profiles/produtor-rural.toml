@@ -1,0 +1,23 @@
+# Perfil de segmento: o produtor rural, que administra a própria fazenda.
+# Formato e decisão em docs/adr/0005-perfil-de-segmento.md
+# Escopo e levantamento em docs/discovery/agro-gestao-da-fazenda.md
+#
+# **Este perfil é o outro lado do balcão do `pulverizacao-agricola`.** Lá a empresa aplica
+# para terceiros e o documento do MAPA é a entrega; aqui a empresa é dona da terra, e a
+# aplicação é um custo dela. Ver docs/adr/0023-gestao-da-fazenda.md, decisão 1.
+#
+# A lista cresce conforme os módulos de gestão rural nascem: um perfil só pode listar
+# módulo instalado, e o host recusa na inicialização um perfil que mencione módulo que não
+# existe. Então ele entra hoje com o que já serve, e `fazenda`, `pecuaria` e `frota`
+# entram cada um com a sua fatia.
+
+[profile]
+name = "produtor-rural"
+label = "Produtor rural"
+description = """
+Para quem administra a própria fazenda: compra de insumo com entrada por nota, estoque de \
+semente, fertilizante e defensivo com lote e validade, cadastro de quem compra a produção, \
+e o controle da aplicação de defensivo com receituário, clima registrado e o documento \
+exigido pelo MAPA.
+"""
+modules = ["clientes", "comercial", "compras", "financeiro", "agro"]

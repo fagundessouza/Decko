@@ -441,6 +441,37 @@ só e é quase todo dado-semente. O peso está na base compartilhada, que vem pr
   - [ ] Distribuidora de bebidas — cliente real alcançável, discovery da Fase 4
   - [ ] Supermercado, ferragista, lanchonete, restaurante, loja de veículos
 
+## Fase 5.5 — Gestão da fazenda (produtor rural)
+
+Usuária real disponível: a mãe do dono do projeto vai administrar a roça do avô. É o
+segundo módulo do projeto com gente de verdade do lado, como a pulverização teve o talão da
+AgroDrone — e o método é o mesmo, documento em mãos antes de modelar.
+
+Decisão da divisão: `docs/adr/0023-gestao-da-fazenda.md`.
+Levantamento: `docs/discovery/agro-gestao-da-fazenda.md`.
+
+**Nada abaixo começa antes da entrevista.** O domínio é regulado (GTA, vacinação, LCDPR,
+nota do produtor) e a seção 7 do discovery lista o que não pode ser inventado.
+
+- [x] Perfil `produtor-rural`, com os módulos que já existem
+- [ ] **Entrevista com a produtora** — as 23 perguntas da seção 8 do discovery, e o caderno
+      de controle dela em mãos
+- [ ] Resolver as duplicações que já existem, antes de crescer por cima delas:
+  - [ ] `agro_client` → passa a usar o módulo `clientes`
+  - [ ] `agro_product` → vira extensão do produto do `comercial`
+  - [ ] `agro_property` → deixa de exigir `client_id`; a fazenda pode ser da própria empresa
+- [ ] **`financeiro`: contas a pagar.** Falta para todas as verticais, e a fazenda é só a
+      primeira a tornar isso impossível de ignorar
+- [ ] **Centro de custo no consumo interno.** Toda saída de estoque que não é venda aponta
+      contra um talhão, um lote de gado ou uma máquina — é o que responde quanto custou o
+      hectare e quanto custou a arroba
+- [ ] Módulo `fazenda`: propriedade própria, talhão, piquete, safra, chuva
+- [ ] Módulo `fazenda`: plantio, tratos, colheita, produtividade por talhão
+- [ ] Módulo `frota`: máquina e implemento, horímetro e odômetro, manutenção, abastecimento
+- [ ] Módulo `pecuaria`: rebanho por categoria, movimentação, pesagem
+- [ ] Módulo `pecuaria`: sanidade — vacina com lote do frasco, vermifugação, carência
+- [ ] `agro`: o veículo aplicador deixa de ser só aeronave (drone, autopropelido, avião)
+
 ## Fase 6 — Camada de inteligência
 
 - [ ] **Preencher o relatório de voo a partir do arquivo do equipamento.** O Nathan pediu
