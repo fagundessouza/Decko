@@ -58,7 +58,10 @@ export default defineConfig({
       // Evita CORS em desenvolvimento e mantém o front chamando caminhos relativos,
       // que é como ele roda em produção atrás de um único domínio.
       "/api": {
-        target: "http://127.0.0.1:8000",
+        // 8000 é o padrão do `.claude/launch.json`. `DECKO_API_PROXY` existe para quando
+        // a porta já está ocupada por outra instância — acontece com a API deixada de pé
+        // de uma sessão anterior, e aí o front conversa com o servidor errado sem avisar.
+        target: process.env.DECKO_API_PROXY ?? "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },

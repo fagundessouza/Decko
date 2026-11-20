@@ -24,12 +24,25 @@ class ContaOut(BaseModel):
     ativa: bool
 
 
+class CentroIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=120)
+
+
+class CentroOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    nome: str
+    ativo: bool
+
+
 class DespesaIn(BaseModel):
     descricao: str = Field(min_length=1, max_length=200)
     valor: Decimal = Field(ge=0, max_digits=18, decimal_places=2)
     vencimento: date
     fornecedor_nome: str | None = Field(default=None, max_length=200)
     fornecedor_cpf_cnpj: str | None = Field(default=None, max_length=14)
+    centro_custo_id: uuid.UUID | None = None
     observacao: str | None = None
 
 
@@ -41,6 +54,7 @@ class DespesaPatch(BaseModel):
     vencimento: date | None = None
     fornecedor_nome: str | None = Field(default=None, max_length=200)
     fornecedor_cpf_cnpj: str | None = Field(default=None, max_length=14)
+    centro_custo_id: uuid.UUID | None = None
     observacao: str | None = None
 
 
@@ -65,13 +79,24 @@ class DespesaOut(BaseModel):
     pago_em: date | None
     valor_pago: Decimal | None
     conta_id: uuid.UUID | None
+    centro_custo_id: uuid.UUID | None
     observacao: str | None
 
 
+class PorCentroOut(BaseModel):
+    """A soma de um centro. ``centro_id`` em branco é a despesa sem centro."""
+
+    centro_id: uuid.UUID | None
+    nome: str
+    em_aberto: Decimal
+    pago: Decimal
+
+
 class ResumoOut(BaseModel):
-    """Quanto vence no período, quanto já saiu, e o que passou do prazo."""
+    """Quanto vence no período, quanto já saiu, o que passou do prazo, e contra o quê."""
 
     em_aberto: Decimal
     pago: Decimal
     vencido: Decimal
     quantidade_em_aberto: int
+    por_centro: list[PorCentroOut]

@@ -77,6 +77,27 @@ class Conta(TenantMixin, TimestampMixin, Base):
     ativa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 
+class CentroDeCusto(TenantMixin, TimestampMixin, Base):
+    """Contra o quê o dinheiro saiu: lavoura, pecuária, frota, loja centro.
+
+    **Lista plana, e não árvore.** Hierarquia é o começo do plano de contas, que o ADR 0014
+    mantém fora de propósito — e nome só já responde o que foi pedido. Ver ADR 0025,
+    decisão 3.
+    """
+
+    __tablename__ = "financeiro_centro_custo"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "nome", name="uq_financeiro_centro_custo_tenant_id_nome"),
+        Index("ix_financeiro_centro_custo_tenant_id_ativo", "tenant_id", "ativo"),
+    )
+
+    id: Mapped[uuid.UUID] = primary_key()
+    nome: Mapped[str] = mapped_column(String(120), nullable=False)
+    # Não se apaga: a despesa do ano passado perderia o nome, e o histórico passaria a
+    # mentir.
+    ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class Despesa(TenantMixin, TimestampMixin, Base):
     """Uma conta a pagar: o que se deve, para quem, e quando vence.
 
@@ -90,6 +111,7 @@ class Despesa(TenantMixin, TimestampMixin, Base):
         # A consulta que importa é "o que vence no período", e ela é sempre por empresa.
         Index("ix_financeiro_despesa_tenant_id_vencimento", "tenant_id", "vencimento"),
         Index("ix_financeiro_despesa_tenant_id_status", "tenant_id", "status"),
+        Index("ix_financeiro_despesa_tenant_id_centro", "tenant_id", "centro_custo_id"),
         CheckConstraint("valor >= 0", name="valor_nao_negativo"),
         CheckConstraint("valor_pago IS NULL OR valor_pago >= 0", name="valor_pago_nao_negativo"),
         # Paga tem data e valor; o que não está paga não tem nenhum dos dois. A regra vive
@@ -134,9 +156,22 @@ class Despesa(TenantMixin, TimestampMixin, Base):
         nullable=True,
     )
 
+    # Contra o quê saiu. Opcional pelo mesmo motivo da conta: quem não separa custo não
+    # precisa escolher — ADR 0025, decisão 4.
+    centro_custo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("financeiro_centro_custo.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     conta: Mapped["Conta | None"] = relationship(lazy="joined")
+    centro_custo: Mapped["CentroDeCusto | None"] = relationship(lazy="joined")
 
 
-TENANT_SCOPED_TABLES = (Conta.__tablename__, Despesa.__tablename__)
+TENANT_SCOPED_TABLES = (
+    Conta.__tablename__,
+    CentroDeCusto.__tablename__,
+    Despesa.__tablename__,
+)

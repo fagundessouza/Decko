@@ -8,14 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decko.db import get_session
 from decko_modules.core.deps import CurrentPrincipal, require
 from decko_modules.financeiro import service
-from decko_modules.financeiro.models import Conta, Despesa, StatusDespesa
+from decko_modules.financeiro.models import CentroDeCusto, Conta, Despesa, StatusDespesa
 from decko_modules.financeiro.schemas import (
     BaixaIn,
+    CentroIn,
+    CentroOut,
     ContaIn,
     ContaOut,
     DespesaIn,
     DespesaOut,
     DespesaPatch,
+    PorCentroOut,
     ResumoOut,
 )
 
@@ -96,6 +99,64 @@ async def reativar_conta(
     )
 
 
+async def _carregar_centro(session: AsyncSession, centro_id: uuid.UUID) -> CentroDeCusto:
+    centro = await session.get(CentroDeCusto, centro_id)
+    if centro is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Centro de custo não encontrado."
+        )
+    return centro
+
+
+# ------------------------------------------------------------------ centros de custo
+
+
+@router.get("/centros-de-custo", response_model=list[CentroOut])
+async def listar_centros(
+    session: SessionDep,
+    _: Annotated[object, Depends(require("financeiro.despesa.read"))],
+    incluir_inativos: Annotated[bool, Query()] = False,
+) -> list[CentroDeCusto]:
+    """Lavoura, pecuária, frota, loja centro. Lista plana — ver ADR 0025, decisão 3."""
+    return await service.listar_centros(session, incluir_inativos=incluir_inativos)
+
+
+@router.post("/centros-de-custo", response_model=CentroOut, status_code=status.HTTP_201_CREATED)
+async def criar_centro(
+    payload: CentroIn,
+    session: SessionDep,
+    principal: CurrentPrincipal,
+    _: Annotated[object, Depends(require("financeiro.despesa.write"))],
+) -> CentroDeCusto:
+    try:
+        return await service.criar_centro(session, tenant_id=principal.tenant_id, nome=payload.nome)
+    except service.FinanceiroError as exc:
+        raise _invalido(exc) from exc
+
+
+@router.post("/centros-de-custo/{centro_id}/desativar", response_model=CentroOut)
+async def desativar_centro(
+    centro_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("financeiro.despesa.write"))],
+) -> CentroDeCusto:
+    """Tira das escolhas novas. A despesa do ano passado continua com o nome dele."""
+    return await service.definir_centro_ativo(
+        session, centro=await _carregar_centro(session, centro_id), ativo=False
+    )
+
+
+@router.post("/centros-de-custo/{centro_id}/reativar", response_model=CentroOut)
+async def reativar_centro(
+    centro_id: uuid.UUID,
+    session: SessionDep,
+    _: Annotated[object, Depends(require("financeiro.despesa.write"))],
+) -> CentroDeCusto:
+    return await service.definir_centro_ativo(
+        session, centro=await _carregar_centro(session, centro_id), ativo=True
+    )
+
+
 # ------------------------------------------------------------------ despesas
 
 
@@ -106,9 +167,12 @@ async def listar_despesas(
     situacao: Annotated[StatusDespesa | None, Query()] = None,
     de: Annotated[date | None, Query()] = None,
     ate: Annotated[date | None, Query()] = None,
+    centro_custo_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> list[Despesa]:
     """O que vence no período, mais antigo primeiro."""
-    return await service.listar_despesas(session, status=situacao, de=de, ate=ate)
+    return await service.listar_despesas(
+        session, status=situacao, de=de, ate=ate, centro_custo_id=centro_custo_id
+    )
 
 
 @router.get("/despesas/resumo", response_model=ResumoOut)
@@ -129,6 +193,15 @@ async def resumo_despesas(
         pago=calculado.pago,
         vencido=calculado.vencido,
         quantidade_em_aberto=calculado.quantidade_em_aberto,
+        por_centro=[
+            PorCentroOut(
+                centro_id=linha.centro_id,
+                nome=linha.nome,
+                em_aberto=linha.em_aberto,
+                pago=linha.pago,
+            )
+            for linha in calculado.por_centro
+        ],
     )
 
 
@@ -148,6 +221,7 @@ async def lancar_despesa(
             vencimento=payload.vencimento,
             fornecedor_nome=payload.fornecedor_nome,
             fornecedor_cpf_cnpj=payload.fornecedor_cpf_cnpj,
+            centro_custo_id=payload.centro_custo_id,
             observacao=payload.observacao,
         )
     except service.FinanceiroError as exc:

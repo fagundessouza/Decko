@@ -463,11 +463,16 @@ nota do produtor) e a seção 7 do discovery lista o que não pode ser inventado
 - [x] **`financeiro`: contas a pagar.** Faltava para todas as verticais, e a fazenda foi só
       a primeira a tornar isso impossível de ignorar. Modelo, regra e API em 20/11/2026 —
       ver `docs/adr/0024-contas-a-pagar.md`
-  - [ ] A tela: lançar, listar o que vence no mês e dar baixa. O menu ainda diz "Contas de
-        recebimento" até ela entrar
+  - [x] A tela, em 20/11/2026: o mês inteiro numa página só, com lançar, dar baixa e
+        cancelar em diálogo. Conta de recebimento e centro de custo são cadastro, e
+        cadastro não ganha tela própria — abre em modal, e em submodal quando é criado no
+        meio de um lançamento
+- [x] **Centro de custo.** Lista plana no `financeiro`, e o `comercial` segue sem depender
+      dele — ver `docs/adr/0025-centro-de-custo.md`. É metade do caminho para "quanto
+      custou o hectare"; a outra metade é o consumo de estoque, que entra com o `fazenda`
 - [ ] **Centro de custo no consumo interno.** Toda saída de estoque que não é venda aponta
-      contra um talhão, um lote de gado ou uma máquina — é o que responde quanto custou o
-      hectare e quanto custou a arroba
+      contra um talhão, um lote de gado ou uma máquina. O cadastro já existe; falta o
+      registro do consumo, que mora na vertical e não no `comercial`
 - [ ] Módulo `fazenda`: propriedade própria, talhão, piquete, safra, chuva
 - [ ] Módulo `fazenda`: plantio, tratos, colheita, produtividade por talhão
 - [ ] Módulo `frota`: máquina e implemento, horímetro e odômetro, manutenção, abastecimento

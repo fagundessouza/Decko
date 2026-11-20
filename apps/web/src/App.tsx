@@ -51,8 +51,8 @@ const ClientesPage = lazy(() =>
 const CompanyPage = lazy(() =>
   import("./pages/CompanyPage").then((m) => ({ default: m.CompanyPage })),
 );
-const ContasPage = lazy(() =>
-  import("./pages/ContasPage").then((m) => ({ default: m.ContasPage })),
+const FinanceiroPage = lazy(() =>
+  import("./pages/FinanceiroPage").then((m) => ({ default: m.FinanceiroPage })),
 );
 const ConferenciaPage = lazy(() =>
   import("./pages/ConferenciaPage").then((m) => ({ default: m.ConferenciaPage })),
@@ -116,7 +116,7 @@ type View =
   | { name: "plan"; plan: Plan }
   | { name: "pdv" }
   | { name: "clientes" }
-  | { name: "contas" }
+  | { name: "financeiro" }
   | { name: "assinaturas" }
   | { name: "meusClientes" }
   | { name: "nota"; notaId: string }
@@ -140,7 +140,7 @@ const SECTION: Record<View["name"], string> = {
   "importar-voos": "agro",
   pdv: "pdv",
   clientes: "clientes",
-  contas: "financeiro",
+  financeiro: "financeiro",
   assinaturas: "assinaturas",
   meusClientes: "meusClientes",
   // Conferir uma nota é trabalho de produtos: é de lá que se chega e para lá se volta.
@@ -436,9 +436,9 @@ export default function App() {
   if (hasFinanceiro) {
     items.push({
       key: "financeiro",
-      label: "Contas de recebimento",
+      label: "Financeiro",
       icon: <ModuleIcon name="bank" size={22} />,
-      onSelect: () => setView({ name: "contas" }),
+      onSelect: () => setView({ name: "financeiro" }),
     });
   }
   if (hasAssinaturas) {
@@ -632,7 +632,9 @@ export default function App() {
         <ClientesPage onBack={() => setView({ name: "home" })} />
       )}
 
-      {view.name === "contas" && <ContasPage onBack={() => setView({ name: "home" })} />}
+      {view.name === "financeiro" && (
+        <FinanceiroPage onBack={() => setView({ name: "home" })} />
+      )}
       {view.name === "assinaturas" && (
         <AssinaturasPage onBack={() => setView({ name: "home" })} />
       )}

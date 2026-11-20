@@ -13,10 +13,10 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from decko_modules.financeiro.models import Conta, Despesa, StatusDespesa
+from decko_modules.financeiro.models import CentroDeCusto, Conta, Despesa, StatusDespesa
 
 
 class FinanceiroError(Exception):
@@ -71,6 +71,57 @@ async def listar(session: AsyncSession, *, incluir_inativas: bool = False) -> li
     return list((await session.execute(consulta)).scalars().all())
 
 
+# ------------------------------------------------------------------ centro de custo
+
+
+async def criar_centro(session: AsyncSession, *, tenant_id: uuid.UUID, nome: str) -> CentroDeCusto:
+    limpo = nome.strip()
+    if not limpo:
+        raise FinanceiroError("O centro de custo precisa de um nome.")
+
+    repetido = await session.scalar(
+        select(CentroDeCusto.id).where(
+            CentroDeCusto.tenant_id == tenant_id, CentroDeCusto.nome == limpo
+        )
+    )
+    if repetido is not None:
+        # Dois centros com o mesmo nome quebram justamente a quebra por centro: a soma de
+        # "Lavoura" ficaria em dois lugares.
+        raise FinanceiroError(f"Já existe um centro de custo chamado '{limpo}'.")
+
+    centro = CentroDeCusto(tenant_id=tenant_id, nome=limpo)
+    session.add(centro)
+    await session.flush()
+    return centro
+
+
+async def definir_centro_ativo(
+    session: AsyncSession, *, centro: CentroDeCusto, ativo: bool
+) -> CentroDeCusto:
+    """Desativa ou reativa. Nunca apaga: a despesa do ano passado perderia o nome."""
+    centro.ativo = ativo
+    await session.flush()
+    return centro
+
+
+async def listar_centros(
+    session: AsyncSession, *, incluir_inativos: bool = False
+) -> list[CentroDeCusto]:
+    consulta = select(CentroDeCusto).order_by(CentroDeCusto.nome)
+    if not incluir_inativos:
+        consulta = consulta.where(CentroDeCusto.ativo)
+    return list((await session.execute(consulta)).scalars().all())
+
+
+async def _centro_ativo(session: AsyncSession, centro_id: uuid.UUID) -> CentroDeCusto:
+    centro = await session.get(CentroDeCusto, centro_id)
+    if centro is None:
+        raise FinanceiroError("Centro de custo não encontrado.")
+    if not centro.ativo:
+        raise FinanceiroError(f"O centro de custo '{centro.nome}' está desativado.")
+    return centro
+
+
 # ------------------------------------------------------------------ despesa
 
 
@@ -94,6 +145,7 @@ async def lancar(
     vencimento: date,
     fornecedor_nome: str | None = None,
     fornecedor_cpf_cnpj: str | None = None,
+    centro_custo_id: uuid.UUID | None = None,
     observacao: str | None = None,
 ) -> Despesa:
     """Registra uma conta a pagar. Nasce sempre em aberto."""
@@ -103,6 +155,9 @@ async def lancar(
     if valor < 0:
         raise FinanceiroError("O valor da despesa não pode ser negativo.")
 
+    if centro_custo_id is not None:
+        await _centro_ativo(session, centro_custo_id)
+
     despesa = Despesa(
         tenant_id=tenant_id,
         descricao=limpa,
@@ -110,6 +165,7 @@ async def lancar(
         vencimento=vencimento,
         fornecedor_nome=(fornecedor_nome or "").strip() or None,
         fornecedor_cpf_cnpj=(fornecedor_cpf_cnpj or "").strip() or None,
+        centro_custo_id=centro_custo_id,
         observacao=(observacao or "").strip() or None,
         status=StatusDespesa.ABERTA,
     )
@@ -127,6 +183,7 @@ async def editar(
     vencimento: date | None = None,
     fornecedor_nome: str | None = None,
     fornecedor_cpf_cnpj: str | None = None,
+    centro_custo_id: uuid.UUID | None = None,
     observacao: str | None = None,
 ) -> Despesa:
     """Corrige uma despesa **em aberto**.
@@ -152,6 +209,9 @@ async def editar(
         despesa.fornecedor_nome = fornecedor_nome.strip() or None
     if fornecedor_cpf_cnpj is not None:
         despesa.fornecedor_cpf_cnpj = fornecedor_cpf_cnpj.strip() or None
+    if centro_custo_id is not None:
+        await _centro_ativo(session, centro_custo_id)
+        despesa.centro_custo_id = centro_custo_id
     if observacao is not None:
         despesa.observacao = observacao.strip() or None
 
@@ -211,6 +271,7 @@ async def listar_despesas(
     status: StatusDespesa | None = None,
     de: date | None = None,
     ate: date | None = None,
+    centro_custo_id: uuid.UUID | None = None,
 ) -> list[Despesa]:
     """O que vence no período, mais antigo primeiro.
 
@@ -224,17 +285,34 @@ async def listar_despesas(
         consulta = consulta.where(Despesa.vencimento >= de)
     if ate is not None:
         consulta = consulta.where(Despesa.vencimento <= ate)
+    if centro_custo_id is not None:
+        consulta = consulta.where(Despesa.centro_custo_id == centro_custo_id)
     return list((await session.execute(consulta)).unique().scalars().all())
 
 
 @dataclass(frozen=True)
+class PorCentro:
+    """A soma de um centro no período. ``centro_id`` em branco é a despesa sem centro.
+
+    O grupo sem centro aparece sempre: escondê-lo faria os números não baterem com o
+    total, e relatório que não fecha é pior do que nenhum — ADR 0025, decisão 5.
+    """
+
+    centro_id: uuid.UUID | None
+    nome: str
+    em_aberto: Decimal
+    pago: Decimal
+
+
+@dataclass(frozen=True)
 class Resumo:
-    """Quanto vence, quanto já saiu, e o que passou do prazo."""
+    """Quanto vence, quanto já saiu, o que passou do prazo, e contra o quê."""
 
     em_aberto: Decimal
     pago: Decimal
     vencido: Decimal
     quantidade_em_aberto: int
+    por_centro: tuple[PorCentro, ...]
 
 
 async def resumo(session: AsyncSession, *, de: date, ate: date, hoje: date) -> Resumo:
@@ -278,4 +356,51 @@ async def resumo(session: AsyncSession, *, de: date, ate: date, hoje: date) -> R
         or 0
     )
 
-    return Resumo(em_aberto=em_aberto, pago=pago, vencido=vencido, quantidade_em_aberto=quantidade)
+    return Resumo(
+        em_aberto=em_aberto,
+        pago=pago,
+        vencido=vencido,
+        quantidade_em_aberto=quantidade,
+        por_centro=await _por_centro(session, de=de, ate=ate),
+    )
+
+
+async def _por_centro(session: AsyncSession, *, de: date, ate: date) -> tuple[PorCentro, ...]:
+    """A quebra por centro, com a despesa sem centro no fim.
+
+    ``outerjoin`` e não ``join``: a despesa sem centro precisa aparecer, e um join comum a
+    deixaria de fora justamente do relatório que deve fechar.
+    """
+    linhas = (
+        await session.execute(
+            select(
+                Despesa.centro_custo_id,
+                CentroDeCusto.nome,
+                func.coalesce(
+                    func.sum(
+                        case((Despesa.status == StatusDespesa.ABERTA, Despesa.valor), else_=0)
+                    ),
+                    0,
+                ),
+                func.coalesce(func.sum(Despesa.valor_pago), 0),
+            )
+            .outerjoin(CentroDeCusto, CentroDeCusto.id == Despesa.centro_custo_id)
+            .where(
+                Despesa.vencimento >= de,
+                Despesa.vencimento <= ate,
+                Despesa.status != StatusDespesa.CANCELADA,
+            )
+            .group_by(Despesa.centro_custo_id, CentroDeCusto.nome)
+            .order_by(CentroDeCusto.nome.nulls_last())
+        )
+    ).all()
+
+    return tuple(
+        PorCentro(
+            centro_id=centro_id,
+            nome=nome or "Sem centro de custo",
+            em_aberto=Decimal(aberto),
+            pago=Decimal(pago),
+        )
+        for centro_id, nome, aberto, pago in linhas
+    )

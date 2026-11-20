@@ -395,3 +395,156 @@ async def test_despesa_de_uma_empresa_nao_aparece_na_outra(empresa: Empresa) -> 
     finally:
         async with SessionFactory() as session, session.begin():
             await session.execute(delete(Tenant).where(Tenant.id == vizinha_id))
+
+
+# ---------------------------------------------------------------- centro de custo
+
+
+async def _centro(empresa: Empresa, nome: str) -> str:
+    criado = await empresa.client.post(
+        f"{FINANCEIRO}/centros-de-custo", headers=empresa.auth, json={"nome": nome}
+    )
+    assert criado.status_code == 201, criado.text
+    return str(criado.json()["id"])
+
+
+async def test_centro_repetido_e_recusado(empresa: Empresa) -> None:
+    """Dois 'Lavoura' quebrariam justamente a quebra por centro: a soma ficaria em dois."""
+    await _centro(empresa, "Lavoura")
+
+    repetido = await empresa.client.post(
+        f"{FINANCEIRO}/centros-de-custo", headers=empresa.auth, json={"nome": "Lavoura"}
+    )
+
+    assert repetido.status_code == 422, repetido.text
+
+
+async def test_centro_desativado_nao_recebe_despesa_nova(empresa: Empresa) -> None:
+    centro_id = await _centro(empresa, "Safra passada")
+    await empresa.client.post(
+        f"{FINANCEIRO}/centros-de-custo/{centro_id}/desativar", headers=empresa.auth
+    )
+
+    recusada = await empresa.client.post(
+        f"{FINANCEIRO}/despesas",
+        headers=empresa.auth,
+        json={
+            "descricao": "Adubo",
+            "valor": "100.00",
+            "vencimento": "2026-12-10",
+            "centro_custo_id": centro_id,
+        },
+    )
+
+    assert recusada.status_code == 422, recusada.text
+    assert "desativado" in recusada.json()["detail"]
+
+
+async def test_lista_filtra_por_centro(empresa: Empresa) -> None:
+    lavoura = await _centro(empresa, "Lavoura")
+    await _lancar(empresa, descricao="Adubo", centro_custo_id=lavoura)
+    await _lancar(empresa, descricao="Sal mineral")
+
+    listadas = await empresa.client.get(
+        f"{FINANCEIRO}/despesas", headers=empresa.auth, params={"centro_custo_id": lavoura}
+    )
+
+    assert [d["descricao"] for d in listadas.json()] == ["Adubo"]
+
+
+async def test_resumo_quebra_por_centro(empresa: Empresa) -> None:
+    lavoura = await _centro(empresa, "Lavoura")
+    pecuaria = await _centro(empresa, "Pecuária")
+    await _lancar(
+        empresa,
+        descricao="Adubo",
+        valor="2000.00",
+        vencimento="2026-12-05",
+        centro_custo_id=lavoura,
+    )
+    paga = await _lancar(
+        empresa,
+        descricao="Vacina",
+        valor="800.00",
+        vencimento="2026-12-08",
+        centro_custo_id=pecuaria,
+    )
+    await empresa.client.post(
+        f"{FINANCEIRO}/despesas/{paga['id']}/baixar",
+        headers=empresa.auth,
+        json={"pago_em": "2026-12-08", "valor_pago": "795.00"},
+    )
+
+    resumo = await empresa.client.get(
+        f"{FINANCEIRO}/despesas/resumo",
+        headers=empresa.auth,
+        params={"de": "2026-12-01", "ate": "2026-12-31"},
+    )
+
+    por_centro = {linha["nome"]: linha for linha in resumo.json()["por_centro"]}
+    assert Decimal(por_centro["Lavoura"]["em_aberto"]) == Decimal("2000.00")
+    assert Decimal(por_centro["Lavoura"]["pago"]) == Decimal(0)
+    assert Decimal(por_centro["Pecuária"]["pago"]) == Decimal("795.00")
+
+
+async def test_despesa_sem_centro_aparece_na_quebra(empresa: Empresa) -> None:
+    """Esconder o grupo sem centro faria os números não baterem com o total."""
+    lavoura = await _centro(empresa, "Lavoura")
+    await _lancar(
+        empresa,
+        descricao="Adubo",
+        valor="2000.00",
+        vencimento="2026-12-05",
+        centro_custo_id=lavoura,
+    )
+    await _lancar(empresa, descricao="Contador", valor="900.00", vencimento="2026-12-10")
+
+    resumo = await empresa.client.get(
+        f"{FINANCEIRO}/despesas/resumo",
+        headers=empresa.auth,
+        params={"de": "2026-12-01", "ate": "2026-12-31"},
+    )
+
+    corpo = resumo.json()
+    sem = next(linha for linha in corpo["por_centro"] if linha["centro_id"] is None)
+    assert sem["nome"] == "Sem centro de custo"
+    assert Decimal(sem["em_aberto"]) == Decimal("900.00")
+    # A quebra fecha com o total: é essa soma que torna o relatório confiável.
+    soma = sum(Decimal(linha["em_aberto"]) for linha in corpo["por_centro"])
+    assert soma == Decimal(corpo["em_aberto"])
+
+
+async def test_centro_so_com_cancelada_nao_vira_linha_de_zeros(empresa: Empresa) -> None:
+    """Cancelada não soma — mas, mais do que isso, ela não inventa linha no relatório.
+
+    Um centro cujas despesas foram todas canceladas não é custo nenhum. Deixá-lo aparecer
+    zerado encheria a quebra de linhas vazias justamente no mês em que algo foi desfeito.
+    """
+    lavoura = await _centro(empresa, "Lavoura")
+    descartado = await _centro(empresa, "Semente devolvida")
+    await _lancar(
+        empresa,
+        descricao="Adubo",
+        valor="2000.00",
+        vencimento="2026-12-05",
+        centro_custo_id=lavoura,
+    )
+    cancelada = await _lancar(
+        empresa,
+        descricao="Semente que voltou",
+        valor="9000.00",
+        vencimento="2026-12-06",
+        centro_custo_id=descartado,
+    )
+    await empresa.client.post(
+        f"{FINANCEIRO}/despesas/{cancelada['id']}/cancelar", headers=empresa.auth
+    )
+
+    resumo = await empresa.client.get(
+        f"{FINANCEIRO}/despesas/resumo",
+        headers=empresa.auth,
+        params={"de": "2026-12-01", "ate": "2026-12-31"},
+    )
+
+    nomes = [linha["nome"] for linha in resumo.json()["por_centro"]]
+    assert nomes == ["Lavoura"]

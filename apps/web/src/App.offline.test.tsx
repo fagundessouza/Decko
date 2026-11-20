@@ -155,7 +155,10 @@ it("a rede que volta confere a sessão com o servidor, sem remontar a tela", asy
     () => expect(screen.queryByText(/entrou com a sessão guardada neste aparelho/i)).toBeNull(),
     { timeout: 5000 },
   );
-});
+  /* 15s de limite do teste contra 5s de espera: o limite do teste precisa ser **maior**
+     que o da espera, senão o teste morre antes de usar a janela que ele mesmo pediu. Era
+     esse empate — 5000 contra 5000 — que derrubava este arquivo sob a suíte inteira. */
+}, 15000);
 
 it("sessão que o servidor recusou quando a rede voltou leva para a entrada", async () => {
   // "Aceita o que já passou, barra o que vem depois da sincronização" — ADR 0022.
@@ -173,4 +176,4 @@ it("sessão que o servidor recusou quando a rede voltou leva para a entrada", as
   expect(
     await screen.findByLabelText(/Código da empresa/, {}, { timeout: 5000 }),
   ).toBeTruthy();
-});
+}, 15000);
