@@ -83,5 +83,14 @@ export default defineConfig({
      * UTC: lá o dia local e o dia UTC coincidem, e o defeito que ele vigia desaparece. */
     env: { TZ: "America/Sao_Paulo" },
     restoreMocks: true,
+    /* Metade dos núcleos, e não todos.
+     *
+     * Cada arquivo monta o seu próprio jsdom, e vários montam a aplicação inteira. Com um
+     * trabalhador por núcleo, a máquina satura e testes que passam sozinhos em menos de
+     * dois segundos estouram esperas de cinco — intermitência que não diz nada sobre o
+     * produto e custa a confiança no conjunto. Serializar resolveria e seria lento demais;
+     * metade dos núcleos manteve a suíte estável sem mudar o tempo de parede de forma
+     * perceptível. */
+    maxWorkers: "50%",
   },
 });

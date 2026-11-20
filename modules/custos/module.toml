@@ -1,0 +1,34 @@
+# Consumo interno de estoque, com centro de custo.
+# Decisões e limites: docs/adr/0026-consumo-interno-e-custo-por-centro.md
+#
+# Depende de `comercial` porque pede a saída de estoque a ele, e de `financeiro` porque o
+# centro de custo é de lá — ver docs/adr/0007-dependencia-entre-modulos.md. Nunca escreve
+# na tabela de nenhum dos dois: chama o serviço.
+#
+# É o único módulo que enxerga despesa e consumo ao mesmo tempo, e por isso é ele que
+# responde "quanto custou a lavoura neste período".
+
+[module]
+name = "custos"
+label = "Custo por centro"
+version = "0.1.0"
+package = "decko_modules.custos"
+depends = ["core", "comercial", "financeiro"]
+required = false
+category = "Operação"
+icon = "chart"
+accent = "amber"
+summary = "O que saiu do estoque sem ser venda, lançado contra um centro de custo — e o custo somado de cada um."
+
+[migrations]
+branch_label = "custos"
+
+[permissions]
+provides = [
+  "custos.consumo.read",
+  "custos.consumo.write",
+]
+
+[menu]
+label = "Custo por centro"
+order = 85

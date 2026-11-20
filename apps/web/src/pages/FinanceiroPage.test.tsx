@@ -142,3 +142,29 @@ it("cancelar pede confirmação antes de mexer em alguma coisa", async () => {
   expect(screen.getByText("Esta conta não será paga?")).toBeTruthy();
   expect(financeiro.cancelarDespesa).not.toHaveBeenCalled();
 });
+
+it("com o módulo de custo, a quebra soma estoque e despesa", async () => {
+  const { custos } = await import("../lib/custos");
+  vi.spyOn(custos, "porCentro").mockResolvedValue([
+    {
+      centro_id: "cc-lavoura",
+      nome: "Lavoura",
+      consumo: "1000.00",
+      despesa: "3000.00",
+      total: "4000.00",
+    },
+  ]);
+
+  render(<FinanceiroPage temCustos onBack={() => {}} />);
+
+  expect(await screen.findByText("Quanto custou cada centro")).toBeTruthy();
+  expect(screen.getByText("R$ 4.000,00")).toBeTruthy();
+  expect(screen.getByText(/1.000,00 de estoque/)).toBeTruthy();
+});
+
+it("sem o módulo de custo, a quebra continua sendo só de despesa", async () => {
+  render(<FinanceiroPage onBack={() => {}} />);
+
+  expect(await screen.findByText("Contra o quê")).toBeTruthy();
+  expect(screen.queryByText("Quanto custou cada centro")).toBeNull();
+});

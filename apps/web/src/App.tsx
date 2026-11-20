@@ -299,6 +299,7 @@ export default function App() {
   const hasCompras = info.active_modules.includes("compras");
   const hasClientes = info.active_modules.includes("clientes");
   const hasFinanceiro = info.active_modules.includes("financeiro");
+  const hasCustos = info.active_modules.includes("custos");
   const hasAssinaturas = info.active_modules.includes("assinaturas");
   const canEditCompany = info.permissions.includes("core.tenant.update");
   const canInstall = info.permissions.includes("core.module.activate");
@@ -633,7 +634,7 @@ export default function App() {
       )}
 
       {view.name === "financeiro" && (
-        <FinanceiroPage onBack={() => setView({ name: "home" })} />
+        <FinanceiroPage temCustos={hasCustos} onBack={() => setView({ name: "home" })} />
       )}
       {view.name === "assinaturas" && (
         <AssinaturasPage onBack={() => setView({ name: "home" })} />

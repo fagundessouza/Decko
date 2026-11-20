@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -149,15 +149,25 @@ it("a rede que volta confere a sessão com o servidor, sem remontar a tela", asy
   await screen.findByText(/entrou com a sessão guardada neste aparelho/i);
 
   vi.mocked(restoreSession).mockResolvedValue(umaSessao() as never);
-  window.dispatchEvent(new Event("online"));
+  await act(async () => {
+    /* `act` descarrega os efeitos pendentes antes de disparar. Sem ele, o evento — que é
+       síncrono — pode cair no intervalo entre o texto aparecer na tela e o `useEffect`
+       registrar o ouvinte do "online", e aí se perde para sempre. Era essa corrida, e não
+       lentidão, que derrubava este arquivo sob a suíte inteira: aumentar o tempo de espera
+       não resolvia porque o evento nunca tinha chegado. */
+    window.dispatchEvent(new Event("online"));
+  });
 
   await waitFor(
     () => expect(screen.queryByText(/entrou com a sessão guardada neste aparelho/i)).toBeNull(),
+    /* Folga porque `setInfo` derruba a árvore antiga e monta a nova, que carrega pedaços
+       sob demanda; enquanto o pedaço não chega, o React segura a tela anterior — com o
+       aviso ainda nela. Na prática leva menos de dois segundos. */
     { timeout: 5000 },
   );
-  /* 15s de limite do teste contra 5s de espera: o limite do teste precisa ser **maior**
-     que o da espera, senão o teste morre antes de usar a janela que ele mesmo pediu. Era
-     esse empate — 5000 contra 5000 — que derrubava este arquivo sob a suíte inteira. */
+  /* O limite do teste precisa ser **maior** que o da espera: senão ele morre antes de
+     usar a janela que pediu, e era esse empate — 5000 contra 5000 — um dos defeitos
+     deste arquivo. */
 }, 15000);
 
 it("sessão que o servidor recusou quando a rede voltou leva para a entrada", async () => {
@@ -168,7 +178,14 @@ it("sessão que o servidor recusou quando a rede voltou leva para a entrada", as
   await screen.findByText(/entrou com a sessão guardada neste aparelho/i);
 
   vi.mocked(restoreSession).mockResolvedValue(null);
-  window.dispatchEvent(new Event("online"));
+  await act(async () => {
+    /* `act` descarrega os efeitos pendentes antes de disparar. Sem ele, o evento — que é
+       síncrono — pode cair no intervalo entre o texto aparecer na tela e o `useEffect`
+       registrar o ouvinte do "online", e aí se perde para sempre. Era essa corrida, e não
+       lentidão, que derrubava este arquivo sob a suíte inteira: aumentar o tempo de espera
+       não resolvia porque o evento nunca tinha chegado. */
+    window.dispatchEvent(new Event("online"));
+  });
 
   /* Com folga de tempo: este teste monta a aplicação inteira, e com a suíte toda rodando
    * em paralelo o padrão de um segundo da biblioteca estoura por lentidão da máquina — o

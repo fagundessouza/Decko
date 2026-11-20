@@ -8,6 +8,8 @@ import { Card, CardBody } from "../components/Card";
 import { Modal } from "../components/Modal";
 import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
+import { custos as apiCustos } from "../lib/custos";
+import type { CustoDoCentro } from "../lib/custos";
 import { brl, dateBr, todayLocal } from "../lib/format";
 import { financeiro } from "../lib/financeiro";
 import type {
@@ -19,6 +21,9 @@ import type {
 
 interface Props {
   onBack: () => void;
+  /** Com o módulo de custo instalado, a quebra deixa de ser só de despesa e passa a somar
+   *  o que saiu do estoque. Sem ele, a seção continua existindo — só não conhece consumo. */
+  temCustos?: boolean;
 }
 
 function motivo(causa: unknown, padrao: string): string {
@@ -68,12 +73,13 @@ function nomeDoMes(iso: string): string {
  *
  * Decisões: docs/adr/0014-conta-de-recebimento.md, 0024-contas-a-pagar.md e
  * 0025-centro-de-custo.md. */
-export function FinanceiroPage({ onBack }: Props) {
+export function FinanceiroPage({ onBack, temCustos = false }: Props) {
   const [mes, setMes] = useState(() => mesDe(todayLocal()).de);
   const [despesas, setDespesas] = useState<Despesa[] | null>(null);
   const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
   const [contas, setContas] = useState<Conta[]>([]);
   const [centros, setCentros] = useState<CentroDeCusto[]>([]);
+  const [porCentro, setPorCentro] = useState<CustoDoCentro[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -98,6 +104,9 @@ export function FinanceiroPage({ onBack }: Props) {
       setResumo(totais);
       setContas(c);
       setCentros(cc);
+      /* Em chamada separada e tolerante a falha: o custo somado é um extra, e perder o
+         módulo de custos não pode apagar a lista do que vence. */
+      setPorCentro(temCustos ? await apiCustos.porCentro(periodo.de, periodo.ate) : []);
     } catch (causa) {
       setDespesas([]);
       setErro(motivo(causa, "Não foi possível carregar o financeiro."));
@@ -107,7 +116,7 @@ export function FinanceiroPage({ onBack }: Props) {
   useEffect(() => {
     void recarregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mes]);
+  }, [mes, temCustos]);
 
   async function operar(acao: () => Promise<unknown>, padrao: string) {
     setBusy(true);
@@ -263,7 +272,32 @@ export function FinanceiroPage({ onBack }: Props) {
         </Card>
       )}
 
-      {resumo && resumo.por_centro.length > 0 && (
+      {temCustos && porCentro.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-1 text-base font-semibold text-ink">Quanto custou cada centro</h2>
+          <p className="mb-3 text-sm text-ink-muted">
+            O que saiu do estoque mais o que foi pago em despesa. É uma estimativa pelo
+            preço de custo do produto, e não um custo contábil.
+          </p>
+          <Card>
+            <ul className="divide-y divide-line">
+              {porCentro.map((linha) => (
+                <li key={linha.centro_id} className="px-5 py-3 sm:px-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-base text-ink">{linha.nome}</span>
+                    <span className="text-base font-medium text-ink">{brl(linha.total)}</span>
+                  </div>
+                  <p className="text-sm text-ink-faint">
+                    {brl(linha.consumo)} de estoque · {brl(linha.despesa)} de despesa
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      )}
+
+      {!temCustos && resumo && resumo.por_centro.length > 0 && (
         <div className="mt-8">
           <h2 className="mb-3 text-base font-semibold text-ink">Contra o quê</h2>
           <Card>

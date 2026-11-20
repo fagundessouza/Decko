@@ -13,6 +13,7 @@ dependencies = [
     "decko-module-clientes",
     "decko-module-financeiro",
     "decko-module-assinaturas",
+    "decko-module-custos",
 ]
 
 # Raiz do workspace: não é um pacote, apenas agrega os membros.
@@ -30,6 +31,7 @@ members = [
     "modules/clientes",
     "modules/financeiro",
     "modules/assinaturas",
+    "modules/custos",
 ]
 
 [tool.uv.sources]
@@ -40,6 +42,7 @@ decko-module-comercial = { workspace = true }
 decko-module-pdv = { workspace = true }
 decko-module-compras = { workspace = true }
 decko-module-clientes = { workspace = true }
+decko-module-custos = { workspace = true }
 decko-module-financeiro = { workspace = true }
 decko-module-assinaturas = { workspace = true }
 
@@ -97,4 +100,5 @@ testpaths = [
     "modules/clientes/tests",
     "modules/financeiro/tests",
     "modules/assinaturas/tests",
+    "modules/custos/tests",
 ]

@@ -470,9 +470,14 @@ nota do produtor) e a seção 7 do discovery lista o que não pode ser inventado
 - [x] **Centro de custo.** Lista plana no `financeiro`, e o `comercial` segue sem depender
       dele — ver `docs/adr/0025-centro-de-custo.md`. É metade do caminho para "quanto
       custou o hectare"; a outra metade é o consumo de estoque, que entra com o `fazenda`
-- [ ] **Centro de custo no consumo interno.** Toda saída de estoque que não é venda aponta
-      contra um talhão, um lote de gado ou uma máquina. O cadastro já existe; falta o
-      registro do consumo, que mora na vertical e não no `comercial`
+- [x] **Centro de custo no consumo interno**, em 20/11/2026: módulo `custos`, que pede a
+      saída ao `comercial` e aponta para o centro do `financeiro` — ver
+      `docs/adr/0026-consumo-interno-e-custo-por-centro.md`. Ele é o único que enxerga as
+      duas fontes, e é dele o relatório de quanto custou cada centro
+  - [ ] A tela de lançar consumo. Hoje só pela API; a tela do financeiro já mostra o custo
+        somado quando o módulo está instalado
+  - [ ] Quando o `fazenda` existir, o consumo passa a apontar também para o talhão, o lote
+        de gado ou a máquina — o centro de custo é a classificação, não o lugar
 - [ ] Módulo `fazenda`: propriedade própria, talhão, piquete, safra, chuva
 - [ ] Módulo `fazenda`: plantio, tratos, colheita, produtividade por talhão
 - [ ] Módulo `frota`: máquina e implemento, horímetro e odômetro, manutenção, abastecimento
