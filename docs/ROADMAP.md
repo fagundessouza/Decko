@@ -460,8 +460,11 @@ nota do produtor) e a seção 7 do discovery lista o que não pode ser inventado
   - [ ] `agro_client` → passa a usar o módulo `clientes`
   - [ ] `agro_product` → vira extensão do produto do `comercial`
   - [ ] `agro_property` → deixa de exigir `client_id`; a fazenda pode ser da própria empresa
-- [ ] **`financeiro`: contas a pagar.** Falta para todas as verticais, e a fazenda é só a
-      primeira a tornar isso impossível de ignorar
+- [x] **`financeiro`: contas a pagar.** Faltava para todas as verticais, e a fazenda foi só
+      a primeira a tornar isso impossível de ignorar. Modelo, regra e API em 20/11/2026 —
+      ver `docs/adr/0024-contas-a-pagar.md`
+  - [ ] A tela: lançar, listar o que vence no mês e dar baixa. O menu ainda diz "Contas de
+        recebimento" até ela entrar
 - [ ] **Centro de custo no consumo interno.** Toda saída de estoque que não é venda aponta
       contra um talhão, um lote de gado ou uma máquina — é o que responde quanto custou o
       hectare e quanto custou a arroba

@@ -21,7 +21,7 @@ from decko_modules.comercial.models import Produto, TipoMovimento, Unidade
 from decko_modules.core import security
 from decko_modules.core import service as core_service
 from decko_modules.core.models import RolePermission, User, UserRole
-from decko_modules.financeiro.models import ContaRecebimento
+from decko_modules.financeiro.models import Conta
 from decko_modules.pdv.models import (
     AcaoAutorizada,
     Autorizacao,
@@ -214,7 +214,7 @@ async def registrar_pagamento(
         raise PdvError("O valor do pagamento precisa ser maior que zero.")
 
     if conta_id is not None:
-        conta = await session.get(ContaRecebimento, conta_id)
+        conta = await session.get(Conta, conta_id)
         if conta is None:
             raise PdvError("Conta de recebimento não encontrada.")
         if not conta.ativa:
@@ -262,7 +262,7 @@ async def contas_dos_pagamentos(session: AsyncSession, venda: Venda) -> dict[uui
         return {}
 
     achadas = await session.execute(
-        select(ContaRecebimento.id, ContaRecebimento.nome).where(ContaRecebimento.id.in_(ids))
+        select(Conta.id, Conta.nome).where(Conta.id.in_(ids))
     )
     # `.all()` materializa as linhas antes do dict: o Result do SQLAlchemy não é um
     # iterável de pares, e `dict(resultado)` estoura.
@@ -560,13 +560,13 @@ async def conferencia(session: AsyncSession, *, de: datetime, ate: datetime) -> 
         await session.execute(
             select(
                 Pagamento.conta_id,
-                ContaRecebimento.nome,
+                Conta.nome,
                 func.coalesce(func.sum(Pagamento.valor), 0),
             )
             .join(Venda, Venda.id == Pagamento.venda_id)
-            .outerjoin(ContaRecebimento, ContaRecebimento.id == Pagamento.conta_id)
+            .outerjoin(Conta, Conta.id == Pagamento.conta_id)
             .where(finalizada, *dentro)
-            .group_by(Pagamento.conta_id, ContaRecebimento.nome)
+            .group_by(Pagamento.conta_id, Conta.nome)
             .order_by(func.sum(Pagamento.valor).desc())
         )
     ).all()

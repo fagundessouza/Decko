@@ -242,10 +242,10 @@ async def test_renomear_a_conta_vale_para_o_historico(loja: Loja) -> None:
 
     async with SessionFactory() as session, session.begin():
         from decko.db import bind_tenant
-        from decko_modules.financeiro.models import ContaRecebimento
+        from decko_modules.financeiro.models import Conta
 
         await bind_tenant(session, loja.tenant_id)
-        conta = await session.get(ContaRecebimento, uuid.UUID(conta_id))
+        conta = await session.get(Conta, uuid.UUID(conta_id))
         assert conta is not None
         conta.nome = "Nubank PJ"
 

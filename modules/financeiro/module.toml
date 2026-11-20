@@ -1,12 +1,16 @@
-# Conta de recebimento: para onde o dinheiro foi.
-# Decisões e limites: docs/adr/0014-conta-de-recebimento.md
+# O dinheiro, dos dois lados: onde ele entra e o que falta sair.
+# Decisões e limites: docs/adr/0014-conta-de-recebimento.md e docs/adr/0024-contas-a-pagar.md
 #
 # O ponto de venda diz **como** o cliente pagou; este módulo diz **onde caiu**. São
 # perguntas diferentes, e a segunda é a que não fecha no fim do dia.
+#
+# As contas a pagar entraram em 20/11/2026, pedidas pelo levantamento da fazenda — mas a
+# falta não era do agro: energia, aluguel e fornecedor vencem em qualquer vertical, e
+# nenhuma tinha onde registrar isso.
 
 [module]
 name = "financeiro"
-label = "Contas de recebimento"
+label = "Financeiro"
 version = "0.1.0"
 package = "decko_modules.financeiro"
 depends = ["core"]
@@ -14,7 +18,7 @@ required = false
 category = "Operação"
 icon = "bank"
 accent = "blue"
-summary = "Para onde o dinheiro vai: banco, chave Pix, caixa da loja. É o que falta para o fim do dia fechar."
+summary = "Onde o dinheiro entra e o que falta sair: contas da empresa, e o que vence este mês."
 
 [migrations]
 branch_label = "financeiro"
@@ -23,8 +27,14 @@ branch_label = "financeiro"
 provides = [
   "financeiro.conta.read",
   "financeiro.conta.write",
+  "financeiro.despesa.read",
+  "financeiro.despesa.write",
+  # Separada de `write` de propósito: registrar que uma conta existe não é a mesma
+  # autoridade que declarar que ela foi paga. Mesma separação de `pdv.caixa.fechar` e de
+  # `assinaturas.cobranca.baixar` — ver docs/adr/0024-contas-a-pagar.md.
+  "financeiro.despesa.baixar",
 ]
 
 [menu]
-label = "Contas de recebimento"
+label = "Financeiro"
 order = 80
