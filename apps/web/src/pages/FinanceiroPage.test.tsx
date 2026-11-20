@@ -168,3 +168,87 @@ it("sem o módulo de custo, a quebra continua sendo só de despesa", async () =>
   expect(await screen.findByText("Contra o quê")).toBeTruthy();
   expect(screen.queryByText("Quanto custou cada centro")).toBeNull();
 });
+
+it("lançar consumo avisa, antes de enviar, que o produto não tem preço de custo", async () => {
+  const usuario = userEvent.setup();
+  const { comercial } = await import("../lib/comercial");
+  vi.spyOn(comercial, "listUnidades").mockResolvedValue([
+    { id: "un", nome: "Unidade", simbolo: null, referencia_id: null, fator: "1" } as never,
+  ]);
+  vi.spyOn(comercial, "listProdutos").mockResolvedValue([
+    {
+      id: "p-semente",
+      codigo: "SEM-1",
+      nome: "Semente",
+      unidade_id: "un",
+      preco_custo: null,
+      ativo: true,
+    } as never,
+  ]);
+  const { custos } = await import("../lib/custos");
+  vi.spyOn(custos, "porCentro").mockResolvedValue([]);
+  vi.spyOn(custos, "listarConsumos").mockResolvedValue([]);
+
+  render(<FinanceiroPage temCustos onBack={() => {}} />);
+  await usuario.click(await screen.findByRole("button", { name: "Lançar consumo" }));
+
+  await screen.findByLabelText("Buscar produto");
+  await usuario.selectOptions(screen.getByLabelText("Produto"), "p-semente");
+  await usuario.type(screen.getByLabelText("Quantidade"), "10");
+
+  /* O aviso aparece na tela, e não só na recusa do servidor: quem está lançando dez
+     linhas descobriria tarde demais. */
+  expect(
+    await screen.findByText(/não tem preço de custo. Informe o valor/i),
+  ).toBeTruthy();
+});
+
+it("o centro de custo é obrigatório para lançar consumo", async () => {
+  const usuario = userEvent.setup();
+  const { comercial } = await import("../lib/comercial");
+  vi.spyOn(comercial, "listUnidades").mockResolvedValue([
+    { id: "un", nome: "Unidade", simbolo: null, referencia_id: null, fator: "1" } as never,
+  ]);
+  vi.spyOn(comercial, "listProdutos").mockResolvedValue([
+    {
+      id: "p-adubo",
+      codigo: "AD-1",
+      nome: "Adubo",
+      unidade_id: "un",
+      preco_custo: "10.00",
+      ativo: true,
+    } as never,
+  ]);
+  const { custos } = await import("../lib/custos");
+  vi.spyOn(custos, "porCentro").mockResolvedValue([]);
+  vi.spyOn(custos, "listarConsumos").mockResolvedValue([]);
+
+  render(<FinanceiroPage temCustos onBack={() => {}} />);
+  await usuario.click(await screen.findByRole("button", { name: "Lançar consumo" }));
+  await screen.findByLabelText("Buscar produto");
+  await usuario.selectOptions(screen.getByLabelText("Produto"), "p-adubo");
+  await usuario.type(screen.getByLabelText("Quantidade"), "10");
+
+  const lancar = screen.getByRole("button", { name: "Lançar" });
+  expect((lancar as HTMLButtonElement).disabled).toBe(true);
+
+  await usuario.selectOptions(screen.getByLabelText("Centro de custo"), "cc-lavoura");
+  expect((screen.getByRole("button", { name: "Lançar" }) as HTMLButtonElement).disabled).toBe(
+    false,
+  );
+});
+
+it("sem nada lançado no mês, a seção de custo continua de pé com o caminho adiante", async () => {
+  /* Se ela sumisse, o botão de lançar consumo sumiria junto — e o primeiro dia de uso
+     seria um beco sem saída. `docs/BRAND.md`, seção 8: estado vazio explica o próximo
+     passo, nunca uma tela em branco. */
+  const { custos } = await import("../lib/custos");
+  vi.spyOn(custos, "porCentro").mockResolvedValue([]);
+  vi.spyOn(custos, "listarConsumos").mockResolvedValue([]);
+
+  render(<FinanceiroPage temCustos onBack={() => {}} />);
+
+  expect(await screen.findByText("Quanto custou cada centro")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Lançar consumo" })).toBeTruthy();
+  expect(screen.getByText(/Nada lançado contra centro de custo neste mês/)).toBeTruthy();
+});

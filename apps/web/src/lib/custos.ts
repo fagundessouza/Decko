@@ -24,10 +24,24 @@ export interface Consumo {
   observacao: string | null;
 }
 
+export interface ConsumoBody {
+  produto_id: string;
+  centro_custo_id: string;
+  quantidade: string;
+  unidade_id: string;
+  lote_id?: string | null;
+  /** Em branco, o servidor usa o preço de custo do produto. */
+  valor?: string | null;
+  observacao?: string | null;
+}
+
 export const custos = {
   porCentro: (de: string, ate: string): Promise<CustoDoCentro[]> =>
     authedJson(`/custos/por-centro?de=${de}&ate=${ate}`),
 
   listarConsumos: (de: string, ate: string): Promise<Consumo[]> =>
     authedJson(`/custos/consumos?de=${de}&ate=${ate}`),
+
+  registrarConsumo: (body: ConsumoBody): Promise<Consumo> =>
+    authedJson("/custos/consumos", { method: "POST", body }),
 };

@@ -8,9 +8,15 @@ import { Card, CardBody } from "../components/Card";
 import { Modal } from "../components/Modal";
 import { Select } from "../components/Select";
 import { TextField } from "../components/TextField";
+import { comercial } from "../lib/comercial";
+import type { Produto, Unidade } from "../lib/comercial";
 import { custos as apiCustos } from "../lib/custos";
-import type { CustoDoCentro } from "../lib/custos";
-import { brl, dateBr, todayLocal } from "../lib/format";
+import type {
+  Consumo as ConsumoRegistrado,
+  ConsumoBody,
+  CustoDoCentro,
+} from "../lib/custos";
+import { brl, dateBr, num, todayLocal } from "../lib/format";
 import { financeiro } from "../lib/financeiro";
 import type {
   CentroDeCusto,
@@ -80,6 +86,7 @@ export function FinanceiroPage({ onBack, temCustos = false }: Props) {
   const [contas, setContas] = useState<Conta[]>([]);
   const [centros, setCentros] = useState<CentroDeCusto[]>([]);
   const [porCentro, setPorCentro] = useState<CustoDoCentro[]>([]);
+  const [consumos, setConsumos] = useState<ConsumoRegistrado[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -89,6 +96,8 @@ export function FinanceiroPage({ onBack, temCustos = false }: Props) {
   const [cadastros, setCadastros] = useState(false);
   const [novoCentro, setNovoCentro] = useState(false);
   const [novaConta, setNovaConta] = useState(false);
+  const [lancandoConsumo, setLancandoConsumo] = useState(false);
+  const [vendoConsumos, setVendoConsumos] = useState(false);
 
   const periodo = mesDe(mes);
 
@@ -107,6 +116,9 @@ export function FinanceiroPage({ onBack, temCustos = false }: Props) {
       /* Em chamada separada e tolerante a falha: o custo somado é um extra, e perder o
          módulo de custos não pode apagar a lista do que vence. */
       setPorCentro(temCustos ? await apiCustos.porCentro(periodo.de, periodo.ate) : []);
+      setConsumos(
+        temCustos ? await apiCustos.listarConsumos(periodo.de, periodo.ate) : [],
+      );
     } catch (causa) {
       setDespesas([]);
       setErro(motivo(causa, "Não foi possível carregar o financeiro."));
@@ -272,9 +284,19 @@ export function FinanceiroPage({ onBack, temCustos = false }: Props) {
         </Card>
       )}
 
-      {temCustos && porCentro.length > 0 && (
+      {temCustos && (
         <div className="mt-8">
-          <h2 className="mb-1 text-base font-semibold text-ink">Quanto custou cada centro</h2>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-ink">Quanto custou cada centro</h2>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" inline onClick={() => setVendoConsumos(true)}>
+                Ver consumos
+              </Button>
+              <Button variant="secondary" inline onClick={() => setLancandoConsumo(true)}>
+                Lançar consumo
+              </Button>
+            </div>
+          </div>
           <p className="mb-3 text-sm text-ink-muted">
             O que saiu do estoque mais o que foi pago em despesa. É uma estimativa pelo
             preço de custo do produto, e não um custo contábil.
@@ -294,6 +316,14 @@ export function FinanceiroPage({ onBack, temCustos = false }: Props) {
               ))}
             </ul>
           </Card>
+          {porCentro.length === 0 && (
+            <Card muted>
+              <p className="px-6 py-8 text-center text-base text-ink-muted">
+                Nada lançado contra centro de custo neste mês. Lance um consumo, ou escolha
+                um centro ao criar a despesa.
+              </p>
+            </Card>
+          )}
         </div>
       )}
 
@@ -385,6 +415,30 @@ export function FinanceiroPage({ onBack, temCustos = false }: Props) {
           {cancelando?.descricao} · {brl(cancelando?.valor ?? "0")}
         </p>
       </Modal>
+
+      <LancarConsumo
+        aberto={lancandoConsumo}
+        busy={busy}
+        centros={centros.filter((c) => c.ativo)}
+        onNovoCentro={() => setNovoCentro(true)}
+        onFechar={() => setLancandoConsumo(false)}
+        onLancar={async (body) => {
+          if (
+            await operar(
+              () => apiCustos.registrarConsumo(body),
+              "Não foi possível lançar o consumo.",
+            )
+          ) {
+            setLancandoConsumo(false);
+          }
+        }}
+      />
+
+      <ConsumosDoMes
+        aberto={vendoConsumos}
+        consumos={consumos}
+        onFechar={() => setVendoConsumos(false)}
+      />
 
       <Cadastros
         aberto={cadastros}
@@ -899,6 +953,240 @@ function Cadastros({
           </ul>
         </section>
       </div>
+    </Modal>
+  );
+}
+
+// ------------------------------------------------------------------ consumo de estoque
+
+/* Lançar consumo mora aqui, e não numa tela sua.
+ *
+ * É o mesmo assunto da seção de custo logo acima: o que saiu do estoque sem ser venda.
+ * Mandar quem está olhando "quanto custou a lavoura" para outra tela só para lançar o
+ * adubo quebraria o raciocínio no meio. Ver docs/BRAND.md, seção 8. */
+function LancarConsumo({
+  aberto,
+  busy,
+  centros,
+  onNovoCentro,
+  onFechar,
+  onLancar,
+}: {
+  aberto: boolean;
+  busy: boolean;
+  centros: CentroDeCusto[];
+  onNovoCentro: () => void;
+  onFechar: () => void;
+  onLancar: (body: ConsumoBody) => void;
+}) {
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [busca, setBusca] = useState("");
+  const [produtoId, setProdutoId] = useState("");
+  const [quantidade, setQuantidade] = useState("");
+  const [unidadeId, setUnidadeId] = useState("");
+  const [centro, setCentro] = useState("");
+  const [valor, setValor] = useState("");
+  const [observacao, setObservacao] = useState("");
+
+  /* O catálogo só é baixado quando o diálogo abre: peso de abertura é requisito, e quem
+     veio ver o que vence não deve pagar pela lista de produtos. */
+  useEffect(() => {
+    if (!aberto) return;
+    setBusca("");
+    setProdutoId("");
+    setQuantidade("");
+    setCentro("");
+    setValor("");
+    setObservacao("");
+    void comercial.listUnidades().then(setUnidades).catch(() => setUnidades([]));
+  }, [aberto]);
+
+  useEffect(() => {
+    if (!aberto) return;
+    let valeu = true;
+    void comercial
+      .listProdutos(busca)
+      .then((lista) => {
+        if (valeu) setProdutos(lista.filter((p) => p.ativo));
+      })
+      .catch(() => undefined);
+    return () => {
+      valeu = false;
+    };
+  }, [aberto, busca]);
+
+  const produto = produtos.find((p) => p.id === produtoId);
+
+  /* A unidade acompanha o produto escolhido: o caso comum é consumir na unidade base, e
+     obrigar a escolher de novo a cada produto seria atrito sem motivo. */
+  useEffect(() => {
+    if (produto) setUnidadeId(produto.unidade_id);
+  }, [produto]);
+
+  /* A estimativa aparece antes de enviar. Sem isso, produto sem preço de custo só revelaria
+     o problema na recusa do servidor — e quem está lançando dez linhas descobre tarde. */
+  const unidade = unidades.find((u) => u.id === unidadeId);
+  const base = unidades.find((u) => u.id === produto?.unidade_id);
+  let estimativa: string | null = null;
+  if (produto && !valor.trim() && quantidade.trim()) {
+    if (produto.preco_custo === null) {
+      estimativa = "Este produto não tem preço de custo. Informe o valor.";
+    } else if (unidade && base) {
+      const naBase = Number(quantidade) * (Number(unidade.fator) / Number(base.fator));
+      const conta = Number(produto.preco_custo) * naBase;
+      if (Number.isFinite(conta)) {
+        estimativa = `Estimado em ${brl(conta.toFixed(2))}, pelo preço de custo do produto.`;
+      }
+    }
+  }
+
+  return (
+    <Modal
+      open={aberto}
+      title="Lançar consumo"
+      description="O que saiu do estoque sem ser venda, e contra qual centro."
+      onClose={onFechar}
+      footer={
+        <div className="flex justify-end gap-3">
+          <Button variant="ghost" inline onClick={onFechar}>
+            Voltar
+          </Button>
+          <Button
+            inline
+            loading={busy}
+            disabled={!produtoId || !quantidade.trim() || !centro || !unidadeId}
+            onClick={() =>
+              onLancar({
+                produto_id: produtoId,
+                centro_custo_id: centro,
+                quantidade,
+                unidade_id: unidadeId,
+                valor: valor || null,
+                observacao: observacao || null,
+              })
+            }
+          >
+            Lançar
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <TextField
+          label="Buscar produto"
+          value={busca}
+          onChange={(evento) => setBusca(evento.target.value)}
+          placeholder="Código, código de barras ou nome"
+          hint="Sem busca, aparece o começo do catálogo."
+        />
+        <Select
+          label="Produto"
+          value={produtoId}
+          onChange={setProdutoId}
+          placeholder="Escolha um"
+          options={produtos.map((p) => ({ value: p.id, label: `${p.codigo} · ${p.nome}` }))}
+          empty="Nenhum produto encontrado."
+        />
+        <TextField
+          label="Quantidade"
+          inputMode="decimal"
+          value={quantidade}
+          onChange={(evento) => setQuantidade(evento.target.value)}
+        />
+        <Select
+          label="Unidade"
+          value={unidadeId}
+          onChange={setUnidadeId}
+          placeholder="Escolha uma"
+          options={unidades.map((u) => ({ value: u.id, label: u.nome }))}
+          empty="Nenhuma unidade cadastrada."
+        />
+
+        <div className="flex flex-col gap-2">
+          <Select
+            label="Centro de custo"
+            value={centro}
+            onChange={setCentro}
+            placeholder="Escolha um"
+            options={centros.map((c) => ({ value: c.id, label: c.nome }))}
+            hint="Obrigatório: um consumo sem centro não responde nada."
+            empty="Nenhum centro de custo ainda."
+          />
+          <div>
+            <Button variant="ghost" inline onClick={onNovoCentro}>
+              + Novo centro de custo
+            </Button>
+          </div>
+        </div>
+
+        <TextField
+          label="Valor"
+          leading="R$"
+          inputMode="decimal"
+          value={valor}
+          onChange={(evento) => setValor(evento.target.value)}
+          hint={estimativa ?? "Em branco, vale o preço de custo do produto."}
+          invalid={estimativa?.startsWith("Este produto não tem") ?? false}
+        />
+        <TextField
+          label="Observação"
+          value={observacao}
+          onChange={(evento) => setObservacao(evento.target.value)}
+          hint="Opcional. Onde foi usado, por exemplo: talhão 7."
+        />
+      </div>
+    </Modal>
+  );
+}
+
+function ConsumosDoMes({
+  aberto,
+  consumos,
+  onFechar,
+}: {
+  aberto: boolean;
+  consumos: ConsumoRegistrado[];
+  onFechar: () => void;
+}) {
+  return (
+    <Modal
+      open={aberto}
+      largura="ampla"
+      title="Consumos do mês"
+      description="Cada saída de estoque que virou custo, com o que ela custou."
+      onClose={onFechar}
+    >
+      {consumos.length === 0 ? (
+        <p className="py-6 text-center text-base text-ink-muted">
+          Nada consumido neste mês.
+        </p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {consumos.map((consumo) => (
+            <li key={consumo.id} className="flex items-start justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="text-base text-ink">{consumo.produto_nome}</p>
+                <p className="truncate text-sm text-ink-faint">
+                  {[
+                    /* `num` e não o texto cru: o servidor guarda a quantidade com seis
+                       casas, e "25.000000" na tela é número de banco de dados, não de
+                       quem lançou 25 sacos. */
+                    `${num(consumo.quantidade, 3)} · ${consumo.centro_nome}`,
+                    dateBr(consumo.ocorrido_em.slice(0, 10)),
+                    consumo.observacao,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <span className="shrink-0 text-base font-medium text-ink">
+                {brl(consumo.valor)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </Modal>
   );
 }

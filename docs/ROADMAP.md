@@ -474,8 +474,9 @@ nota do produtor) e a seção 7 do discovery lista o que não pode ser inventado
       saída ao `comercial` e aponta para o centro do `financeiro` — ver
       `docs/adr/0026-consumo-interno-e-custo-por-centro.md`. Ele é o único que enxerga as
       duas fontes, e é dele o relatório de quanto custou cada centro
-  - [ ] A tela de lançar consumo. Hoje só pela API; a tela do financeiro já mostra o custo
-        somado quando o módulo está instalado
+  - [x] A tela de lançar consumo, em 20/11/2026: diálogo dentro do financeiro, com a
+        estimativa pelo preço de custo aparecendo antes de enviar e o cadastro de centro em
+        submodal. Não ganhou tela própria — é o mesmo assunto da seção de custo
   - [ ] Quando o `fazenda` existir, o consumo passa a apontar também para o talhão, o lote
         de gado ou a máquina — o centro de custo é a classificação, não o lugar
 - [ ] Módulo `fazenda`: propriedade própria, talhão, piquete, safra, chuva

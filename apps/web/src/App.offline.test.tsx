@@ -160,9 +160,18 @@ it("a rede que volta confere a sessão com o servidor, sem remontar a tela", asy
 
   await waitFor(
     () => expect(screen.queryByText(/entrou com a sessão guardada neste aparelho/i)).toBeNull(),
-    /* Folga porque `setInfo` derruba a árvore antiga e monta a nova, que carrega pedaços
-       sob demanda; enquanto o pedaço não chega, o React segura a tela anterior — com o
-       aviso ainda nela. Na prática leva menos de dois segundos. */
+    /* INTERMITENTE, e o prazo não é a causa.
+     *
+     * Sozinho este arquivo passa em menos de dois segundos, sempre. Dentro da suíte
+     * inteira ele falha de vez em quando — e, quando falha com 15s de prazo, falha com a
+     * mesma mensagem que com 5s: *o aviso continua na tela*. Ou seja, em algumas execuções
+     * o tratamento do "online" não acontece, e esperar mais não ajuda.
+     *
+     * O que já foi descartado: o empate entre o prazo da espera e o do teste (corrigido
+     * abaixo), a corrida de registrar o ouvinte depois do disparo (corrigida pelo `act`
+     * acima) e a saturação da máquina (`maxWorkers` em 50% no `vite.config.ts`, que
+     * reduziu muito a frequência). O que falta investigar é o que, sob concorrência, faz
+     * o `restoreSession` do ouvinte não chegar a limpar a sessão local. */
     { timeout: 5000 },
   );
   /* O limite do teste precisa ser **maior** que o da espera: senão ele morre antes de
